@@ -9,7 +9,7 @@
         <LangVersion>latest</LangVersion>
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
-       
+
     </PropertyGroup>
 
     <PropertyGroup Label="NuGetMetaData">
@@ -21,18 +21,18 @@
         <PbmVersion>1.4.0</PbmVersion>
     </PropertyGroup>
 
-     <ItemGroup>
-        <None Include="$(MSBuildThisFileDirectory)\README.md" Pack="true" Visible="false" PackagePath="\" />
-        <None Include="$(MSBuildThisFileDirectory)\LICENSE.md" Pack="true" Visible="false" PackagePath="\" />
+    <ItemGroup>
+        <None Include="$(MSBuildThisFileDirectory)\README.md" Pack="true" Visible="false" PackagePath="\"/>
+        <None Include="$(MSBuildThisFileDirectory)\LICENSE.md" Pack="true" Visible="false" PackagePath="\"/>
     </ItemGroup>
 
     <PropertyGroup>
-    <!--<PublishRepositoryUrl>true</PublishRepositoryUrl>-->
-    <RepositoryUrl>https://github.com/Aaronontheweb/TurboMqtt</RepositoryUrl>
-    <!-- Optional: Embed source files that are not tracked by the source control manager in the PDB -->
-    <EmbedUntrackedSources>true</EmbedUntrackedSources>
-    <!-- Optional: Build symbol package (.snupkg) to distribute the PDB containing Source Link -->
-    <IncludeSymbols>true</IncludeSymbols>
-    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
-  </PropertyGroup>
+        <!--<PublishRepositoryUrl>true</PublishRepositoryUrl>-->
+        <RepositoryUrl>https://github.com/Aaronontheweb/TurboMqtt</RepositoryUrl>
+        <!-- Optional: Embed source files that are not tracked by the source control manager in the PDB -->
+        <EmbedUntrackedSources>true</EmbedUntrackedSources>
+        <!-- Optional: Build symbol package (.snupkg) to distribute the PDB containing Source Link -->
+        <IncludeSymbols>true</IncludeSymbols>
+        <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+    </PropertyGroup>
 </Project>
