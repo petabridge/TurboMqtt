@@ -2,7 +2,7 @@ namespace TurboMqtt.Core.PacketTypes;
 
 public sealed class SubscribePacket : MqttPacketWithId
 {
-    public override MqttPacketType PacketType { get; }
+    public override MqttPacketType PacketType => MqttPacketType.Subscribe;
     
     /// <summary>
     /// The unique identity of this subscription for this client.
@@ -12,13 +12,21 @@ public sealed class SubscribePacket : MqttPacketWithId
     /// </remarks>
     public NonZeroUInt32 SubscriptionIdentifier { get; set; }
     
-    public TopicSubscription[] Topics { get; set; } = Array.Empty<TopicSubscription>();
+    /// <summary>
+    /// The set of topics we're subscribing to.
+    /// </summary>
+    public IReadOnlyList<TopicSubscription> Topics { get; set; } = Array.Empty<TopicSubscription>();
     
     /// <summary>
     /// User Property, available in MQTT 5.0.
     /// This is a key-value pair that can be sent multiple times to convey additional information that is not covered by other means.
     /// </summary>
-    public Dictionary<string, string>? UserProperties { get; set; } // MQTT 5.0 only
+    public IReadOnlyDictionary<string, string>? UserProperties { get; set; } // MQTT 5.0 only
+    
+    public override string ToString()
+    {
+        return $"Subscribe: [PacketIdentifier={PacketId}] [SubscriptionIdentifier={SubscriptionIdentifier}] [Topics={string.Join(", ", Topics.Select(c => c))}]";
+    }
 }
 
 public sealed class TopicSubscription(string topic)

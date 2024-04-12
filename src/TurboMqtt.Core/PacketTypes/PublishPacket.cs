@@ -42,20 +42,20 @@ public sealed class PublishPacket(QualityOfService Qos, bool Duplicate, bool Ret
     /// Correlation Data property, available in MQTT 5.0.
     /// This property is used by the sender of the request message to identify which request the response message is for when it receives a response.
     /// </summary>
-    public byte[]? CorrelationData { get; set; } // MQTT 5.0 only
+    public ReadOnlyMemory<byte>? CorrelationData { get; set; } // MQTT 5.0 only
 
     /// <summary>
     /// User Property, available in MQTT 5.0.
     /// This is a key-value pair that can be sent multiple times to convey additional information that is not covered by other means.
     /// </summary>
-    public Dictionary<string, string>? UserProperties { get; set; } // MQTT 5.0 only
+    public IReadOnlyDictionary<string, string>? UserProperties { get; set; } // MQTT 5.0 only
 
     /// <summary>
     /// Subscription Identifiers, available in MQTT 5.0.
     /// This property allows associating the publication with multiple subscriptions.
     /// Each identifier corresponds to a different subscription that matches the published message.
     /// </summary>
-    public List<uint>? SubscriptionIdentifiers { get; set; } // MQTT 5.0 only
+    public IReadOnlyList<uint>? SubscriptionIdentifiers { get; set; } // MQTT 5.0 only
 
     public override string ToString()
     {
