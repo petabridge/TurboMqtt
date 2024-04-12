@@ -24,5 +24,5 @@ public enum MqttPacketType
     PingReq = 0xC0,
     PingResp = 0xD0,
     Disconnect = 0xE0,
-    // Reserved = 0xF0, // Normally reserved values are not included in enums
+    Auth = 0xF0
 }
