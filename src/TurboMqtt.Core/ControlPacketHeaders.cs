@@ -26,11 +26,3 @@ public enum MqttPacketType
     Disconnect = 0xE0,
     // Reserved = 0xF0, // Normally reserved values are not included in enums
 }
-
-public static class MqttHelpers
-{
-    public static byte GetControlPacketType(MqttPacketType packetType)
-    {
-        return (byte)packetType;
-    }
-}

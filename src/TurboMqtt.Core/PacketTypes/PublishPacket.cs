@@ -3,11 +3,10 @@ namespace TurboMqtt.Core.PacketTypes;
 /// <summary>
 /// Used to send data to the server or client.
 /// </summary>
-/// <param name="PacketId">The unique id of this packet - may not be needed with <see cref="QualityOfService.AtMostOnce"/>.</param>
 /// <param name="Qos">The delivery guarantee for this packet.</param>
 /// <param name="Duplicate">Is this packet a duplicate?</param>
 /// <param name="RetainRequested">Indicates whether or not this value has been retained by the MQTT broker.</param>
-public sealed class PublishPacket(int PacketId, QualityOfService Qos, bool Duplicate, bool RetainRequested) : MqttPacketWithId
+public sealed class PublishPacket(QualityOfService Qos, bool Duplicate, bool RetainRequested) : MqttPacketWithId
 {
     public override MqttPacketType PacketType => MqttPacketType.Publish;
     
@@ -21,8 +20,6 @@ public sealed class PublishPacket(int PacketId, QualityOfService Qos, bool Dupli
     /// Optional for <see cref="QualityOfService.AtMostOnce"/>
     /// </summary>
     public string? TopicName { get; set; }
-    
-    public int PacketIdentifier { get; set; } // Only needed for QoS 1 and 2
 
     // Payload
     public ReadOnlyMemory<byte> Payload { get; set; } = ReadOnlyMemory<byte>.Empty;
@@ -51,7 +48,7 @@ public sealed class PublishPacket(int PacketId, QualityOfService Qos, bool Dupli
     /// User Property, available in MQTT 5.0.
     /// This is a key-value pair that can be sent multiple times to convey additional information that is not covered by other means.
     /// </summary>
-    public IDictionary<string, string>? UserProperties { get; set; } // MQTT 5.0 only
+    public Dictionary<string, string>? UserProperties { get; set; } // MQTT 5.0 only
 
     /// <summary>
     /// Subscription Identifiers, available in MQTT 5.0.
@@ -62,6 +59,6 @@ public sealed class PublishPacket(int PacketId, QualityOfService Qos, bool Dupli
 
     public override string ToString()
     {
-        return $"Publish: [Topic={TopicName}] [PayloadLength={Payload.Length}] [QoSLevel={QualityOfService}] [Dup={Duplicate}] [Retain={RetainRequested}] [PacketIdentifier={PacketIdentifier}]";
+        return $"Publish: [Topic={TopicName}] [PayloadLength={Payload.Length}] [QoSLevel={QualityOfService}] [Dup={Duplicate}] [Retain={RetainRequested}] [PacketIdentifier={PacketId}]";
     }
 }
