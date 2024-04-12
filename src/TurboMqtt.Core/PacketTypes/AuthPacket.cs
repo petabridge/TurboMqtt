@@ -6,7 +6,7 @@ namespace TurboMqtt.Core.PacketTypes;
 /// <remarks>
 /// This packet is only applicable in MQTT 5.0 and is used both in the initial connection phase and for dynamic re-authentication.
 /// </remarks>
-public class AuthPacket(string authenticationMethod, AuthReasonCode reasonCode) : MqttPacket
+public sealed class AuthPacket(string authenticationMethod, AuthReasonCode reasonCode) : MqttPacket
 {
     // turn the reason code into a ReasonString
 
