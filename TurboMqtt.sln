@@ -3,7 +3,7 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.0.31903.59
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TurboMqtt.App", "src\TurboMqtt.App\TurboMqtt.App.csproj", "{EDFEA62C-AF53-4056-A2F2-E37CEA04B24A}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TurboMqtt.Core", "src\TurboMqtt.Core\TurboMqtt.Core.csproj", "{BE905781-3D96-44F5-A230-E06FD5213C1C}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -14,9 +14,9 @@ Global
 		HideSolutionNode = FALSE
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
-		{EDFEA62C-AF53-4056-A2F2-E37CEA04B24A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{EDFEA62C-AF53-4056-A2F2-E37CEA04B24A}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{EDFEA62C-AF53-4056-A2F2-E37CEA04B24A}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{EDFEA62C-AF53-4056-A2F2-E37CEA04B24A}.Release|Any CPU.Build.0 = Release|Any CPU
+		{BE905781-3D96-44F5-A230-E06FD5213C1C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{BE905781-3D96-44F5-A230-E06FD5213C1C}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{BE905781-3D96-44F5-A230-E06FD5213C1C}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{BE905781-3D96-44F5-A230-E06FD5213C1C}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal
