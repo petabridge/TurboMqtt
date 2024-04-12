@@ -5,6 +5,6 @@
 
   <!-- Akka.NET Package Versions -->
   <ItemGroup>
-    <PackageVersion Include="Akka.Hosting" Version="1.5.17.1" />
+    <PackageVersion Include="Akka.Hosting" Version="1.5.18" />
   </ItemGroup>
 </Project>
