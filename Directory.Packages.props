@@ -1,0 +1,10 @@
+<Project>
+  <PropertyGroup>
+    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+  </PropertyGroup>
+
+  <!-- Akka.NET Package Versions -->
+  <ItemGroup>
+    <PackageVersion Include="Akka.Hosting" Version="1.5.17.1" />
+  </ItemGroup>
+</Project>

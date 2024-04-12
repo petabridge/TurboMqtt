@@ -1,0 +1,17 @@
+<Project>
+    <PropertyGroup>
+        <Copyright>Copyright © 2023 Your Company</Copyright>
+        <NoWarn>$(NoWarn);CS1591</NoWarn>
+        <VersionPrefix>1.0.0</VersionPrefix>
+    </PropertyGroup>
+
+    <PropertyGroup Label="Build">
+        <LangVersion>latest</LangVersion>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+    </PropertyGroup>
+
+    <PropertyGroup Label="Dependencies">
+        <PbmVersion>1.4.0</PbmVersion>
+    </PropertyGroup>
+</Project>
