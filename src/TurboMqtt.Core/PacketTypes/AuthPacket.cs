@@ -1,3 +1,9 @@
+// -----------------------------------------------------------------------
+// <copyright file="AuthPacket.cs" company="Petabridge, LLC">
+//      Copyright (C) 2024 - 2024 Petabridge, LLC <https://petabridge.com>
+// </copyright>
+// -----------------------------------------------------------------------
+
 namespace TurboMqtt.Core.PacketTypes;
 
 /// <summary>
@@ -55,7 +61,7 @@ public enum AuthReasonCode
     ReAuthenticate = 0x19
 }
 
-public static class AuthReasonCodeHelpers
+internal static class AuthReasonCodeHelpers
 {
     public static string ToReasonString(this AuthReasonCode reasonCode)
     {

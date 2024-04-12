@@ -1,3 +1,9 @@
+// -----------------------------------------------------------------------
+// <copyright file="DisconnectPacket.cs" company="Petabridge, LLC">
+//      Copyright (C) 2024 - 2024 Petabridge, LLC <https://petabridge.com>
+// </copyright>
+// -----------------------------------------------------------------------
+
 namespace TurboMqtt.Core.PacketTypes;
 
 /// <summary>
@@ -27,7 +33,7 @@ public sealed class DisconnectPacket : MqttPacket
     /// This optional property can indicate the session expiry interval in seconds when the disconnect is initiated.
     /// </summary>
     public uint? SessionExpiryInterval { get; set; } // MQTT 5.0 only
-    
+
     public override string ToString()
     {
         return $"Disconnect: [ReasonCode={ReasonCode}]";

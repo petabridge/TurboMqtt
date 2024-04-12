@@ -1,3 +1,9 @@
+// -----------------------------------------------------------------------
+// <copyright file="SubscribeAckPacket.cs" company="Petabridge, LLC">
+//      Copyright (C) 2024 - 2024 Petabridge, LLC <https://petabridge.com>
+// </copyright>
+// -----------------------------------------------------------------------
+
 namespace TurboMqtt.Core.PacketTypes;
 
 public enum MqttSubscribeReasonCode
@@ -22,11 +28,9 @@ public enum MqttSubscribeReasonCode
 public class SubscribeAckPacket : MqttPacketWithId
 {
     public override MqttPacketType PacketType => MqttPacketType.SubAck;
-    
+
     /// <summary>
     /// The reason codes for each topic subscription.
     /// </summary>
     public IReadOnlyList<MqttSubscribeReasonCode> ReasonCodes { get; set; } = Array.Empty<MqttSubscribeReasonCode>();
-    
-    
 }

@@ -1,3 +1,9 @@
+// -----------------------------------------------------------------------
+// <copyright file="MqttPacket.cs" company="Petabridge, LLC">
+//      Copyright (C) 2024 - 2024 Petabridge, LLC <https://petabridge.com>
+// </copyright>
+// -----------------------------------------------------------------------
+
 namespace TurboMqtt.Core.PacketTypes;
 
 /// <summary>
@@ -6,16 +12,17 @@ namespace TurboMqtt.Core.PacketTypes;
 public abstract class MqttPacket
 {
     public abstract MqttPacketType PacketType { get; }
-    
+
     public virtual bool Duplicate => false;
-    
+
     public virtual QualityOfService QualityOfService => QualityOfService.AtMostOnce;
-    
+
     public virtual bool RetainRequested => false;
-    
+
     public override string ToString()
     {
-        return $"{GetType().Name}[Type={PacketType}, QualityOfService={QualityOfService}, Duplicate={Duplicate}, Retain={RetainRequested}]";
+        return
+            $"{GetType().Name}[Type={PacketType}, QualityOfService={QualityOfService}, Duplicate={Duplicate}, Retain={RetainRequested}]";
     }
 }
 

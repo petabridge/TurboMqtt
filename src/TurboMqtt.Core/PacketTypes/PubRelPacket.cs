@@ -1,3 +1,9 @@
+// -----------------------------------------------------------------------
+// <copyright file="PubRelPacket.cs" company="Petabridge, LLC">
+//      Copyright (C) 2024 - 2024 Petabridge, LLC <https://petabridge.com>
+// </copyright>
+// -----------------------------------------------------------------------
+
 namespace TurboMqtt.Core.PacketTypes;
 
 /// <summary>
@@ -24,7 +30,7 @@ public sealed class PubRelPacket : MqttPacketWithId
     /// This is a key-value pair that can be sent multiple times to convey additional information that is not covered by other means.
     /// </summary>
     public IReadOnlyDictionary<string, string>? UserProperties { get; set; } // MQTT 5.0 only
-    
+
     public override string ToString()
     {
         return $"PubRel: [PacketIdentifier={PacketId}], [ReasonCode={ReasonCode}], [ReasonString={ReasonString}]";

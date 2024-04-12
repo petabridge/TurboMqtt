@@ -1,9 +1,15 @@
+// -----------------------------------------------------------------------
+// <copyright file="SubscribePacket.cs" company="Petabridge, LLC">
+//      Copyright (C) 2024 - 2024 Petabridge, LLC <https://petabridge.com>
+// </copyright>
+// -----------------------------------------------------------------------
+
 namespace TurboMqtt.Core.PacketTypes;
 
 public sealed class SubscribePacket : MqttPacketWithId
 {
     public override MqttPacketType PacketType => MqttPacketType.Subscribe;
-    
+
     /// <summary>
     /// The unique identity of this subscription for this client.
     /// </summary>
@@ -11,21 +17,22 @@ public sealed class SubscribePacket : MqttPacketWithId
     /// Must be a value greater than 0.
     /// </remarks>
     public NonZeroUInt32 SubscriptionIdentifier { get; set; }
-    
+
     /// <summary>
     /// The set of topics we're subscribing to.
     /// </summary>
     public IReadOnlyList<TopicSubscription> Topics { get; set; } = Array.Empty<TopicSubscription>();
-    
+
     /// <summary>
     /// User Property, available in MQTT 5.0.
     /// This is a key-value pair that can be sent multiple times to convey additional information that is not covered by other means.
     /// </summary>
     public IReadOnlyDictionary<string, string>? UserProperties { get; set; } // MQTT 5.0 only
-    
+
     public override string ToString()
     {
-        return $"Subscribe: [PacketIdentifier={PacketId}] [SubscriptionIdentifier={SubscriptionIdentifier}] [Topics={string.Join(", ", Topics.Select(c => c))}]";
+        return
+            $"Subscribe: [PacketIdentifier={PacketId}] [SubscriptionIdentifier={SubscriptionIdentifier}] [Topics={string.Join(", ", Topics.Select(c => c))}]";
     }
 }
 
@@ -43,7 +50,7 @@ public sealed class TopicSubscription(string topic)
     /// Some of these are MQTT 5.0 features and will not be used in MQTT 3.1.1 or 3.0.
     /// </remarks>
     public SubscriptionOptions Options { get; set; }
-    
+
     public override string ToString()
     {
         return $"Topic: {Topic}, Options: {Options}";
@@ -63,25 +70,26 @@ public struct SubscriptionOptions
     /// Gets or sets the Quality of Service level to use when sending messages to the client.
     /// </summary>
     public QualityOfService QoS { get; set; }
-    
+
     /// <summary>
     /// MQTT 5.0 Feature: indicates whether or not the sender can receive its own messages.
     /// </summary>
     public bool NoLocal { get; set; }
-    
+
     /// <summary>
     /// MQTT 5.0 Feature: indicates whether or not the message should be retained by the broker.
     /// </summary>
     public bool RetainAsPublished { get; set; }
-    
+
     /// <summary>
     /// MQTT 5.0 Feature: indicates how the broker should handle retained messages.
     /// </summary>
     public RetainHandlingOption RetainHandling { get; set; }
-    
+
     public override string ToString()
     {
-        return $"QoS: {QoS}, No Local: {NoLocal}, Retain As Published: {RetainAsPublished}, Retain Handling: {RetainHandling}";
+        return
+            $"QoS: {QoS}, No Local: {NoLocal}, Retain As Published: {RetainAsPublished}, Retain Handling: {RetainHandling}";
     }
 }
 
@@ -111,7 +119,7 @@ internal static class SubscriptionOptionsHelpers
 
         return result;
     }
-    
+
     public static SubscriptionOptions ToSubscriptionOptions(this byte subscriptionOptions)
     {
         var result = new SubscriptionOptions

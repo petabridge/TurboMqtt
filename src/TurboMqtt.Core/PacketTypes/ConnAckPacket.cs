@@ -1,3 +1,9 @@
+// -----------------------------------------------------------------------
+// <copyright file="ConnAckPacket.cs" company="Petabridge, LLC">
+//      Copyright (C) 2024 - 2024 Petabridge, LLC <https://petabridge.com>
+// </copyright>
+// -----------------------------------------------------------------------
+
 namespace TurboMqtt.Core.PacketTypes;
 
 /// <summary>
@@ -12,7 +18,7 @@ public sealed class ConnAckPacket : MqttPacket
 
     // MQTT 5.0 - Optional Properties
     public IReadOnlyDictionary<string, string>? Properties { get; set; }
-    
+
     public override string ToString()
     {
         return $"ConnAck: [SessionPresent={SessionPresent}] [ReasonCode={ReasonCode}]";

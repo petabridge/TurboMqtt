@@ -1,3 +1,9 @@
+// -----------------------------------------------------------------------
+// <copyright file="PublishPacket.cs" company="Petabridge, LLC">
+//      Copyright (C) 2024 - 2024 Petabridge, LLC <https://petabridge.com>
+// </copyright>
+// -----------------------------------------------------------------------
+
 namespace TurboMqtt.Core.PacketTypes;
 
 /// <summary>
@@ -9,13 +15,13 @@ namespace TurboMqtt.Core.PacketTypes;
 public sealed class PublishPacket(QualityOfService Qos, bool Duplicate, bool RetainRequested) : MqttPacketWithId
 {
     public override MqttPacketType PacketType => MqttPacketType.Publish;
-    
+
     public override bool Duplicate { get; } = Duplicate;
 
     public override QualityOfService QualityOfService { get; } = Qos;
 
     public override bool RetainRequested { get; } = RetainRequested;
-    
+
     /// <summary>
     /// Optional for <see cref="QualityOfService.AtMostOnce"/>
     /// </summary>
@@ -25,7 +31,7 @@ public sealed class PublishPacket(QualityOfService Qos, bool Duplicate, bool Ret
     public ReadOnlyMemory<byte> Payload { get; set; } = ReadOnlyMemory<byte>.Empty;
 
     // MQTT 3.1.1 and 5.0 - Optional Properties
-    
+
     /// <summary>
     /// The Content Type property, available in MQTT 5.0.
     /// This property is optional and indicates the MIME type of the application message.
@@ -59,6 +65,7 @@ public sealed class PublishPacket(QualityOfService Qos, bool Duplicate, bool Ret
 
     public override string ToString()
     {
-        return $"Publish: [Topic={TopicName}] [PayloadLength={Payload.Length}] [QoSLevel={QualityOfService}] [Dup={Duplicate}] [Retain={RetainRequested}] [PacketIdentifier={PacketId}]";
+        return
+            $"Publish: [Topic={TopicName}] [PayloadLength={Payload.Length}] [QoSLevel={QualityOfService}] [Dup={Duplicate}] [Retain={RetainRequested}] [PacketIdentifier={PacketId}]";
     }
 }
