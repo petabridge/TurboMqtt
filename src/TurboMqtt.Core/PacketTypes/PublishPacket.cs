@@ -1,0 +1,67 @@
+namespace TurboMqtt.Core.PacketTypes;
+
+/// <summary>
+/// Used to send data to the server or client.
+/// </summary>
+/// <param name="PacketId">The unique id of this packet - may not be needed with <see cref="QualityOfService.AtMostOnce"/>.</param>
+/// <param name="Qos">The delivery guarantee for this packet.</param>
+/// <param name="Duplicate">Is this packet a duplicate?</param>
+/// <param name="RetainRequested">Indicates whether or not this value has been retained by the MQTT broker.</param>
+public sealed class PublishPacket(int PacketId, QualityOfService Qos, bool Duplicate, bool RetainRequested) : MqttPacketWithId
+{
+    public override MqttPacketType PacketType => MqttPacketType.Publish;
+    
+    public override bool Duplicate { get; } = Duplicate;
+
+    public override QualityOfService QualityOfService { get; } = Qos;
+
+    public override bool RetainRequested { get; } = RetainRequested;
+    
+    /// <summary>
+    /// Optional for <see cref="QualityOfService.AtMostOnce"/>
+    /// </summary>
+    public string? TopicName { get; set; }
+    
+    public int PacketIdentifier { get; set; } // Only needed for QoS 1 and 2
+
+    // Payload
+    public ReadOnlyMemory<byte> Payload { get; set; } = ReadOnlyMemory<byte>.Empty;
+
+    // MQTT 3.1.1 and 5.0 - Optional Properties
+    
+    /// <summary>
+    /// The Content Type property, available in MQTT 5.0.
+    /// This property is optional and indicates the MIME type of the application message.
+    /// </summary>
+    public string? ContentType { get; set; } // MQTT 5.0 only
+
+    /// <summary>
+    /// Response Topic property, available in MQTT 5.0.
+    /// It specifies the topic name for a response message.
+    /// </summary>
+    public string? ResponseTopic { get; set; } // MQTT 5.0 only
+
+    /// <summary>
+    /// Correlation Data property, available in MQTT 5.0.
+    /// This property is used by the sender of the request message to identify which request the response message is for when it receives a response.
+    /// </summary>
+    public byte[]? CorrelationData { get; set; } // MQTT 5.0 only
+
+    /// <summary>
+    /// User Property, available in MQTT 5.0.
+    /// This is a key-value pair that can be sent multiple times to convey additional information that is not covered by other means.
+    /// </summary>
+    public IDictionary<string, string>? UserProperties { get; set; } // MQTT 5.0 only
+
+    /// <summary>
+    /// Subscription Identifiers, available in MQTT 5.0.
+    /// This property allows associating the publication with multiple subscriptions.
+    /// Each identifier corresponds to a different subscription that matches the published message.
+    /// </summary>
+    public List<uint>? SubscriptionIdentifiers { get; set; } // MQTT 5.0 only
+
+    public override string ToString()
+    {
+        return $"Publish: [Topic={TopicName}] [PayloadLength={Payload.Length}] [QoSLevel={QualityOfService}] [Dup={Duplicate}] [Retain={RetainRequested}] [PacketIdentifier={PacketIdentifier}]";
+    }
+}
