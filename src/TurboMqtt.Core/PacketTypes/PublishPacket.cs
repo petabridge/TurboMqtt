@@ -21,11 +21,15 @@ public sealed class PublishPacket(QualityOfService Qos, bool Duplicate, bool Ret
     public override QualityOfService QualityOfService { get; } = Qos;
 
     public override bool RetainRequested { get; } = RetainRequested;
+    
+    public ushort TopicAlias { get; set; } // MQTT 5.0 only
 
     /// <summary>
     /// Optional for <see cref="QualityOfService.AtMostOnce"/>
     /// </summary>
     public string? TopicName { get; set; }
+    
+    public uint MessageExpiryInterval { get; set; } // MQTT 5.0 only
 
     // Payload
     public ReadOnlyMemory<byte> Payload { get; set; } = ReadOnlyMemory<byte>.Empty;
