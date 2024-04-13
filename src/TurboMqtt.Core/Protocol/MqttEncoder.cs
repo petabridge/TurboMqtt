@@ -9,12 +9,13 @@ using TurboMqtt.Core.PacketTypes;
 
 namespace TurboMqtt.Core.Protocol;
 
-public static class MqttEncoder
+internal static class MqttPacketSizeEstimator
 {
-    private const int PacketIdLength = 2;
-    private const int StringSizeLength = 2;
-    private const int MaxVariableLength = 4;
-    private const string Mqtt5ProtocolName = "MQTT";
+    internal const int PacketIdLength = 2;
+    internal const int StringSizeLength = 2;
+    internal const int MaxVariableLength = 4;
+    internal const string Mqtt5ProtocolName = "MQTT";
+    internal const string Mqtt311ProtocolName = "MQIsdp";
     
     /// <summary>
     /// Estimates the size of the packet WITHOUT the length header.
@@ -212,7 +213,7 @@ public static class MqttEncoder
         
         // Protocol Name (2 bytes length + actual length of string)
 
-        size += 2 + Encoding.ASCII.GetByteCount(Mqtt5ProtocolName); // MQTT uses ASCII, not UTF8, for the protocol name: https://www.emqx.com/en/blog/mqtt-5-0-control-packets-01-connect-connack#connect-packet-structure
+        size += 2 + Encoding.ASCII.GetByteCount(Mqtt311ProtocolName); // MQTT uses ASCII, not UTF8, for the protocol name: https://www.emqx.com/en/blog/mqtt-5-0-control-packets-01-connect-connack#connect-packet-structure
         
         // Protocol Version (1 byte)
         size += 1;
