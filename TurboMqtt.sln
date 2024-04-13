@@ -5,6 +5,16 @@ VisualStudioVersion = 17.0.31903.59
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TurboMqtt.Core", "src\TurboMqtt.Core\TurboMqtt.Core.csproj", "{BE905781-3D96-44F5-A230-E06FD5213C1C}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TurboMqtt.Core.Tests", "tests\TurboMqtt.Core.Tests\TurboMqtt.Core.Tests.csproj", "{8090B5F4-3C72-451E-8EC1-F73F8296A765}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "build", "build", "{B3AABB6F-ACB0-4CFB-A17B-6B2189369139}"
+	ProjectSection(SolutionItems) = preProject
+		Directory.Build.props = Directory.Build.props
+		Directory.Packages.props = Directory.Packages.props
+		global.json = global.json
+		nuget.config = nuget.config
+	EndProjectSection
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -18,5 +28,9 @@ Global
 		{BE905781-3D96-44F5-A230-E06FD5213C1C}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{BE905781-3D96-44F5-A230-E06FD5213C1C}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{BE905781-3D96-44F5-A230-E06FD5213C1C}.Release|Any CPU.Build.0 = Release|Any CPU
+		{8090B5F4-3C72-451E-8EC1-F73F8296A765}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{8090B5F4-3C72-451E-8EC1-F73F8296A765}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{8090B5F4-3C72-451E-8EC1-F73F8296A765}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{8090B5F4-3C72-451E-8EC1-F73F8296A765}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal
