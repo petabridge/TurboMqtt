@@ -196,7 +196,7 @@ internal static class MqttPacketSizeEstimator
 
         if (!packet.AuthenticationData.IsEmpty)
         {
-            propertiesSize += 2 + packet.AuthenticationData.Value.Length;
+            propertiesSize += 2 + packet.AuthenticationData.Length;
         }
         
         // reason string
