@@ -25,7 +25,7 @@ public sealed class ConnAckPacket : MqttPacket
     }
 }
 
-public enum ConnAckReasonCode
+public enum ConnAckReasonCode : byte
 {
     Success = 0x00,
     UnspecifiedError = 0x80,

@@ -9,7 +9,7 @@ namespace TurboMqtt.Core.Protocol;
 /// <summary>
 /// The version of the MQTT protocol being used.
 /// </summary>
-public enum MqttVersion
+public enum MqttProtocolVersion
 {
     V3_0 = 3,    // Assuming a hypothetical representation for MQTT 3.0
     V3_1_1 = 4,  // MQTT 3.1.1 is usually represented by the protocol level 4

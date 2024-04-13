@@ -25,7 +25,7 @@ public enum MqttSubscribeReasonCode
     WildcardSubscriptionsNotSupported = 0xA2, // MQTT 5.0
 }
 
-public class SubscribeAckPacket : MqttPacketWithId
+public sealed class SubscribeAckPacket : MqttPacketWithId
 {
     public override MqttPacketType PacketType => MqttPacketType.SubAck;
 

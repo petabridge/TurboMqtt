@@ -9,7 +9,7 @@ namespace TurboMqtt.Core.PacketTypes;
 /// <summary>
 /// All possible reason codes for the PubAck packet.
 /// </summary>
-public enum MqttPubAckReasonCode
+public enum MqttPubAckReasonCode : byte
 {
     Success = 0x00,
     NoMatchingSubscribers = 0x10,

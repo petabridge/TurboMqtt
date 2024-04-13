@@ -14,7 +14,7 @@ namespace TurboMqtt.Core;
 ///
 /// Also supports MQTT 5.0.
 /// </remarks>
-public enum MqttPacketType
+public enum MqttPacketType : byte
 {
     Connect = 0x10,
     ConnAck = 0x20,

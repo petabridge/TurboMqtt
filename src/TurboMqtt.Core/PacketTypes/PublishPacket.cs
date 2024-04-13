@@ -31,6 +31,7 @@ public sealed class PublishPacket(QualityOfService Qos, bool Duplicate, bool Ret
     public ReadOnlyMemory<byte> Payload { get; set; } = ReadOnlyMemory<byte>.Empty;
 
     // MQTT 3.1.1 and 5.0 - Optional Properties
+    public PayloadFormatIndicator PayloadFormatIndicator { get; set; } // MQTT 5.0 only
 
     /// <summary>
     /// The Content Type property, available in MQTT 5.0.
@@ -68,4 +69,17 @@ public sealed class PublishPacket(QualityOfService Qos, bool Duplicate, bool Ret
         return
             $"Publish: [Topic={TopicName}] [PayloadLength={Payload.Length}] [QoSLevel={QualityOfService}] [Dup={Duplicate}] [Retain={RetainRequested}] [PacketIdentifier={PacketId}]";
     }
+}
+
+public enum PayloadFormatIndicator : byte
+{
+    /// <summary>
+    /// The payload is unspecified bytes, which should not be interpreted as UTF-8 encoded character data.
+    /// </summary>
+    Unspecified = 0,
+
+    /// <summary>
+    /// The payload is UTF-8 encoded character data.
+    /// </summary>
+    Utf8Encoded = 1
 }
