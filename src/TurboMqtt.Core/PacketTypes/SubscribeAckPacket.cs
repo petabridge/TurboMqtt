@@ -25,6 +25,9 @@ public enum MqttSubscribeReasonCode
     WildcardSubscriptionsNotSupported = 0xA2, // MQTT 5.0
 }
 
+/// <summary>
+/// Represents the acknowledgement packet for a subscription request.
+/// </summary>
 public sealed class SubscribeAckPacket : MqttPacketWithId
 {
     public override MqttPacketType PacketType => MqttPacketType.SubAck;
@@ -33,4 +36,25 @@ public sealed class SubscribeAckPacket : MqttPacketWithId
     /// The reason codes for each topic subscription.
     /// </summary>
     public IReadOnlyList<MqttSubscribeReasonCode> ReasonCodes { get; set; } = Array.Empty<MqttSubscribeReasonCode>();
+    
+    /// <summary>
+    /// The reason string for the subscription.
+    /// </summary>
+    /// <remarks>
+    /// This property is only used in MQTT v5.0.0 and later.
+    /// </remarks>
+    public string? ReasonString { get; set; }
+    
+    /// <summary>
+    /// User Properties, available in MQTT 5.0.
+    /// This is a key-value pair that can be sent multiple times to convey additional information that is not covered by other means.
+    /// </summary>
+    public IReadOnlyDictionary<string, string>? UserProperties { get; set; } // MQTT 5.0 only
+    
+    public override string ToString()
+    {
+        var reasonCodesText = string.Join(",", ReasonCodes.Select(f => f.ToString()));
+
+        return $"SubAck: [PacketIdentifier={PacketId}] [ReasonCode={reasonCodesText}]";
+    }
 }
