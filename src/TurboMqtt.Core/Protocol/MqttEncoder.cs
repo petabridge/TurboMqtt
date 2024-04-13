@@ -28,7 +28,6 @@ public static class MqttEncoder
     {
         switch (protocolVersion)
         {
-            case MqttProtocolVersion.V3_0:
             case MqttProtocolVersion.V3_1_1:
                 return EstimateMqtt3PacketSize(packet);
             case MqttProtocolVersion.V5_0:
