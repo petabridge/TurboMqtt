@@ -7,7 +7,7 @@
 using TurboMqtt.Core.PacketTypes;
 using TurboMqtt.Core.Protocol;
 
-namespace TurboMqtt.Core.Tests.Packets;
+namespace TurboMqtt.Core.Tests.Packets.Connect;
 
 public class ConnectPacketMqtt311Specs
 {
