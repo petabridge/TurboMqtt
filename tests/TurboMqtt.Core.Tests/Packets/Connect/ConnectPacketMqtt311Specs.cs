@@ -105,22 +105,6 @@ public class ConnectPacketMqtt311Specs
         }
     }
     
-    // create a test case for working with username and password
-    public class WhenCreatingUsernameAndPassword
-    {
-        [Fact] public void should_have_correct_username_password()
-        {
-            var password = new byte[] { 1, 2, 3 };
-            var connectPacket = new ConnectPacket("clientId", MqttProtocolVersion.V3_1_1)
-            {
-                Username = "username",
-                Password = password,
-            };
-            connectPacket.Username.Should().Be("username");
-            connectPacket.Password.Should().BeEquivalentTo(password);
-        }
-    }
-    
     // create test cases for estimating the size of the packet
     public class WhenEstimatingPacketSize
     {
@@ -129,7 +113,7 @@ public class ConnectPacketMqtt311Specs
             var connectPacket = new ConnectPacket("clientId", MqttProtocolVersion.V3_1_1)
             {
                 Username = "username",
-                Password = new byte[] { 1, 2, 3 },
+                Password = new ReadOnlyMemory<byte>(new byte[] { 1, 2, 3 }),
                 Will = new MqttLastWill("topic", new byte[] { 1, 2, 3 }),
                 ReceiveMaximum = 10, // should be ignored - only supported in MQTT 5.0
                 MaximumPacketSize = 100, // should be ignored - only supported in MQTT 5.0

@@ -14,10 +14,10 @@ public class ConnectFlagsSpecs
     public class when_creating_connect_flags
     {
         [Fact]
-        public void it_should_have_clean_session_flag_set_to_true_by_default()
+        public void it_should_have_clean_session_flag_set_to_false_by_default()
         {
             var flags = new ConnectFlags();
-            flags.CleanSession.Should().BeTrue();
+            flags.CleanSession.Should().BeFalse();
         }
 
         [Fact]
