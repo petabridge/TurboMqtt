@@ -54,7 +54,7 @@ public sealed class AuthPacket(string authenticationMethod, AuthReasonCode reaso
 /// <summary>
 /// Enumerates the reason codes applicable to the AUTH packet in MQTT 5.0.
 /// </summary>
-public enum AuthReasonCode
+public enum AuthReasonCode : byte
 {
     Success = 0x00,
     ContinueAuthentication = 0x18,

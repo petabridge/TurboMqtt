@@ -57,7 +57,7 @@ public sealed class TopicSubscription(string topic)
     }
 }
 
-public enum RetainHandlingOption
+public enum RetainHandlingOption : byte
 {
     SendAtSubscribe = 0, // 00 binary
     SendAtSubscribeIfNew = 1, // 01 binary

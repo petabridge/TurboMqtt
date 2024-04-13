@@ -9,28 +9,33 @@ namespace TurboMqtt.Core.PacketTypes;
 /// <summary>
 /// Used to send data to the server or client.
 /// </summary>
-/// <param name="Qos">The delivery guarantee for this packet.</param>
-/// <param name="Duplicate">Is this packet a duplicate?</param>
-/// <param name="RetainRequested">Indicates whether or not this value has been retained by the MQTT broker.</param>
-public sealed class PublishPacket(QualityOfService Qos, bool Duplicate, bool RetainRequested) : MqttPacketWithId
+/// <param name="qos">The delivery guarantee for this packet.</param>
+/// <param name="duplicate">Is this packet a duplicate?</param>
+/// <param name="retainRequested">Indicates whether or not this value has been retained by the MQTT broker.</param>
+public sealed class PublishPacket(QualityOfService qos, bool duplicate, bool retainRequested, string topicName) : MqttPacketWithId
 {
     public override MqttPacketType PacketType => MqttPacketType.Publish;
 
-    public override bool Duplicate { get; } = Duplicate;
+    public override bool Duplicate { get; } = duplicate;
 
-    public override QualityOfService QualityOfService { get; } = Qos;
+    public override QualityOfService QualityOfService { get; } = qos;
 
-    public override bool RetainRequested { get; } = RetainRequested;
+    public override bool RetainRequested { get; } = retainRequested;
+    
+    public ushort TopicAlias { get; set; } // MQTT 5.0 only
 
     /// <summary>
     /// Optional for <see cref="QualityOfService.AtMostOnce"/>
     /// </summary>
-    public string? TopicName { get; set; }
+    public string TopicName { get; } = topicName;
+
+    public uint MessageExpiryInterval { get; set; } // MQTT 5.0 only
 
     // Payload
     public ReadOnlyMemory<byte> Payload { get; set; } = ReadOnlyMemory<byte>.Empty;
 
     // MQTT 3.1.1 and 5.0 - Optional Properties
+    public PayloadFormatIndicator PayloadFormatIndicator { get; set; } // MQTT 5.0 only
 
     /// <summary>
     /// The Content Type property, available in MQTT 5.0.
@@ -68,4 +73,17 @@ public sealed class PublishPacket(QualityOfService Qos, bool Duplicate, bool Ret
         return
             $"Publish: [Topic={TopicName}] [PayloadLength={Payload.Length}] [QoSLevel={QualityOfService}] [Dup={Duplicate}] [Retain={RetainRequested}] [PacketIdentifier={PacketId}]";
     }
+}
+
+public enum PayloadFormatIndicator : byte
+{
+    /// <summary>
+    /// The payload is unspecified bytes, which should not be interpreted as UTF-8 encoded character data.
+    /// </summary>
+    Unspecified = 0,
+
+    /// <summary>
+    /// The payload is UTF-8 encoded character data.
+    /// </summary>
+    Utf8Encoded = 1
 }

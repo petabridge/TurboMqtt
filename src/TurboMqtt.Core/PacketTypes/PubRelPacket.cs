@@ -40,7 +40,7 @@ public sealed class PubRelPacket : MqttPacketWithId
 /// <summary>
 /// Enum for PUBREL reason codes (typically these would be simpler as successful flow is usually assumed)
 /// </summary>
-public enum PubRelReasonCode
+public enum PubRelReasonCode : byte
 {
     Success = 0x00,
     PacketIdentifierNotFound = 0x92

@@ -40,7 +40,7 @@ public sealed class PubCompPacket : MqttPacketWithId
 /// <summary>
 /// Enum for PUBCOMP reason codes, using the same as PUBREC for simplicity and because MQTT 5.0 reuses these
 /// </summary>
-public enum PubCompReasonCode
+public enum PubCompReasonCode : byte
 {
     Success = 0x00,
     PacketIdentifierNotFound = 0x92

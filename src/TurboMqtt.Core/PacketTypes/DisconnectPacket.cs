@@ -40,7 +40,7 @@ public sealed class DisconnectPacket : MqttPacket
     }
 }
 
-public enum DisconnectReasonCode
+public enum DisconnectReasonCode : byte
 {
     NormalDisconnection = 0x00,
     DisconnectWithWillMessage = 0x04,

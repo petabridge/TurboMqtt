@@ -12,7 +12,7 @@ namespace TurboMqtt.Core.PacketTypes;
 /// <remarks>
 /// This is an MQTT 5.0 feature.
 /// </remarks>
-public enum MqttUnsubscribeReasonCode
+public enum MqttUnsubscribeReasonCode : byte
 {
     // MQTT 5.0 specific reason codes
     Success = 0x00, // The subscription is deleted successfully, MQTT 5.0
