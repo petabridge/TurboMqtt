@@ -51,7 +51,7 @@ internal static class MqttPacketSizeEstimator
             case MqttPacketType.Connect:
                 return EstimateConnectPacketSizeMqtt311((ConnectPacket)packet);
             case MqttPacketType.ConnAck:
-                break;
+                return 2 + 2; // fixed header + 1 byte for session present + 1 byte for reason code
             case MqttPacketType.Publish:
                 break;
             case MqttPacketType.PubAck:
@@ -60,7 +60,7 @@ internal static class MqttPacketSizeEstimator
             case MqttPacketType.PubComp:
             case MqttPacketType.SubAck:
             case MqttPacketType.UnsubAck:
-                return 3; // fixed header + packet id only
+                return 2 + PacketIdLength; // fixed header + packet id only
             case MqttPacketType.Subscribe:
                 break;
             case MqttPacketType.Unsubscribe:
@@ -246,7 +246,7 @@ internal static class MqttPacketSizeEstimator
         
         return size + payloadSize;
     }
-
+    
     private static int EstimateConnectPacketSizeMqtt5(ConnectPacket packet)
     {
         var size = 2; // Start with 2 bytes for the fixed header
