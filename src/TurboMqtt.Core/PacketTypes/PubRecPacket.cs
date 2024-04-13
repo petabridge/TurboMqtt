@@ -40,7 +40,7 @@ public sealed class PubRecPacket : MqttPacketWithId
 /// <summary>
 ///  Enum for PUBREC and PUBCOMP reason codes (as they share the same codes)
 /// </summary>
-public enum PubRecReasonCode
+public enum PubRecReasonCode : byte
 {
     Success = 0x00,
     NoMatchingSubscribers = 0x10,

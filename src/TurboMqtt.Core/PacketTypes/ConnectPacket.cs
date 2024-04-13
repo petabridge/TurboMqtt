@@ -45,8 +45,18 @@ public class ConnectPacket(string clientId, MqttProtocolVersion protocolVersion)
 /// </summary>
 public sealed class MqttLastWill
 {
-    public string Topic { get; set; } = string.Empty;
-    public ReadOnlyMemory<byte> Message { get; set; }
+    public MqttLastWill(string topic, ReadOnlyMemory<byte> message)
+    {
+        Topic = topic;
+        Message = message;
+        
+        // throw if topic is invalid
+        if (string.IsNullOrEmpty(topic))
+            throw new ArgumentException("Topic cannot be null or empty.", nameof(topic));
+    }
+
+    public string Topic { get; }
+    public ReadOnlyMemory<byte> Message { get; }
     
     // MQTT 5.0 - Optional Properties for Last Will and Testament
     public string? ResponseTopic { get; set; } // MQTT 5.0 only

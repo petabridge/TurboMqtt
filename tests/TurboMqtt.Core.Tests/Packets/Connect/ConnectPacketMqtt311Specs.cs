@@ -90,4 +90,18 @@ public class ConnectPacketMqtt311Specs
             packet.TopicAliasMaximum.Should().Be(0);
         }
     }
+    
+    // create a test case for working with LastWillAndTestament
+    public class WhenCreatingLastWillAndTestament
+    {
+        [Fact] public void should_have_correct_payload()
+        {
+            var connectPacket = new ConnectPacket("clientId", MqttProtocolVersion.V3_1_1)
+            {
+                Will = new MqttLastWill("topic", new byte[] { 1, 2, 3 })
+            };
+            connectPacket.Will.Topic.Should().Be("topic");
+            connectPacket.Will.Message.ToArray().Should().BeEquivalentTo(new byte[] { 1, 2, 3 });
+        }
+    }
 }
