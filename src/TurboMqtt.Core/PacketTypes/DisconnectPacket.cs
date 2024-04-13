@@ -11,6 +11,11 @@ namespace TurboMqtt.Core.PacketTypes;
 /// </summary>
 public sealed class DisconnectPacket : MqttPacket
 {
+    /// <summary>
+    /// Used for MQTT 3.1.1, since no additional properties are supported.
+    /// </summary>
+    internal static readonly DisconnectPacket Instance = new();
+    
     public override MqttPacketType PacketType => MqttPacketType.Disconnect;
 
     // MQTT 5.0 - Optional Reason Code and Properties
