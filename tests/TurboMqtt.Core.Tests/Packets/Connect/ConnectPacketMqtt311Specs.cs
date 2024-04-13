@@ -104,4 +104,53 @@ public class ConnectPacketMqtt311Specs
             connectPacket.Will.Message.ToArray().Should().BeEquivalentTo(new byte[] { 1, 2, 3 });
         }
     }
+    
+    // create a test case for working with username and password
+    public class WhenCreatingUsernameAndPassword
+    {
+        [Fact] public void should_have_correct_username_password()
+        {
+            var password = new byte[] { 1, 2, 3 };
+            var connectPacket = new ConnectPacket("clientId", MqttProtocolVersion.V3_1_1)
+            {
+                Username = "username",
+                Password = password,
+            };
+            connectPacket.Username.Should().Be("username");
+            connectPacket.Password.Should().BeEquivalentTo(password);
+        }
+    }
+    
+    // create test cases for estimating the size of the packet
+    public class WhenEstimatingPacketSize
+    {
+        [Fact] public void should_estimate_correct_size()
+        {
+            var connectPacket = new ConnectPacket("clientId", MqttProtocolVersion.V3_1_1)
+            {
+                Username = "username",
+                Password = new byte[] { 1, 2, 3 },
+                Will = new MqttLastWill("topic", new byte[] { 1, 2, 3 }),
+                ReceiveMaximum = 10, // should be ignored - only supported in MQTT 5.0
+                MaximumPacketSize = 100, // should be ignored - only supported in MQTT 5.0
+                TopicAliasMaximum = 5, // should be ignored - only supported in MQTT 5.0
+            };
+            
+            MqttEncoder.EstimatePacketSize(connectPacket, MqttProtocolVersion.V3_1_1).Should().Be(49);
+        }
+        
+        // estimate the packet size without username and password
+        [Fact] public void should_estimate_correct_size_without_username_password()
+        {
+            var connectPacket = new ConnectPacket("clientId", MqttProtocolVersion.V3_1_1)
+            {
+                Will = new MqttLastWill("topic", new byte[] { 1, 2, 3 }),
+                ReceiveMaximum = 10, // should be ignored - only supported in MQTT 5.0
+                MaximumPacketSize = 100, // should be ignored - only supported in MQTT 5.0
+                TopicAliasMaximum = 5, // should be ignored - only supported in MQTT 5.0
+            };
+            
+            MqttEncoder.EstimatePacketSize(connectPacket, MqttProtocolVersion.V3_1_1).Should().Be(34);
+        }
+    }
 }
