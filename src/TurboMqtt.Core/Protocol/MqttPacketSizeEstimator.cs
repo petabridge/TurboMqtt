@@ -93,7 +93,7 @@ internal static class MqttPacketSizeEstimator
             case MqttPacketType.Connect:
                 return EstimateConnectPacketSizeMqtt5((ConnectPacket)packet);
             case MqttPacketType.ConnAck:
-                break;
+                return EstimateConnAckPacketSizeMqtt5((ConnAckPacket)packet);
             case MqttPacketType.Publish:
                 break;
             case MqttPacketType.PubAck:
@@ -125,7 +125,23 @@ internal static class MqttPacketSizeEstimator
 
         return -1;
     }
-    
+
+    private static int EstimateConnAckPacketSizeMqtt5(ConnAckPacket packet)
+    {
+        var size = 2; // Start with 2 bytes for the fixed header
+        size += 2; // Reason code is 1 byte, session created is 1 byte
+
+        // Start calculating the properties size
+        var propertiesSize = 0;
+
+        if (packet.UserProperties != null && packet.UserProperties.Any())
+        {
+            propertiesSize = ComputeUserPropertiesSize(packet.UserProperties);
+        }
+
+        return size + propertiesSize;
+    }
+
     /// <summary>
     ///  Helper method to calculate the length of the Variable Byte Integer for MQTT packet lengths
     /// </summary>

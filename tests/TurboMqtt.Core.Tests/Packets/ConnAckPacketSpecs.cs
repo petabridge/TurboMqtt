@@ -7,7 +7,7 @@
 using TurboMqtt.Core.PacketTypes;
 using TurboMqtt.Core.Protocol;
 
-namespace TurboMqtt.Core.Tests.Packets.ConnAck;
+namespace TurboMqtt.Core.Tests.Packets;
 
 public class ConnAckPacketSpecs
 {
@@ -38,7 +38,7 @@ public class ConnAckPacketSpecs
         public void ShouldHaveCorrectProperties()
         {
             var packet = new ConnAckPacket();
-            packet.Properties.Should().BeNull();
+            packet.UserProperties.Should().BeNull();
         }
     }
     
@@ -82,13 +82,13 @@ public class ConnAckPacketSpecs
             {
                 SessionPresent = true,
                 ReasonCode = ConnAckReasonCode.Success,
-                Properties = new Dictionary<string, string>
+                UserProperties = new Dictionary<string, string>
                 {
                     { "key1", "value1" },
                     { "key2", "value2" }
                 }
             };
-            MqttPacketSizeEstimator.EstimatePacketSize(packet, MqttProtocolVersion.V5_0).Should().Be(14);
+            MqttPacketSizeEstimator.EstimatePacketSize(packet, MqttProtocolVersion.V5_0).Should().Be(34);
         }
     }
     

@@ -17,7 +17,7 @@ public sealed class ConnAckPacket : MqttPacket
     public ConnAckReasonCode ReasonCode { get; set; } // Enum defined below
 
     // MQTT 5.0 - Optional Properties
-    public IReadOnlyDictionary<string, string>? Properties { get; set; }
+    public IReadOnlyDictionary<string, string>? UserProperties { get; set; }
 
     public override string ToString()
     {
