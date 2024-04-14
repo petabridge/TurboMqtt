@@ -59,9 +59,10 @@ internal static class MqttPacketSizeEstimator
             case MqttPacketType.PubRec:
             case MqttPacketType.PubRel:
             case MqttPacketType.PubComp:
-            case MqttPacketType.SubAck:
             case MqttPacketType.UnsubAck:
                 return PacketIdLength; // packet id only
+            case MqttPacketType.SubAck:
+                return EstimateSubAckPacketSizeMqtt311((SubAckPacket)packet);
             case MqttPacketType.Subscribe:
                 return EstimateSubscribePacketSizeMqtt311((SubscribePacket)packet);
             case MqttPacketType.Unsubscribe:
@@ -75,6 +76,20 @@ internal static class MqttPacketSizeEstimator
             default:
                 throw new ArgumentOutOfRangeException(nameof(packet), packet.PacketType, null);
         }
+    }
+
+    private static int EstimateSubAckPacketSizeMqtt311(SubAckPacket packet)
+    {
+        var size = 0; // fixed header not included in length calculation
+        // packet id
+        size += PacketIdLength;
+
+        foreach (var reasonCode in packet.ReasonCodes)
+        {
+            size += 1; // Reason code
+        }
+
+        return size;    
     }
 
     private static int EstimateUnsubscribePacketSizeMqtt311(UnsubscribePacket packet)
