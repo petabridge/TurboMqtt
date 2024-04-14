@@ -326,8 +326,6 @@ public class Mqtt311Decoder
     {
         var packetId = DecodeUnsignedShort(ref buffer, ref remainingLength);
         packet.PacketId = packetId;
-        if (packetId == 0)
-            throw new ArgumentOutOfRangeException(nameof(packetId), "PacketId cannot be 0.");
     }
     
     protected static string DecodeString(ref ReadOnlyMemory<byte> buffer, ref int remainingLength) => DecodeString(ref buffer, ref remainingLength, 0, int.MaxValue);
