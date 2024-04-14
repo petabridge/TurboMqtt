@@ -104,6 +104,22 @@ public class ConnectPacketMqtt311Specs
             connectPacket.Will.Message.ToArray().Should().BeEquivalentTo(new byte[] { 1, 2, 3 });
         }
     }
+
+    public class WhenSettingUserNameAndPassword()
+    {
+        [Fact] public void should_set_username_and_password()
+        {
+            var connectPacket = new ConnectPacket(MqttProtocolVersion.V3_1_1)
+            {
+                Username = "username",
+                Password = "password"
+            };
+            connectPacket.Username.Should().Be("username");
+            connectPacket.Flags.UsernameFlag.Should().BeTrue();
+            connectPacket.Password.Should().Be("password");
+            connectPacket.Flags.PasswordFlag.Should().BeTrue();
+        }
+    }
     
     // create test cases for estimating the size of the packet
     public class WhenEstimatingPacketSize
