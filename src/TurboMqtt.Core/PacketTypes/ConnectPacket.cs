@@ -11,11 +11,11 @@ namespace TurboMqtt.Core.PacketTypes;
 /// <summary>
 /// Used to initiate a connection to the MQTT broker.
 /// </summary>
-public class ConnectPacket(string clientId, MqttProtocolVersion protocolVersion) : MqttPacket
+public class ConnectPacket(MqttProtocolVersion protocolVersion) : MqttPacket
 {
     public override MqttPacketType PacketType => MqttPacketType.Connect;
 
-    public string ClientId { get; } = clientId;
+    public string ClientId { get; set; }
     public ushort KeepAlive { get; set; }
     public ConnectFlags Flags { get; set; }
     
@@ -23,6 +23,8 @@ public class ConnectPacket(string clientId, MqttProtocolVersion protocolVersion)
     
     public string? Username { get; set; }
     public ReadOnlyMemory<byte>? Password { get; set; }
+
+    public string ProtocolName { get; set; } = string.Empty;
     
     public MqttProtocolVersion ProtocolVersion { get; } = protocolVersion;
     
@@ -111,6 +113,11 @@ public struct ConnectFlags
 
         if (result.WillFlag)
             result.WillQoS = (QualityOfService)((flags & 0b0001_1000) >> 3);
+        
+        // if ((flags & 0x38) != 0) // bits 3,4,5 [MQTT-3.1.2-11]
+        // {
+        //     throw new ArgumentOutOfRangeException(nameof(flags), "[MQTT-3.1.2-11]");
+        // }
 
         return result;
     }

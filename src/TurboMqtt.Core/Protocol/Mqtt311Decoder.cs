@@ -116,10 +116,9 @@ public class Mqtt311Decoder
                     break;
                 case MqttPacketType.Connect:
                 {
-                    packets = packets.Add(DecodeConnect())
+                    packets = packets.Add(DecodeConnect(ref bufferForMsg, packetSize, headerLength));
                     break;
                 }
-                    
                 case MqttPacketType.ConnAck:
                     packets = ConnAckPacket.Decode(additionalData);
                     break;
@@ -276,7 +275,22 @@ public class Mqtt311Decoder
         if (!protocolName.Equals("MQTT", StringComparison.Ordinal))
             throw new ArgumentOutOfRangeException(nameof(protocolName), $"Invalid protocol name: {protocolName}");
         
+        var protocolLevel = (MqttProtocolVersion)buffer.Span[0];
+        DecreaseRemainingLength(ref remainingLength, 1);
+        buffer = buffer.Slice(0,1);
         
+        var flags = ConnectFlags.Decode(buffer.Span[0]);
+        DecreaseRemainingLength(ref remainingLength, 1);
+        buffer = buffer.Slice(0, 1);
+
+        var packet = new ConnectPacket(protocolLevel)
+        {
+            Flags = flags,
+            ProtocolName = protocolName
+        };
+
+        if(flags is { PasswordFlag: true, UsernameFlag: false })
+            throw new ArgumentOutOfRangeException(nameof(flags), "Password flag is set, but username flag is not. [MQTT-3.1.2-22]");
     }
     
     protected virtual DisconnectPacket DecodeDisconnect(ref ReadOnlyMemory<byte> buffer, int remainingLength, int headerLength)
