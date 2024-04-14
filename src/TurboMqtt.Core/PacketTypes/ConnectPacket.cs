@@ -21,10 +21,53 @@ public sealed class ConnectPacket(MqttProtocolVersion protocolVersion) : MqttPac
     public ushort KeepAliveSeconds { get; set; }
     public ConnectFlags Flags { get; set; }
     
-    public MqttLastWill? Will { get; set; }
-    
-    public string? Username { get; set; }
-    public string? Password { get; set; }
+    private MqttLastWill? _will;
+
+    public MqttLastWill? Will
+    {
+        get => _will;
+        set
+        {
+            _will = value;
+            
+            // ensure that the will flag is set or unset
+            var flags = Flags;
+            flags.WillFlag = value != null;
+            flags.WillQoS = value?.WillQoS ?? QualityOfService.AtMostOnce;
+            flags.WillRetain = value?.WillRetain ?? false;
+            Flags = flags;
+        }
+    }
+
+    private string? _username;
+    public string? Username
+    {
+        get => _username;
+        set
+        {
+            _username = value;
+            
+            // ensure that the username flag is set or unset
+            var flags = Flags;
+            flags.UsernameFlag = !string.IsNullOrEmpty(value);
+            Flags = flags;
+        }
+    }
+
+    private string? _password;
+
+    public string? Password
+    {
+        get => _password;
+        set
+        {
+            _password = value;
+            // ensure that the password flag is set or unset
+            var flags = Flags;
+            flags.PasswordFlag = !string.IsNullOrEmpty(value);
+            Flags = flags;
+        }
+    }
 
     public string ProtocolName { get; set; } = string.Empty;
     
@@ -61,6 +104,9 @@ public sealed class MqttLastWill
 
     public string Topic { get; }
     public ReadOnlyMemory<byte> Message { get; }
+    
+    public QualityOfService WillQoS { get; set; } = QualityOfService.AtMostOnce;
+    public bool WillRetain { get; set; }
     
     // MQTT 5.0 - Optional Properties for Last Will and Testament
     public string? ResponseTopic { get; set; } // MQTT 5.0 only

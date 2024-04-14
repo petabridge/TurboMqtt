@@ -54,7 +54,7 @@ public class Mqtt311Decoder
             var currentPacket = workingBuffer.Span;
 
             // extract MqttPacketType
-            packetType = (MqttPacketType)(currentPacket[0] & 0xF0);
+            packetType = (MqttPacketType)(currentPacket[0] >> 4);
             currentPacket = currentPacket.Slice(1);
             
             // extract packet size (the packet span will automatically advance past the size header)
@@ -432,7 +432,7 @@ public class Mqtt311Decoder
         } while ((encodedByte & 128) != 0);
         
         bodyLength = value;
-        span = span.Slice(0, byteCount);
+        span = span.Slice(byteCount);
 
         return true;
     }
