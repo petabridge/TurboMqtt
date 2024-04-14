@@ -63,7 +63,7 @@ public class ConnectFlagsSpecs
         [InlineData(QualityOfService.AtMostOnce)]
         [InlineData(QualityOfService.AtLeastOnce)]
         [InlineData(QualityOfService.ExactlyOnce)]
-        public void it_should_correctly_serialize_and_deserialize_flags_MQTT311(QualityOfService targetQualityOfService)
+        public void it_should_correctly_serialize_and_deserialize_flags_MQTT311_with_WillFlag(QualityOfService targetQualityOfService)
         {
             var flags = new ConnectFlags
             {
@@ -82,6 +82,26 @@ public class ConnectFlagsSpecs
             deserialized.WillFlag.Should().BeTrue();
             deserialized.WillRetain.Should().BeFalse(); // WillRetain is not supported in MQTT 3.1.1, so this should be false
             deserialized.WillQoS.Should().Be(targetQualityOfService);
+            deserialized.PasswordFlag.Should().BeTrue();
+            deserialized.UsernameFlag.Should().BeTrue();
+        }
+        
+        [Fact]
+        public void it_should_correctly_serialize_and_deserialize_flags_MQTT311_without_WillFlag()
+        {
+            var flags = new ConnectFlags
+            {
+                CleanSession = false,
+                PasswordFlag = true,
+                UsernameFlag = true
+            };
+
+            var bytes = flags.Encode(MqttProtocolVersion.V3_1_1);
+            var deserialized = ConnectFlags.Decode(bytes);
+
+            deserialized.CleanSession.Should().BeFalse();
+            deserialized.WillFlag.Should().BeFalse();
+            deserialized.WillRetain.Should().BeFalse(); // WillRetain is not supported in MQTT 3.1.1, so this should be false
             deserialized.PasswordFlag.Should().BeTrue();
             deserialized.UsernameFlag.Should().BeTrue();
         }

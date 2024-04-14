@@ -165,7 +165,7 @@ public class Mqtt311Encoder
         bytesWritten +=EncodeUtf8String(ref span, packet.TopicName);
         if (packet.QualityOfService > QualityOfService.AtMostOnce)
         {
-            bytesWritten +=WriteUnsignedShort(ref span, (int)packet.PacketId.Value);
+            bytesWritten += WriteUnsignedShort(ref span, (int)packet.PacketId.Value);
         }
         // copy the payload directly into the buffer
         bytesWritten += packet.Payload.Length;

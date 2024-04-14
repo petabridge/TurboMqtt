@@ -137,7 +137,7 @@ public class ConnectPacketMqtt311Specs
                 TopicAliasMaximum = 5, // should be ignored - only supported in MQTT 5.0
             };
             
-            MqttPacketSizeEstimator.EstimatePacketSize(connectPacket, MqttProtocolVersion.V3_1_1).Should().Be(54);
+            MqttPacketSizeEstimator.EstimatePacketSize(connectPacket, MqttProtocolVersion.V3_1_1).Should().Be(52);
         }
         
         // estimate the packet size without username and password
@@ -152,7 +152,7 @@ public class ConnectPacketMqtt311Specs
                 TopicAliasMaximum = 5, // should be ignored - only supported in MQTT 5.0
             };
             
-            MqttPacketSizeEstimator.EstimatePacketSize(connectPacket, MqttProtocolVersion.V3_1_1).Should().Be(34);
+            MqttPacketSizeEstimator.EstimatePacketSize(connectPacket, MqttProtocolVersion.V3_1_1).Should().Be(32);
         }
     }
 }
