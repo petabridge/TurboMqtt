@@ -15,14 +15,15 @@ internal static class MqttPacketSizeEstimator
     internal const int StringSizeLength = 2;
     internal const int MaxVariableLength = 4;
     internal const string Mqtt5ProtocolName = "MQTT";
-    internal const string Mqtt311ProtocolName = "MQIsdp";
+    internal const string Mqtt311ProtocolName = "MQTT";
+    internal const string Mqtt31ProtocolName = "MQIsdp"; // probably not going to support this version
 
     /// <summary>
     /// Estimates the size of the packet WITHOUT the length header.
     /// </summary>
     /// <param name="packet">The packet to estimate.</param>
     /// <param name="protocolVersion">The version of the MQTT protocol we're encoding the packet for.</param>
-    /// <returns>The length of the packet NOT INCLUDING the length header, which gets calculated separately via <see cref="GetPacketHeaderSize"/>.</returns>
+    /// <returns>The length of the packet NOT INCLUDING the length header, which gets calculated separately via <see cref="GetPacketLengthHeaderSize"/>.</returns>
     /// <exception cref="ArgumentOutOfRangeException">Thrown when an recognized MQTT protocol version is supplied.</exception>
     public static int EstimatePacketSize(MqttPacket packet,
         MqttProtocolVersion protocolVersion = MqttProtocolVersion.V5_0)
@@ -42,7 +43,7 @@ internal static class MqttPacketSizeEstimator
     /// Estimates the size of the packet WITHOUT the length header.
     /// </summary>
     /// <param name="packet">The packet to estimate.</param>
-    /// <returns>The length of the packet NOT INCLUDING the length header, which gets calculated separately via <see cref="GetPacketHeaderSize"/>.</returns>
+    /// <returns>The length of the packet NOT INCLUDING the length header, which gets calculated separately via <see cref="GetPacketLengthHeaderSize"/>.</returns>
     /// <exception cref="ArgumentOutOfRangeException">Thrown when an recognized packet type is supplied.</exception>
     public static int EstimateMqtt3PacketSize(MqttPacket packet)
     {
@@ -51,16 +52,17 @@ internal static class MqttPacketSizeEstimator
             case MqttPacketType.Connect:
                 return EstimateConnectPacketSizeMqtt311((ConnectPacket)packet);
             case MqttPacketType.ConnAck:
-                return 2 + 2; // fixed header + 1 byte for session present + 1 byte for reason code
+                return 2; //1 byte for session present + 1 byte for reason code
             case MqttPacketType.Publish:
                 return EstimatePublishPacketSizeMqtt311((PublishPacket)packet);
             case MqttPacketType.PubAck:
             case MqttPacketType.PubRec:
             case MqttPacketType.PubRel:
             case MqttPacketType.PubComp:
-            case MqttPacketType.SubAck:
             case MqttPacketType.UnsubAck:
-                return 2 + PacketIdLength; // fixed header + packet id only
+                return PacketIdLength; // packet id only
+            case MqttPacketType.SubAck:
+                return EstimateSubAckPacketSizeMqtt311((SubAckPacket)packet);
             case MqttPacketType.Subscribe:
                 return EstimateSubscribePacketSizeMqtt311((SubscribePacket)packet);
             case MqttPacketType.Unsubscribe:
@@ -68,7 +70,7 @@ internal static class MqttPacketSizeEstimator
             case MqttPacketType.PingReq:
             case MqttPacketType.PingResp:
             case MqttPacketType.Disconnect:
-                return 2; // fixed header only
+                return 0; // fixed header only
             case MqttPacketType.Auth
                 : // this should throw for AUTH packets in MQTT3, which are not supported (MQTT5 and up only)
             default:
@@ -76,9 +78,23 @@ internal static class MqttPacketSizeEstimator
         }
     }
 
+    private static int EstimateSubAckPacketSizeMqtt311(SubAckPacket packet)
+    {
+        var size = 0; // fixed header not included in length calculation
+        // packet id
+        size += PacketIdLength;
+
+        foreach (var reasonCode in packet.ReasonCodes)
+        {
+            size += 1; // Reason code
+        }
+
+        return size;    
+    }
+
     private static int EstimateUnsubscribePacketSizeMqtt311(UnsubscribePacket packet)
     {
-        var size = 2; // Start with 2 bytes for the fixed header
+        var size = 0; // fixed header not included in length calculation
 
 
         // packet id
@@ -94,7 +110,7 @@ internal static class MqttPacketSizeEstimator
 
     private static int EstimateSubscribePacketSizeMqtt311(SubscribePacket packet)
     {
-        var size = 2; // Start with 2 bytes for the fixed header
+        var size = 0; // fixed header not included in length calculation
 
 
         // packet id
@@ -111,7 +127,7 @@ internal static class MqttPacketSizeEstimator
 
     private static int EstimatePublishPacketSizeMqtt311(PublishPacket packet)
     {
-        var size = 2; // Start with 2 bytes for the fixed header
+        var size = 0; // fixed header not included in length calculation
 
         // Variable header:
         /*
@@ -138,7 +154,7 @@ internal static class MqttPacketSizeEstimator
     /// Estimates the size of the packet WITHOUT the length header.
     /// </summary>
     /// <param name="packet">The packet to estimate.</param>
-    /// <returns>The length of the packet NOT INCLUDING the length header, which gets calculated separately via <see cref="GetPacketHeaderSize"/>.</returns>
+    /// <returns>The length of the packet NOT INCLUDING the length header, which gets calculated separately via <see cref="GetPacketLengthHeaderSize"/>.</returns>
     /// <exception cref="ArgumentOutOfRangeException">Thrown when an recognized packet type is supplied.</exception>
     /// <remarks>
     /// MQTT5 includes many additional properties aimed at making debuggability easier, but they also increase the size of the packet.
@@ -154,7 +170,7 @@ internal static class MqttPacketSizeEstimator
             case MqttPacketType.Publish:
                 return EstimatePublishPacketSizeMqtt5((PublishPacket)packet);
             case MqttPacketType.PubAck:
-                return EstimatePubAckPacketSizeMqtt5((PublishAckPacket)packet);
+                return EstimatePubAckPacketSizeMqtt5((PubAckPacket)packet);
             case MqttPacketType.PubRec:
                 return EstimatePubRecPacketSizeMqtt5((PubRecPacket)packet);
             case MqttPacketType.PubRel:
@@ -164,7 +180,7 @@ internal static class MqttPacketSizeEstimator
             case MqttPacketType.Subscribe:
                 return EstimateSubscribePacketSizeMqtt5((SubscribePacket)packet);
             case MqttPacketType.SubAck:
-                return EstimateSubAckPacketSizeMqtt5((SubscribeAckPacket)packet);
+                return EstimateSubAckPacketSizeMqtt5((SubAckPacket)packet);
             case MqttPacketType.Unsubscribe:
                 return EstimateUnsubscribePacketSizeMqtt5((UnsubscribePacket)packet);
             case MqttPacketType.UnsubAck:
@@ -183,7 +199,7 @@ internal static class MqttPacketSizeEstimator
 
     private static int EstimateAuthPacketSizeMqtt5(AuthPacket packet)
     {
-        var size = 2; // Start with 2 bytes for the fixed header
+        var size = 0; // fixed header not included in length calculation
         size += 1; // Reason code is 1 byte
 
         // Start calculating the properties size
@@ -216,7 +232,7 @@ internal static class MqttPacketSizeEstimator
 
     private static int EstimateUnsubscribeAckPacketSizeMqtt5(UnsubscribeAckPacket packet)
     {
-        var size = 2; // Start with 2 bytes for the fixed header
+        var size = 0; // fixed header not included in length calculation
 
         // packet id
         size += PacketIdLength;
@@ -246,7 +262,7 @@ internal static class MqttPacketSizeEstimator
 
     private static int EstimateUnsubscribePacketSizeMqtt5(UnsubscribePacket packet)
     {
-        var size = 2; // Start with 2 bytes for the fixed header
+        var size = 0; // fixed header not included in length calculation
 
         // packet id
         size += PacketIdLength;
@@ -268,9 +284,9 @@ internal static class MqttPacketSizeEstimator
         return size + propertiesSize;
     }
 
-    private static int EstimateSubAckPacketSizeMqtt5(SubscribeAckPacket packet)
+    private static int EstimateSubAckPacketSizeMqtt5(SubAckPacket packet)
     {
-        var size = 2; // Start with 2 bytes for the fixed header
+        var size = 0; // fixed header not included in length calculation
         size += 1; // Reason code is 1 byte
 
         // packet id
@@ -301,7 +317,7 @@ internal static class MqttPacketSizeEstimator
 
     private static int EstimateSubscribePacketSizeMqtt5(SubscribePacket packet)
     {
-        var size = 2; // Start with 2 bytes for the fixed header
+        var size = 0; // fixed header not included in length calculation
 
         // Start calculating the properties size
         var propertiesSize = 0;
@@ -330,7 +346,7 @@ internal static class MqttPacketSizeEstimator
 
     private static int EstimatePubCompPacketSizeMqtt5(PubCompPacket packet)
     {
-        var size = 2; // Start with 2 bytes for the fixed header
+        var size = 0; // fixed header not included in length calculation
         size += 1; // Reason code is 1 byte
 
         // packet id
@@ -356,7 +372,7 @@ internal static class MqttPacketSizeEstimator
 
     private static int EstimatePubRelPacketSizeMqtt5(PubRelPacket packet)
     {
-        var size = 2; // Start with 2 bytes for the fixed header
+        var size = 0; // fixed header not included in length calculation
         size += 1; // Reason code is 1 byte
 
         // packet id
@@ -382,7 +398,7 @@ internal static class MqttPacketSizeEstimator
 
     private static int EstimatePubRecPacketSizeMqtt5(PubRecPacket packet)
     {
-        var size = 2; // Start with 2 bytes for the fixed header
+        var size = 0; // fixed header not included in length calculation
         size += 1; // Reason code is 1 byte
 
         // packet id
@@ -406,9 +422,9 @@ internal static class MqttPacketSizeEstimator
         return size + propertiesSize;
     }
 
-    private static int EstimatePubAckPacketSizeMqtt5(PublishAckPacket packet)
+    private static int EstimatePubAckPacketSizeMqtt5(PubAckPacket packet)
     {
-        var size = 2; // Start with 2 bytes for the fixed header
+        var size = 0; // fixed header not included in length calculation
         size += 1; // Reason code is 1 byte
 
         // packet id
@@ -428,7 +444,7 @@ internal static class MqttPacketSizeEstimator
 
     private static int EstimatePublishPacketSizeMqtt5(PublishPacket packet)
     {
-        var size = 2; // Start with 2 bytes for the fixed header
+        var size = 0; // fixed header not included in length calculation
 
         // Variable header:
         /*
@@ -493,7 +509,7 @@ internal static class MqttPacketSizeEstimator
 
     private static int EstimateConnAckPacketSizeMqtt5(ConnAckPacket packet)
     {
-        var size = 2; // Start with 2 bytes for the fixed header
+        var size = 0; // fixed header not included in length calculation
         size += 2; // Reason code is 1 byte, session created is 1 byte
 
         // Start calculating the properties size
@@ -515,10 +531,10 @@ internal static class MqttPacketSizeEstimator
     ///
     /// We subtract 2 bytes from the packet body length to account for the fixed length header.
     /// </remarks>
-    public static int GetPacketHeaderSize(int packetBodyLength)
+    public static int GetPacketLengthHeaderSize(int packetBodyLength)
     {
-        // remove 2 bytes for the fixed header, which isn't included in the length
-        return packetBodyLength - 2 switch
+        // remove 1 bytes for the fixed header, which isn't included in the length
+        return (packetBodyLength - 1) switch
         {
             < 128 => 1,
             < 16384 => 2,
@@ -551,7 +567,7 @@ internal static class MqttPacketSizeEstimator
     /// </remarks>
     private static int EstimateDisconnectPacketSizeMqtt5(DisconnectPacket packet)
     {
-        var size = 2; // Start with 2 bytes for the fixed header
+        var size = 0; // fixed header not included in length calculation
 
         if (packet.ReasonCode.HasValue)
         {
@@ -581,7 +597,7 @@ internal static class MqttPacketSizeEstimator
 
     private static int EstimateConnectPacketSizeMqtt311(ConnectPacket packet)
     {
-        var size = 2; // Start with 2 bytes for the fixed header
+        var size = 0; // fixed header not included in length calculation
         // Variable header:
 
         /*
@@ -594,8 +610,7 @@ internal static class MqttPacketSizeEstimator
 
         // Protocol Name (2 bytes length + actual length of string)
 
-        size += 2 + Encoding.ASCII.GetByteCount(
-            Mqtt311ProtocolName); // MQTT uses ASCII, not UTF8, for the protocol name: https://www.emqx.com/en/blog/mqtt-5-0-control-packets-01-connect-connack#connect-packet-structure
+        size += 2 + Encoding.UTF8.GetByteCount(packet.ProtocolName); // MQTT uses ASCII, not UTF8, for the protocol name: https://www.emqx.com/en/blog/mqtt-5-0-control-packets-01-connect-connack#connect-packet-structure
 
         // Protocol Version (1 byte)
         size += 1;
@@ -621,9 +636,9 @@ internal static class MqttPacketSizeEstimator
             payloadSize += 2 + Encoding.UTF8.GetByteCount(packet.Username);
         }
 
-        if (packet.Password.HasValue)
+        if (!string.IsNullOrEmpty(packet.Password))
         {
-            payloadSize += 2 + packet.Password.Value.Length;
+            payloadSize += 2 + Encoding.UTF8.GetByteCount(packet.Password);
         }
 
         return size + payloadSize;
@@ -631,7 +646,7 @@ internal static class MqttPacketSizeEstimator
 
     private static int EstimateConnectPacketSizeMqtt5(ConnectPacket packet)
     {
-        var size = 2; // Start with 2 bytes for the fixed header
+        var size = 0; // fixed header not included in length calculation
 
         // Variable header:
 
@@ -645,8 +660,8 @@ internal static class MqttPacketSizeEstimator
 
         // Protocol Name (2 bytes length + actual length of string)
 
-        size += 2 + Encoding.ASCII.GetByteCount(
-            Mqtt5ProtocolName); // MQTT uses ASCII, not UTF8, for the protocol name: https://www.emqx.com/en/blog/mqtt-5-0-control-packets-01-connect-connack#connect-packet-structure
+        size += 2 + Encoding.UTF8.GetByteCount(
+            Mqtt5ProtocolName); // Note: MQTT usually uses ASCII, not UTF8, for the protocol name: https://www.emqx.com/en/blog/mqtt-5-0-control-packets-01-connect-connack#connect-packet-structure
 
         // Protocol Version (1 byte)
         size += 1;
@@ -738,9 +753,9 @@ internal static class MqttPacketSizeEstimator
             payloadSize += 2 + Encoding.UTF8.GetByteCount(packet.Username);
         }
 
-        if (packet.Password.HasValue)
+        if (!string.IsNullOrEmpty(packet.Password))
         {
-            payloadSize += 2 + packet.Password.Value.Length;
+            payloadSize += 2 + Encoding.UTF8.GetByteCount(packet.Password);
         }
 
         return size + propertiesSize + payloadSize;

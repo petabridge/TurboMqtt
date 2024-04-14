@@ -16,63 +16,63 @@ public class ConnectPacketMqtt5Specs
         [Fact]
         public void should_have_correct_packet_type()
         {
-            var packet = new ConnectPacket("clientId", MqttProtocolVersion.V5_0);
+            var packet = new ConnectPacket(MqttProtocolVersion.V5_0);
             packet.PacketType.Should().Be(MqttPacketType.Connect);
         }
 
         [Fact]
         public void should_have_correct_protocol_version()
         {
-            var packet = new ConnectPacket("clientId", MqttProtocolVersion.V5_0);
+            var packet = new ConnectPacket(MqttProtocolVersion.V5_0);
             packet.ProtocolVersion.Should().Be(MqttProtocolVersion.V5_0);
         }
 
         [Fact]
         public void should_have_correct_client_id()
         {
-            var packet = new ConnectPacket("clientId", MqttProtocolVersion.V5_0);
-            packet.ClientId.Should().Be("clientId");
+            var packet = new ConnectPacket(MqttProtocolVersion.V5_0);
+            packet.ClientId.Should().Be("turbomqtt");
         }
 
         [Fact]
         public void should_have_correct_keep_alive()
         {
-            var packet = new ConnectPacket("clientId", MqttProtocolVersion.V5_0);
-            packet.KeepAlive.Should().Be(0);
+            var packet = new ConnectPacket(MqttProtocolVersion.V5_0);
+            packet.KeepAliveSeconds.Should().Be(0);
         }
 
         [Fact]
         public void should_have_correct_flags()
         {
-            var packet = new ConnectPacket("clientId", MqttProtocolVersion.V5_0);
+            var packet = new ConnectPacket(MqttProtocolVersion.V5_0);
             packet.Flags.Should().Be(new ConnectFlags());
         }
 
         [Fact]
         public void should_have_correct_will()
         {
-            var packet = new ConnectPacket("clientId", MqttProtocolVersion.V5_0);
+            var packet = new ConnectPacket(MqttProtocolVersion.V5_0);
             packet.Will.Should().BeNull();
         }
 
         [Fact]
         public void should_have_correct_username()
         {
-            var packet = new ConnectPacket("clientId", MqttProtocolVersion.V5_0);
+            var packet = new ConnectPacket(MqttProtocolVersion.V5_0);
             packet.Username.Should().BeNull();
         }
 
         [Fact]
         public void should_have_correct_password()
         {
-            var packet = new ConnectPacket("clientId", MqttProtocolVersion.V5_0);
+            var packet = new ConnectPacket(MqttProtocolVersion.V5_0);
             packet.Password.Should().BeNull();
         }
 
         [Fact]
         public void should_have_correct_properties()
         {
-            var packet = new ConnectPacket("clientId", MqttProtocolVersion.V5_0);
+            var packet = new ConnectPacket(MqttProtocolVersion.V5_0);
             packet.UserProperties.Should().BeNull();
         }
     }
@@ -83,15 +83,16 @@ public class ConnectPacketMqtt5Specs
         [Fact]
         public void should_estimate_correct_packet_size()
         {
-            var packet = new ConnectPacket("clientId", MqttProtocolVersion.V5_0);
-
-            MqttPacketSizeEstimator.EstimatePacketSize(packet, MqttProtocolVersion.V5_0).Should().Be(42);
+            var packet = new ConnectPacket(MqttProtocolVersion.V5_0);
+            packet.ClientId = "clientId";
+            packet.ProtocolName = "MQTT";
+            MqttPacketSizeEstimator.EstimatePacketSize(packet, MqttProtocolVersion.V5_0).Should().Be(40);
         }
 
         [Fact]
         public void should_estimate_correct_packet_size_with_properties()
         {
-            var packet = new ConnectPacket("clientId", MqttProtocolVersion.V5_0)
+            var packet = new ConnectPacket(MqttProtocolVersion.V5_0)
             {
                 UserProperties = new Dictionary<string, string>
                 {
@@ -99,14 +100,16 @@ public class ConnectPacketMqtt5Specs
                     { "key2", "value2" }
                 }
             };
+            packet.ClientId = "clientId";
+            packet.ProtocolName = "MQTT";
 
-            MqttPacketSizeEstimator.EstimatePacketSize(packet, MqttProtocolVersion.V5_0).Should().Be(52);
+            MqttPacketSizeEstimator.EstimatePacketSize(packet, MqttProtocolVersion.V5_0).Should().Be(50);
         }
 
         [Fact]
         public void should_estimate_correct_packet_size_with_will()
         {
-            var packet = new ConnectPacket("clientId", MqttProtocolVersion.V5_0)
+            var packet = new ConnectPacket(MqttProtocolVersion.V5_0)
             {
                 Will = new MqttLastWill("topic", new byte[] { 1, 2, 3, 4 })
                 {
@@ -125,9 +128,11 @@ public class ConnectPacketMqtt5Specs
                     WillRetain = true
                 }
             };
+            packet.ClientId = "clientId";
+            packet.ProtocolName = "MQTT";
             
 
-            MqttPacketSizeEstimator.EstimatePacketSize(packet, MqttProtocolVersion.V5_0).Should().Be(77);
+            MqttPacketSizeEstimator.EstimatePacketSize(packet, MqttProtocolVersion.V5_0).Should().Be(75);
         }
     }
 }

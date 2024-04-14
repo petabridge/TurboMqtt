@@ -11,18 +11,53 @@ namespace TurboMqtt.Core.PacketTypes;
 /// <summary>
 /// Used to initiate a connection to the MQTT broker.
 /// </summary>
-public class ConnectPacket(string clientId, MqttProtocolVersion protocolVersion) : MqttPacket
+public sealed class ConnectPacket(MqttProtocolVersion protocolVersion) : MqttPacket
 {
+    public const string DefaultClientId = "turbomqtt";
+    
     public override MqttPacketType PacketType => MqttPacketType.Connect;
 
-    public string ClientId { get; } = clientId;
-    public ushort KeepAlive { get; set; }
+    public string ClientId { get; set; } = DefaultClientId;
+    public ushort KeepAliveSeconds { get; set; }
     public ConnectFlags Flags { get; set; }
-    
-    public MqttLastWill? Will { get; set; }
-    
-    public string? Username { get; set; }
-    public ReadOnlyMemory<byte>? Password { get; set; }
+
+    public MqttLastWill? Will
+    {
+        get;
+        set;
+    }
+
+    private string? _username;
+    public string? Username
+    {
+        get => _username;
+        set
+        {
+            _username = value;
+            
+            // ensure that the username flag is set or unset
+            var flags = Flags;
+            flags.UsernameFlag = !string.IsNullOrEmpty(value);
+            Flags = flags;
+        }
+    }
+
+    private string? _password;
+
+    public string? Password
+    {
+        get => _password;
+        set
+        {
+            _password = value;
+            // ensure that the password flag is set or unset
+            var flags = Flags;
+            flags.PasswordFlag = !string.IsNullOrEmpty(value);
+            Flags = flags;
+        }
+    }
+
+    public string ProtocolName { get; set; } = "MQTT";
     
     public MqttProtocolVersion ProtocolVersion { get; } = protocolVersion;
     
@@ -37,7 +72,11 @@ public class ConnectPacket(string clientId, MqttProtocolVersion protocolVersion)
     public ReadOnlyMemory<byte>? AuthenticationData { get; set; } // MQTT 5.0 only
     public IReadOnlyDictionary<string, string>? UserProperties { get; set; } // MQTT 5.0 custom properties
 
-
+    public override string ToString()
+    {
+        return $"ConnectPacket(ClientId={ClientId}, KeepAliveSeconds={KeepAliveSeconds}, Flags={Flags}, Will={Will}, Username={Username}, Password={Password})";
+    
+    }
 }
 
 /// <summary>
@@ -79,38 +118,42 @@ public struct ConnectFlags
     public bool WillFlag { get; set; }
     public bool CleanSession { get; set; }  // Renamed from CleanStart for 3.1.1 compatibility
 
-    public byte Encode(MqttProtocolVersion version)
+    public byte Encode()
     {
-        byte result = 0;
+        int result = 0;
         if (UsernameFlag)
-            result |= 0b1000_0000;
+            result |= 0x80;
         if (PasswordFlag)
-            result |= 0b0100_0000;
-        if (version == MqttProtocolVersion.V5_0 && WillRetain)
-            result |= 0b0010_0000;
+            result |= 0x40;
+        if (WillRetain)
+            result |= 0x20;
         if (WillFlag)
-            result |= 0b0000_0100;
+            result |= 0x04;
         if (CleanSession)
-            result |= 0b0000_0010;
+            result |= 0x02;
         if (WillFlag) // Only encode Will QoS if Will is set
-            result |= (byte)(((int)WillQoS & 0x03) << 3);
+            result |= (((int)WillQoS & 0x03) << 3);
 
-        return result;
+        return (byte)result;
     }
     
     public static ConnectFlags Decode(byte flags)
     {
         var result = new ConnectFlags
         {
-            UsernameFlag = (flags & 0b1000_0000) != 0,
-            PasswordFlag = (flags & 0b0100_0000) != 0,
-            WillRetain = (flags & 0b0010_0000) != 0,
-            WillFlag = (flags & 0b0000_0100) != 0,
-            CleanSession = (flags & 0b0000_0010) != 0
+            UsernameFlag = (flags & 0x80) == 0x80,
+            PasswordFlag = (flags & 0x40) == 0x40,
+            WillRetain = (flags & 0x20) == 0x20,
+            WillFlag = (flags & 0x04) == 0x04,
+            CleanSession = (flags & 0x02) == 0x02
         };
 
         if (result.WillFlag)
-            result.WillQoS = (QualityOfService)((flags & 0b0001_1000) >> 3);
+            result.WillQoS = (QualityOfService)((flags & 0x18) >> 3);
+        else if ((flags & 0x38) != 0) // reserved bit for Will 3,4,5
+        {
+            throw new ArgumentOutOfRangeException(nameof(flags), "[MQTT-3.1.2-11]");
+        }
 
         return result;
     }
