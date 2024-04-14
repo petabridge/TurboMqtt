@@ -127,7 +127,7 @@ public class Mqtt311Encoder
         bytesWritten +=EncodeFrameHeaderWithByteShifting(ref span, estimatedSize);
         bytesWritten +=EncodeUtf8String(ref span, packet.ProtocolName);
         bytesWritten +=WriteByte(ref span, (byte)packet.ProtocolVersion);
-        bytesWritten +=WriteByte(ref span, packet.Flags.Encode(MqttProtocolVersion.V3_1_1));
+        bytesWritten +=WriteByte(ref span, packet.Flags.Encode());
         bytesWritten +=WriteUnsignedShort(ref span, packet.KeepAliveSeconds);
         
         // payload

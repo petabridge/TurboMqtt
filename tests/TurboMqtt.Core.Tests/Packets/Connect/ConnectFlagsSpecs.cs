@@ -75,12 +75,12 @@ public class ConnectFlagsSpecs
                 UsernameFlag = true
             };
 
-            var bytes = flags.Encode(MqttProtocolVersion.V3_1_1);
+            var bytes = flags.Encode();
             var deserialized = ConnectFlags.Decode(bytes);
 
             deserialized.CleanSession.Should().BeFalse();
             deserialized.WillFlag.Should().BeTrue();
-            deserialized.WillRetain.Should().BeFalse(); // WillRetain is not supported in MQTT 3.1.1, so this should be false
+            deserialized.WillRetain.Should().BeTrue();
             deserialized.WillQoS.Should().Be(targetQualityOfService);
             deserialized.PasswordFlag.Should().BeTrue();
             deserialized.UsernameFlag.Should().BeTrue();
@@ -96,7 +96,7 @@ public class ConnectFlagsSpecs
                 UsernameFlag = true
             };
 
-            var bytes = flags.Encode(MqttProtocolVersion.V3_1_1);
+            var bytes = flags.Encode();
             var deserialized = ConnectFlags.Decode(bytes);
 
             deserialized.CleanSession.Should().BeFalse();
@@ -122,7 +122,7 @@ public class ConnectFlagsSpecs
                 UsernameFlag = true
             };
 
-            var bytes = flags.Encode(MqttProtocolVersion.V5_0);
+            var bytes = flags.Encode();
             var deserialized = ConnectFlags.Decode(bytes);
 
             deserialized.CleanSession.Should().BeFalse();

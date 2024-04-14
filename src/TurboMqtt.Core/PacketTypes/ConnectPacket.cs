@@ -129,26 +129,47 @@ public struct ConnectFlags
     public bool WillFlag { get; set; }
     public bool CleanSession { get; set; }  // Renamed from CleanStart for 3.1.1 compatibility
 
-    public byte Encode(MqttProtocolVersion version)
+    public byte Encode()
     {
-        byte result = 0;
+        int result = 0;
         if (UsernameFlag)
-            result |= 0b1000_0000;
+            result |= 0x80;
         if (PasswordFlag)
-            result |= 0b0100_0000;
-        if (version == MqttProtocolVersion.V5_0 && WillRetain)
-            result |= 0b0010_0000;
+            result |= 0x40;
+        if (WillRetain)
+            result |= 0x20;
         if (WillFlag)
-            result |= 0b0000_0100;
+            result |= 0x04;
         if (CleanSession)
-            result |= 0b0000_0010;
+            result |= 0x02;
         if (WillFlag) // Only encode Will QoS if Will is set
-            result |= (byte)(((int)WillQoS & 0x03) << 3);
+            result |= (((int)WillQoS & 0x03) << 3);
+
+        return (byte)result;
+    }
+    
+    public static ConnectFlags Decode(byte flags)
+    {
+        var result = new ConnectFlags
+        {
+            UsernameFlag = (flags & 0x80) == 0x80,
+            PasswordFlag = (flags & 0x40) == 0x40,
+            WillRetain = (flags & 0x20) == 0x20,
+            WillFlag = (flags & 0x04) == 0x04,
+            CleanSession = (flags & 0x02) == 0x02
+        };
+
+        if (result.WillFlag)
+            result.WillQoS = (QualityOfService)((flags & 0x18) >> 3);
+        else if ((flags & 0x38) != 0) // reserved bits 3,4,5
+        {
+            throw new ArgumentOutOfRangeException(nameof(flags), "[MQTT-3.1.2-11]");
+        }
 
         return result;
     }
     
-    public static ConnectFlags Decode(byte flags)
+    public static ConnectFlags DecodeMqtt5(byte flags)
     {
         var result = new ConnectFlags
         {
@@ -162,11 +183,6 @@ public struct ConnectFlags
         if (result.WillFlag)
             result.WillQoS = (QualityOfService)((flags & 0b0001_1000) >> 3);
         
-        // if ((flags & 0x38) != 0) // bits 3,4,5 [MQTT-3.1.2-11]
-        // {
-        //     throw new ArgumentOutOfRangeException(nameof(flags), "[MQTT-3.1.2-11]");
-        // }
-
         return result;
     }
 }
