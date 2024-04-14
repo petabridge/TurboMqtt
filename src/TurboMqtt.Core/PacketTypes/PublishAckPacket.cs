@@ -46,7 +46,7 @@ internal static class MqttPubAckHelpers
 /// <summary>
 /// Used to acknowledge the receipt of a Publish packet.
 /// </summary>
-public sealed class PublishAckPacket : MqttPacketWithId
+public sealed class PubAckPacket : MqttPacketWithId
 {
     public override MqttPacketType PacketType => MqttPacketType.PubAck;
 

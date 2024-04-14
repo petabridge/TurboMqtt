@@ -15,7 +15,8 @@ internal static class MqttPacketSizeEstimator
     internal const int StringSizeLength = 2;
     internal const int MaxVariableLength = 4;
     internal const string Mqtt5ProtocolName = "MQTT";
-    internal const string Mqtt311ProtocolName = "MQIsdp";
+    internal const string Mqtt311ProtocolName = "MQTT";
+    internal const string Mqtt31ProtocolName = "MQIsdp"; // probably not going to support this version
 
     /// <summary>
     /// Estimates the size of the packet WITHOUT the length header.
@@ -154,7 +155,7 @@ internal static class MqttPacketSizeEstimator
             case MqttPacketType.Publish:
                 return EstimatePublishPacketSizeMqtt5((PublishPacket)packet);
             case MqttPacketType.PubAck:
-                return EstimatePubAckPacketSizeMqtt5((PublishAckPacket)packet);
+                return EstimatePubAckPacketSizeMqtt5((PubAckPacket)packet);
             case MqttPacketType.PubRec:
                 return EstimatePubRecPacketSizeMqtt5((PubRecPacket)packet);
             case MqttPacketType.PubRel:
@@ -406,7 +407,7 @@ internal static class MqttPacketSizeEstimator
         return size + propertiesSize;
     }
 
-    private static int EstimatePubAckPacketSizeMqtt5(PublishAckPacket packet)
+    private static int EstimatePubAckPacketSizeMqtt5(PubAckPacket packet)
     {
         var size = 2; // Start with 2 bytes for the fixed header
         size += 1; // Reason code is 1 byte
