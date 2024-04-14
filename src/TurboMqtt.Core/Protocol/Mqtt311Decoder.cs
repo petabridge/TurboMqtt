@@ -174,6 +174,7 @@ public class Mqtt311Decoder
     {
         var packet = new UnsubscribePacket();
         bufferForMsg = bufferForMsg.Slice(headerLength); // advance past the fixed + size header
+        DecodePacketId(ref bufferForMsg, packet, ref remainingSize);
         var unsubscribeTopics = new List<string>();
         while (remainingSize > 0)
         {
