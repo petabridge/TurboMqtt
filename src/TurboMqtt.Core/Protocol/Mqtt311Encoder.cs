@@ -15,10 +15,11 @@ public static class Mqtt311Encoder
     public static int EncodePackets(IEnumerable<(MqttPacket packet, int estimatedSize)> packets, ref Memory<byte> buffer)
     {
         var bytesWritten = 0;
+        var workingBuffer = buffer;
         foreach (var (packet, size) in packets)
         {
-            var newBytesWritten = EncodePacket(packet, ref buffer, size);
-            buffer = buffer.Slice(newBytesWritten);
+            var newBytesWritten = EncodePacket(packet, ref workingBuffer, size);
+            workingBuffer = workingBuffer.Slice(newBytesWritten);
             bytesWritten += newBytesWritten;
         }
 
