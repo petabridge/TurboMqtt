@@ -230,7 +230,7 @@ public class Mqtt311Decoder
     public virtual MqttPacket DecodeConnAck(ref ReadOnlyMemory<byte> bufferForMsg, int remainingLength, int headerLength)
     {
         var packet = new ConnAckPacket();
-        bufferForMsg = bufferForMsg.Slice(0, headerLength); // advance past the fixed + size header
+        bufferForMsg = bufferForMsg.Slice( headerLength); // advance past the fixed + size header
         int ackData = DecodeUnsignedShort(ref bufferForMsg, ref remainingLength);
         packet.SessionPresent = ((ackData >> 8) & 0x1) != 0;
         packet.ReasonCode = (ConnAckReasonCode)(ackData & 0xFF);
