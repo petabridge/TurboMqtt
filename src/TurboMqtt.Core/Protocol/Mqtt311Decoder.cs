@@ -124,22 +124,28 @@ public class Mqtt311Decoder
                     packets = packets.Add(DecodeConnAck(ref bufferForMsg, packetSize, headerLength));
                     break;
                 }
-                case MqttPacketType.Subscribe:
-                    packets = SubscribePacket.Decode(additionalData);
-                    break;
                 case MqttPacketType.SubAck:
-                    packets = SubAckPacket.Decode(additionalData);
+                {
+                    packets = packets.Add(DecodeSubAck(ref bufferForMsg, packetSize, headerLength));
                     break;
+                }
+                case MqttPacketType.Subscribe:
+                {
+                    packets = packets.Add(DecodeSubscribe(ref bufferForMsg, packetSize, headerLength));
+                    break;
+                }
                 case MqttPacketType.Unsubscribe:
-                    packets = UnsubscribePacket.Decode(additionalData);
+                {
+                    packets = packets.Add(DecodeUnsubscribe(ref bufferForMsg, packetSize, headerLength));
                     break;
+                }
                 case MqttPacketType.UnsubAck:
-                    packets = DecodeUnsubscribeAck(additionalData);
+                {
+                    packets = packets.Add(DecodeUnsubAck(ref bufferForMsg, packetSize, headerLength));
                     break;
-               
-               
+                }
                 case MqttPacketType.Disconnect:
-                    packets = packets.Add(DecodeDisconnect(ref currentPacket));
+                    packets = packets.Add(DecodeDisconnect(ref bufferForMsg, packetSize, headerLength));
                     break;
                 case MqttPacketType.Auth: // MQTT 5.0 only - should throw an exception if we see this
                     throw new NotSupportedException("MQTT 5.0 packets are not supported.");
@@ -156,9 +162,79 @@ public class Mqtt311Decoder
         return rValue;
     }
 
-    public virtual MqttPacket DecodeConnAck(ref ReadOnlyMemory<byte> bufferForMsg, int packetSize, int headerLength)
+    public virtual MqttPacket DecodeUnsubAck(ref ReadOnlyMemory<byte> bufferForMsg, int packetSize, int headerLength)
     {
-        throw new NotImplementedException();
+        var packet = new UnsubscribeAckPacket();
+        bufferForMsg = bufferForMsg.Slice(0, headerLength); // advance past the fixed + size header
+        DecodePacketId(ref bufferForMsg, packet, ref packetSize);
+        return packet;
+    }
+
+    public virtual MqttPacket DecodeUnsubscribe(ref ReadOnlyMemory<byte> bufferForMsg, int remainingSize, int headerLength)
+    {
+        var packet = new UnsubscribePacket();
+        bufferForMsg = bufferForMsg.Slice(0, headerLength); // advance past the fixed + size header
+        var unsubscribeTopics = new List<string>();
+        while (remainingSize > 0)
+        {
+            var topicFilter = DecodeString(ref bufferForMsg, ref remainingSize);
+            // TODO: validate topics
+            unsubscribeTopics.Add(topicFilter);
+        }
+        
+        if(unsubscribeTopics.Count == 0)
+            throw new ArgumentOutOfRangeException(nameof(unsubscribeTopics), "Unsubscribe packet must contain at least one topic filter. [MQTT-3.10.3-2]");
+        
+        packet.Topics = unsubscribeTopics;
+        return packet;
+    }
+
+    public virtual MqttPacket DecodeSubscribe(ref ReadOnlyMemory<byte> bufferForMsg, int remainingLength, int headerLength)
+    {
+        var packet = new SubscribePacket();
+        bufferForMsg = bufferForMsg.Slice(0, headerLength); // advance past the fixed + size header
+        var subscribeTopics = new List<TopicSubscription>();
+        while (remainingLength > 0)
+        {
+            var topicFilter = DecodeString(ref bufferForMsg, ref remainingLength);
+            // TODO: topic filter validation
+            DecreaseRemainingLength(ref remainingLength, 1);
+            var subscribeOptionsByte = bufferForMsg.Span[0];
+            var subscribeOptions = subscribeOptionsByte.ToSubscriptionOptions();
+            subscribeTopics.Add(new TopicSubscription(topicFilter){ Options = subscribeOptions });
+        }
+        packet.Topics = subscribeTopics;
+        return packet;
+    }
+
+    public virtual MqttPacket DecodeSubAck(ref ReadOnlyMemory<byte> bufferForMsg, int remainingLength, int headerLength)
+    {
+        var packet = new SubAckPacket();
+        bufferForMsg = bufferForMsg.Slice(0, headerLength); // advance past the fixed + size header
+        DecodePacketId(ref bufferForMsg, packet, ref remainingLength);
+        var reasonCodes = new List<MqttSubscribeReasonCode>();
+        while (remainingLength > 0)
+        {
+            var qos = (MqttSubscribeReasonCode)bufferForMsg.Span[0];
+            
+            // TODO: enforce that MQTT 5.0 reason codes are only used in MQTT 5.0
+            
+            reasonCodes.Add(qos);
+            bufferForMsg = bufferForMsg.Slice(1);
+            remainingLength--;
+        }
+        packet.ReasonCodes = reasonCodes;
+        return packet;
+    }
+
+    public virtual MqttPacket DecodeConnAck(ref ReadOnlyMemory<byte> bufferForMsg, int remainingLength, int headerLength)
+    {
+        var packet = new ConnAckPacket();
+        bufferForMsg = bufferForMsg.Slice(0, headerLength); // advance past the fixed + size header
+        int ackData = DecodeUnsignedShort(ref bufferForMsg, ref remainingLength);
+        packet.SessionPresent = ((ackData >> 8) & 0x1) != 0;
+        packet.ReasonCode = (ConnAckReasonCode)(ackData & 0xFF);
+        return packet;
     }
 
     public virtual MqttPacket DecodePubComp(ref ReadOnlyMemory<byte> bufferForMsg, int packetSize, int headerLength)
@@ -360,13 +436,4 @@ public class Mqtt311Decoder
 
         return true;
     }
-
-
-    // private UnsubscribeAckPacket DecodeUnsubscribeAck(in ReadOnlyMemory<byte> buffer)
-    // {
-    //     var packet = new UnsubscribeAckPacket();
-    //     var span = buffer.Span;
-    //     packet.PacketId = span.Slice(2, 2);
-    //     return packet;
-    // }
 }

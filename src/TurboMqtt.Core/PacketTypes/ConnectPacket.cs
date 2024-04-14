@@ -15,7 +15,7 @@ public class ConnectPacket(MqttProtocolVersion protocolVersion) : MqttPacket
 {
     public override MqttPacketType PacketType => MqttPacketType.Connect;
 
-    public string ClientId { get; set; }
+    public string ClientId { get; set; } = "turbomqtt";
     public ushort KeepAliveSeconds { get; set; }
     public ConnectFlags Flags { get; set; }
     

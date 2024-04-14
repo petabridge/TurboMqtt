@@ -165,7 +165,7 @@ internal static class MqttPacketSizeEstimator
             case MqttPacketType.Subscribe:
                 return EstimateSubscribePacketSizeMqtt5((SubscribePacket)packet);
             case MqttPacketType.SubAck:
-                return EstimateSubAckPacketSizeMqtt5((SubscribeAckPacket)packet);
+                return EstimateSubAckPacketSizeMqtt5((SubAckPacket)packet);
             case MqttPacketType.Unsubscribe:
                 return EstimateUnsubscribePacketSizeMqtt5((UnsubscribePacket)packet);
             case MqttPacketType.UnsubAck:
@@ -269,7 +269,7 @@ internal static class MqttPacketSizeEstimator
         return size + propertiesSize;
     }
 
-    private static int EstimateSubAckPacketSizeMqtt5(SubscribeAckPacket packet)
+    private static int EstimateSubAckPacketSizeMqtt5(SubAckPacket packet)
     {
         var size = 2; // Start with 2 bytes for the fixed header
         size += 1; // Reason code is 1 byte
@@ -622,9 +622,9 @@ internal static class MqttPacketSizeEstimator
             payloadSize += 2 + Encoding.UTF8.GetByteCount(packet.Username);
         }
 
-        if (packet.Password.HasValue)
+        if (!string.IsNullOrEmpty(packet.Password))
         {
-            payloadSize += 2 + packet.Password.Value.Length;
+            payloadSize += 2 + Encoding.UTF8.GetByteCount(packet.Password);
         }
 
         return size + payloadSize;
@@ -739,9 +739,9 @@ internal static class MqttPacketSizeEstimator
             payloadSize += 2 + Encoding.UTF8.GetByteCount(packet.Username);
         }
 
-        if (packet.Password.HasValue)
+        if (!string.IsNullOrEmpty(packet.Password))
         {
-            payloadSize += 2 + packet.Password.Value.Length;
+            payloadSize += 2 + Encoding.UTF8.GetByteCount(packet.Password);
         }
 
         return size + propertiesSize + payloadSize;

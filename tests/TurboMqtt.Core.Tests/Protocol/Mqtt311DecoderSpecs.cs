@@ -22,8 +22,9 @@ public class Mqtt311DecoderSpecs
     [InlineData(new byte[] { 128, 173, 226, 4 }, 10000000)]
     public void ShouldParseValidFrameLengthHeader(byte[] header, int expectedLength)
     {
-        var (headerLength, bodyLength) = Mqtt311Decoder.GetPacketLength(header);
-        Assert.Equal(header.Length, headerLength);
+        var span = new ReadOnlySpan<byte>(header);
+        var foundLength = Mqtt311Decoder.TryGetPacketLength(ref span, out var bodyLength);
+        Assert.True(foundLength);
         Assert.Equal(expectedLength, bodyLength);
     }
 }

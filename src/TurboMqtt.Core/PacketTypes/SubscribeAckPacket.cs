@@ -6,7 +6,7 @@
 
 namespace TurboMqtt.Core.PacketTypes;
 
-public enum MqttSubscribeReasonCode
+public enum MqttSubscribeReasonCode : byte
 {
     // Common reason codes in MQTT 3.1.1 and earlier versions (implicitly used, typically not explicitly specified in these versions)
     GrantedQoS0 = 0x00, // Maximum QoS 0, MQTT 3.0, 3.1.1
@@ -28,7 +28,7 @@ public enum MqttSubscribeReasonCode
 /// <summary>
 /// Represents the acknowledgement packet for a subscription request.
 /// </summary>
-public sealed class SubscribeAckPacket : MqttPacketWithId
+public sealed class SubAckPacket : MqttPacketWithId
 {
     public override MqttPacketType PacketType => MqttPacketType.SubAck;
 
