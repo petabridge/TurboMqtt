@@ -120,8 +120,10 @@ public class Mqtt311Decoder
                     break;
                 }
                 case MqttPacketType.ConnAck:
-                    packets = ConnAckPacket.Decode(additionalData);
+                {
+                    packets = packets.Add(DecodeConnAck(ref bufferForMsg, packetSize, headerLength));
                     break;
+                }
                 case MqttPacketType.Subscribe:
                     packets = SubscribePacket.Decode(additionalData);
                     break;
@@ -152,6 +154,11 @@ public class Mqtt311Decoder
         }
         
         return rValue;
+    }
+
+    public virtual MqttPacket DecodeConnAck(ref ReadOnlyMemory<byte> bufferForMsg, int packetSize, int headerLength)
+    {
+        throw new NotImplementedException();
     }
 
     public virtual MqttPacket DecodePubComp(ref ReadOnlyMemory<byte> bufferForMsg, int packetSize, int headerLength)
@@ -291,6 +298,35 @@ public class Mqtt311Decoder
 
         if(flags is { PasswordFlag: true, UsernameFlag: false })
             throw new ArgumentOutOfRangeException(nameof(flags), "Password flag is set, but username flag is not. [MQTT-3.1.2-22]");
+        
+        packet.KeepAliveSeconds = DecodeUnsignedShort(ref buffer, ref remainingLength);
+        
+        var clientId = DecodeString(ref buffer, ref remainingLength);
+        if (string.IsNullOrEmpty(clientId)) // TODO: any additional validation?
+            throw new ArgumentOutOfRangeException(nameof(clientId), "Client ID cannot be empty.");
+        packet.ClientId = clientId;
+        
+        if (flags.WillFlag)
+        {
+            var willTopic = DecodeString(ref buffer, ref remainingLength);
+            var willMessageLength = DecodeUnsignedShort(ref buffer, ref remainingLength);
+            DecreaseRemainingLength(ref remainingLength, willMessageLength);
+            packet.Will = new MqttLastWill(willTopic, buffer.Slice(0, willMessageLength));
+            DecreaseRemainingLength(ref remainingLength, remainingLength);
+            buffer = buffer.Slice(0, remainingLength);
+        }
+        
+        if (flags.UsernameFlag)
+        {
+            packet.Username = DecodeString(ref buffer, ref remainingLength);
+        }
+
+        if (flags.PasswordFlag)
+        {
+            packet.Password = DecodeString(ref buffer, ref remainingLength);
+        }
+
+        return packet;
     }
     
     protected virtual DisconnectPacket DecodeDisconnect(ref ReadOnlyMemory<byte> buffer, int remainingLength, int headerLength)

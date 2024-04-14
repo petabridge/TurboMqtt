@@ -16,13 +16,13 @@ public class ConnectPacket(MqttProtocolVersion protocolVersion) : MqttPacket
     public override MqttPacketType PacketType => MqttPacketType.Connect;
 
     public string ClientId { get; set; }
-    public ushort KeepAlive { get; set; }
+    public ushort KeepAliveSeconds { get; set; }
     public ConnectFlags Flags { get; set; }
     
     public MqttLastWill? Will { get; set; }
     
     public string? Username { get; set; }
-    public ReadOnlyMemory<byte>? Password { get; set; }
+    public string? Password { get; set; }
 
     public string ProtocolName { get; set; } = string.Empty;
     

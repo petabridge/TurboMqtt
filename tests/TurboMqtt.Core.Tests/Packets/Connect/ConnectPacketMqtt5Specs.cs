@@ -38,7 +38,7 @@ public class ConnectPacketMqtt5Specs
         public void should_have_correct_keep_alive()
         {
             var packet = new ConnectPacket("clientId", MqttProtocolVersion.V5_0);
-            packet.KeepAlive.Should().Be(0);
+            packet.KeepAliveSeconds.Should().Be(0);
         }
 
         [Fact]
