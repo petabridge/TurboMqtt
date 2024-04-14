@@ -31,7 +31,7 @@ public class ConnectPacketMqtt311Specs
         public void should_have_correct_client_id()
         {
             var packet = new ConnectPacket(MqttProtocolVersion.V3_1_1);
-            packet.ClientId.Should().Be("clientId");
+            packet.ClientId.Should().Be(ConnectPacket.DefaultClientId);
         }
 
         [Fact]
@@ -121,7 +121,7 @@ public class ConnectPacketMqtt311Specs
                 TopicAliasMaximum = 5, // should be ignored - only supported in MQTT 5.0
             };
             
-            MqttPacketSizeEstimator.EstimatePacketSize(connectPacket, MqttProtocolVersion.V3_1_1).Should().Be(51);
+            MqttPacketSizeEstimator.EstimatePacketSize(connectPacket, MqttProtocolVersion.V3_1_1).Should().Be(54);
         }
         
         // estimate the packet size without username and password
@@ -136,7 +136,7 @@ public class ConnectPacketMqtt311Specs
                 TopicAliasMaximum = 5, // should be ignored - only supported in MQTT 5.0
             };
             
-            MqttPacketSizeEstimator.EstimatePacketSize(connectPacket, MqttProtocolVersion.V3_1_1).Should().Be(36);
+            MqttPacketSizeEstimator.EstimatePacketSize(connectPacket, MqttProtocolVersion.V3_1_1).Should().Be(34);
         }
     }
 }

@@ -11,11 +11,13 @@ namespace TurboMqtt.Core.PacketTypes;
 /// <summary>
 /// Used to initiate a connection to the MQTT broker.
 /// </summary>
-public class ConnectPacket(MqttProtocolVersion protocolVersion) : MqttPacket
+public sealed class ConnectPacket(MqttProtocolVersion protocolVersion) : MqttPacket
 {
+    public const string DefaultClientId = "turbomqtt";
+    
     public override MqttPacketType PacketType => MqttPacketType.Connect;
 
-    public string ClientId { get; set; } = "turbomqtt";
+    public string ClientId { get; set; } = DefaultClientId;
     public ushort KeepAliveSeconds { get; set; }
     public ConnectFlags Flags { get; set; }
     
