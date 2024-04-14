@@ -20,23 +20,11 @@ public sealed class ConnectPacket(MqttProtocolVersion protocolVersion) : MqttPac
     public string ClientId { get; set; } = DefaultClientId;
     public ushort KeepAliveSeconds { get; set; }
     public ConnectFlags Flags { get; set; }
-    
-    private MqttLastWill? _will;
 
     public MqttLastWill? Will
     {
-        get => _will;
-        set
-        {
-            _will = value;
-            
-            // ensure that the will flag is set or unset
-            var flags = Flags;
-            flags.WillFlag = value != null;
-            flags.WillQoS = value?.WillQoS ?? QualityOfService.AtMostOnce;
-            flags.WillRetain = value?.WillRetain ?? false;
-            Flags = flags;
-        }
+        get;
+        set;
     }
 
     private string? _username;
@@ -84,7 +72,11 @@ public sealed class ConnectPacket(MqttProtocolVersion protocolVersion) : MqttPac
     public ReadOnlyMemory<byte>? AuthenticationData { get; set; } // MQTT 5.0 only
     public IReadOnlyDictionary<string, string>? UserProperties { get; set; } // MQTT 5.0 custom properties
 
-
+    public override string ToString()
+    {
+        return $"ConnectPacket(ClientId={ClientId}, KeepAliveSeconds={KeepAliveSeconds}, Flags={Flags}, Will={Will}, Username={Username}, Password={Password})";
+    
+    }
 }
 
 /// <summary>
@@ -104,9 +96,6 @@ public sealed class MqttLastWill
 
     public string Topic { get; }
     public ReadOnlyMemory<byte> Message { get; }
-    
-    public QualityOfService WillQoS { get; set; } = QualityOfService.AtMostOnce;
-    public bool WillRetain { get; set; }
     
     // MQTT 5.0 - Optional Properties for Last Will and Testament
     public string? ResponseTopic { get; set; } // MQTT 5.0 only
