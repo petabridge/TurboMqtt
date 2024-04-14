@@ -11,7 +11,7 @@ using TurboMqtt.Core.PacketTypes;
 
 namespace TurboMqtt.Core.Protocol;
 
-public class Mqtt311Encoder
+public static class Mqtt311Encoder
 {
     /// <summary>
     /// Encode an <see cref="MqttPacket"/> into a <see cref="Memory{T}"/> buffer using MQTT 3.1.1 protocol.
@@ -22,7 +22,7 @@ public class Mqtt311Encoder
     /// <exception cref="NotSupportedException">For packet types not supported in MQTT 3.1.1.</exception>
     /// <exception cref="ArgumentOutOfRangeException">For unrecognized packet types.</exception>
     /// <returns>The length of actual bytes encoded</returns>
-    public int EncodePacket(MqttPacket packet, ref Memory<byte> buffer, int estimatedSize)
+    public static int EncodePacket(MqttPacket packet, ref Memory<byte> buffer, int estimatedSize)
     {
         switch (packet.PacketType)
         {
@@ -190,7 +190,7 @@ public class Mqtt311Encoder
         return 4;
     }
 
-    protected static int WriteByte(ref Span<byte> buffer, byte a)
+    public static int WriteByte(ref Span<byte> buffer, byte a)
     {
         buffer[0] = a;
         buffer = buffer.Slice(1);
