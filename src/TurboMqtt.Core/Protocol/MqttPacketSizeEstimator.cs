@@ -52,7 +52,7 @@ internal static class MqttPacketSizeEstimator
             case MqttPacketType.Connect:
                 return EstimateConnectPacketSizeMqtt311((ConnectPacket)packet);
             case MqttPacketType.ConnAck:
-                return 2 + 2; // fixed header + 1 byte for session present + 1 byte for reason code
+                return 2; //1 byte for session present + 1 byte for reason code
             case MqttPacketType.Publish:
                 return EstimatePublishPacketSizeMqtt311((PublishPacket)packet);
             case MqttPacketType.PubAck:
@@ -61,7 +61,7 @@ internal static class MqttPacketSizeEstimator
             case MqttPacketType.PubComp:
             case MqttPacketType.SubAck:
             case MqttPacketType.UnsubAck:
-                return 2 + PacketIdLength; // fixed header + packet id only
+                return PacketIdLength; // packet id only
             case MqttPacketType.Subscribe:
                 return EstimateSubscribePacketSizeMqtt311((SubscribePacket)packet);
             case MqttPacketType.Unsubscribe:
@@ -69,7 +69,7 @@ internal static class MqttPacketSizeEstimator
             case MqttPacketType.PingReq:
             case MqttPacketType.PingResp:
             case MqttPacketType.Disconnect:
-                return 2; // fixed header only
+                return 0; // fixed header only
             case MqttPacketType.Auth
                 : // this should throw for AUTH packets in MQTT3, which are not supported (MQTT5 and up only)
             default:

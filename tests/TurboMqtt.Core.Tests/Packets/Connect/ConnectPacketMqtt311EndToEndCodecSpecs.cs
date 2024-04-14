@@ -6,6 +6,7 @@
 
 using TurboMqtt.Core.PacketTypes;
 using TurboMqtt.Core.Protocol;
+using TurboMqtt.Core.Tests.Packets;
 
 namespace TurboMqtt.Core.Tests.Protocol;
 
@@ -82,18 +83,7 @@ public class ConnectPacketMqtt311EndToEndCodecSpecs
         [MemberData(nameof(ConnectPackets))]
         public void ConnectMessage(ConnectPacket packet)
         {
-            var estimatedSize = MqttPacketSizeEstimator.EstimateMqtt3PacketSize(packet);
-            var headerSize =
-                MqttPacketSizeEstimator.GetPacketLengthHeaderSize(estimatedSize) + 1; // add 1 for the lead byte
-            var buffer = new Memory<byte>(new byte[estimatedSize + headerSize]);
-            var actualBytesWritten = Mqtt311Encoder.EncodePacket(packet, ref buffer, estimatedSize);
-            actualBytesWritten.Should().Be(estimatedSize + headerSize);
-
-            var span = buffer.Span;
-            var decoded = _decoder.TryDecode(buffer, out var packets);
-            Assert.True(decoded);
-            packets.Count.Should().Be(1);
-            ConnectPacket decodedPacket = (ConnectPacket)packets[0];
+            var decodedPacket = PacketEncodingTestHelper.EncodeAndDecodeMqtt311Packet(packet, _decoder);
             decodedPacket.Should().BeEquivalentTo(packet, options => options.Excluding(x => x.Will!.Message));
             
             // check Will payloads

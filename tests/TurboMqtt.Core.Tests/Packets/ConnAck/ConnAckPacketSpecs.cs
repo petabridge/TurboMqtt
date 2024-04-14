@@ -7,7 +7,7 @@
 using TurboMqtt.Core.PacketTypes;
 using TurboMqtt.Core.Protocol;
 
-namespace TurboMqtt.Core.Tests.Packets;
+namespace TurboMqtt.Core.Tests.Packets.ConnAck;
 
 public class ConnAckPacketSpecs
 {
@@ -55,7 +55,7 @@ public class ConnAckPacketSpecs
                 SessionPresent = sessionCreated,
                 ReasonCode = reasonCode
             };
-            MqttPacketSizeEstimator.EstimatePacketSize(packet, MqttProtocolVersion.V3_1_1).Should().Be(4);
+            MqttPacketSizeEstimator.EstimatePacketSize(packet, MqttProtocolVersion.V3_1_1).Should().Be(2);
         }
     }
     
