@@ -353,7 +353,7 @@ public class Mqtt311Decoder
     
     protected virtual ConnectPacket DecodeConnect(ref ReadOnlyMemory<byte> buffer, int remainingLength, int headerLength)
     {
-        buffer = buffer.Slice(0, headerLength); // advance past the fixed + size header
+        buffer = buffer.Slice(headerLength); // advance past the fixed + size header
         var protocolName = DecodeString(ref buffer, ref remainingLength);
         if (!protocolName.Equals("MQTT", StringComparison.Ordinal))
             throw new ArgumentOutOfRangeException(nameof(protocolName), $"Invalid protocol name: {protocolName}");
