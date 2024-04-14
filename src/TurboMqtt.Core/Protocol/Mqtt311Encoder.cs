@@ -161,15 +161,20 @@ public static class Mqtt311Encoder
         var bytesWritten = 0;
         var span = buffer.Span;
         bytesWritten += WriteByte(ref span, CalculateFirstByteOfFixedPacketHeader(packet));
-        bytesWritten +=EncodeFrameHeaderWithByteShifting(ref span, estimatedSize);
-        bytesWritten +=EncodeUtf8String(ref span, packet.TopicName);
+        bytesWritten += EncodeFrameHeaderWithByteShifting(ref span, estimatedSize);
+        bytesWritten += EncodeUtf8String(ref span, packet.TopicName);
         if (packet.QualityOfService > QualityOfService.AtMostOnce)
         {
             bytesWritten += WriteUnsignedShort(ref span, (int)packet.PacketId.Value);
         }
-        // copy the payload directly into the buffer
-        bytesWritten += packet.Payload.Length;
-        packet.Payload.CopyTo(buffer.Slice(estimatedSize - span.Length - 2));
+
+        if (!packet.Payload.IsEmpty)
+        {
+            // copy the payload directly into the buffer
+            bytesWritten += packet.Payload.Length;
+            packet.Payload.Span.CopyTo(span);
+        }
+
         return bytesWritten;
     }
     

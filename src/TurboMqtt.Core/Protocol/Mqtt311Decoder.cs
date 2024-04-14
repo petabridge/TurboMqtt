@@ -303,7 +303,7 @@ public class Mqtt311Decoder
         
         if(remainingLength > 0)
         {
-            packet.Payload = buffer.Slice(remainingLength);
+            packet.Payload = buffer; // the rest of the buffer is the payload
             DecreaseRemainingLength(ref remainingLength, buffer.Length);
         }
         else
