@@ -291,7 +291,7 @@ public class Mqtt311Decoder
         var qualityOfService = (QualityOfService)((buffSpan[0] & 0x06) >> 1);
         var duplicate = (buffSpan[0] & 0x08) == 0x08;
         var retain = (buffSpan[0] & 0x01) == 0x01;
-        buffer = buffer.Slice(0, headerLength); // advance past the fixed + size header
+        buffer = buffer.Slice(headerLength); // advance past the fixed + size header
         
         var topicName = DecodeString(ref buffer, ref remainingLength, 2, int.MaxValue);
         // TODO: validate topic name
@@ -303,9 +303,8 @@ public class Mqtt311Decoder
         
         if(remainingLength > 0)
         {
-            packet.Payload = buffer.Slice(0, remainingLength);
+            packet.Payload = buffer.Slice(remainingLength);
             DecreaseRemainingLength(ref remainingLength, buffer.Length);
-            remainingLength = 0;
         }
         else
         {

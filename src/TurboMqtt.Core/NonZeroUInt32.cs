@@ -16,6 +16,10 @@ public readonly struct NonZeroUInt32
     /// </summary>
     public uint Value { get; }
 
+    public NonZeroUInt32() : this(1)
+    {
+    }
+
     public NonZeroUInt32(uint value)
     {
         if (value == 0)
