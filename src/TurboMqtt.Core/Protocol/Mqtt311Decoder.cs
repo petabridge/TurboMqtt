@@ -162,7 +162,7 @@ public class Mqtt311Decoder
         return rValue;
     }
 
-    public virtual MqttPacket DecodeUnsubAck(ref ReadOnlyMemory<byte> bufferForMsg, int packetSize, int headerLength)
+    public virtual UnsubscribeAckPacket DecodeUnsubAck(ref ReadOnlyMemory<byte> bufferForMsg, int packetSize, int headerLength)
     {
         var packet = new UnsubscribeAckPacket();
         bufferForMsg = bufferForMsg.Slice(headerLength); // advance past the fixed + size header
@@ -170,7 +170,7 @@ public class Mqtt311Decoder
         return packet;
     }
 
-    public virtual MqttPacket DecodeUnsubscribe(ref ReadOnlyMemory<byte> bufferForMsg, int remainingSize, int headerLength)
+    public virtual UnsubscribePacket DecodeUnsubscribe(ref ReadOnlyMemory<byte> bufferForMsg, int remainingSize, int headerLength)
     {
         var packet = new UnsubscribePacket();
         bufferForMsg = bufferForMsg.Slice(headerLength); // advance past the fixed + size header
@@ -189,7 +189,7 @@ public class Mqtt311Decoder
         return packet;
     }
 
-    public virtual MqttPacket DecodeSubscribe(ref ReadOnlyMemory<byte> bufferForMsg, int remainingLength, int headerLength)
+    public virtual SubscribePacket DecodeSubscribe(ref ReadOnlyMemory<byte> bufferForMsg, int remainingLength, int headerLength)
     {
         var packet = new SubscribePacket();
         bufferForMsg = bufferForMsg.Slice(headerLength); // advance past the fixed + size header
@@ -207,7 +207,7 @@ public class Mqtt311Decoder
         return packet;
     }
 
-    public virtual MqttPacket DecodeSubAck(ref ReadOnlyMemory<byte> bufferForMsg, int remainingLength, int headerLength)
+    public virtual SubAckPacket DecodeSubAck(ref ReadOnlyMemory<byte> bufferForMsg, int remainingLength, int headerLength)
     {
         var packet = new SubAckPacket();
         bufferForMsg = bufferForMsg.Slice(headerLength); // advance past the fixed + size header
@@ -227,7 +227,7 @@ public class Mqtt311Decoder
         return packet;
     }
 
-    public virtual MqttPacket DecodeConnAck(ref ReadOnlyMemory<byte> bufferForMsg, int remainingLength, int headerLength)
+    public virtual ConnAckPacket DecodeConnAck(ref ReadOnlyMemory<byte> bufferForMsg, int remainingLength, int headerLength)
     {
         var packet = new ConnAckPacket();
         bufferForMsg = bufferForMsg.Slice( headerLength); // advance past the fixed + size header
@@ -237,15 +237,15 @@ public class Mqtt311Decoder
         return packet;
     }
 
-    public virtual MqttPacket DecodePubComp(ref ReadOnlyMemory<byte> bufferForMsg, int packetSize, int headerLength)
+    public virtual PubCompPacket DecodePubComp(ref ReadOnlyMemory<byte> bufferForMsg, int packetSize, int headerLength)
     {
-        var packet = new PubAckPacket();
+        var packet = new PubCompPacket();
         bufferForMsg = bufferForMsg.Slice(headerLength); // advance past the fixed + size header
         DecodePacketId(ref bufferForMsg, packet, ref packetSize);
         return packet;
     }
 
-    public virtual MqttPacket DecodePubRel(ref ReadOnlyMemory<byte> bufferForMsg, int packetSize, int headerLength)
+    public virtual PubRelPacket DecodePubRel(ref ReadOnlyMemory<byte> bufferForMsg, int packetSize, int headerLength)
     {
         var packet = new PubRelPacket();
         bufferForMsg = bufferForMsg.Slice(headerLength); // advance past the fixed + size header
@@ -253,9 +253,9 @@ public class Mqtt311Decoder
         return packet;
     }
 
-    public virtual MqttPacket DecodePubRec(ref ReadOnlyMemory<byte> buffer, int remainingLength, int headerLength)
+    public virtual PubRecPacket DecodePubRec(ref ReadOnlyMemory<byte> buffer, int remainingLength, int headerLength)
     {
-        var packet = new PubAckPacket();
+        var packet = new PubRecPacket();
         buffer = buffer.Slice(headerLength); // advance past the fixed + size header
         DecodePacketId(ref buffer, packet, ref remainingLength);
         return packet;

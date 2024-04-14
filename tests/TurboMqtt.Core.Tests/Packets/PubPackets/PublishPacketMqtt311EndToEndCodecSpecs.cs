@@ -7,7 +7,7 @@
 using TurboMqtt.Core.PacketTypes;
 using TurboMqtt.Core.Protocol;
 
-namespace TurboMqtt.Core.Tests.Packets.Publish;
+namespace TurboMqtt.Core.Tests.Packets.PubPackets;
 
 public class PublishPacketMqtt311EndToEndCodecSpecs
 {
