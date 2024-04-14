@@ -161,28 +161,11 @@ public struct ConnectFlags
 
         if (result.WillFlag)
             result.WillQoS = (QualityOfService)((flags & 0x18) >> 3);
-        else if ((flags & 0x38) != 0) // reserved bits 3,4,5
+        else if ((flags & 0x38) != 0) // reserved bit for Will 3,4,5
         {
             throw new ArgumentOutOfRangeException(nameof(flags), "[MQTT-3.1.2-11]");
         }
 
-        return result;
-    }
-    
-    public static ConnectFlags DecodeMqtt5(byte flags)
-    {
-        var result = new ConnectFlags
-        {
-            UsernameFlag = (flags & 0b1000_0000) != 0,
-            PasswordFlag = (flags & 0b0100_0000) != 0,
-            WillRetain = (flags & 0b0010_0000) != 0,
-            WillFlag = (flags & 0b0000_0100) != 0,
-            CleanSession = (flags & 0b0000_0010) != 0
-        };
-
-        if (result.WillFlag)
-            result.WillQoS = (QualityOfService)((flags & 0b0001_1000) >> 3);
-        
         return result;
     }
 }

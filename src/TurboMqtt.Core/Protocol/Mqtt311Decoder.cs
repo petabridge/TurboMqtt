@@ -347,7 +347,7 @@ public class Mqtt311Decoder
         
         DecreaseRemainingLength(ref remainingLength, length);
         var value = Encoding.UTF8.GetString(buffer.Span.Slice(0, length));
-        buffer = buffer.Slice(0, length);
+        buffer = buffer.Slice(length);
         return value;
     }
     
@@ -360,11 +360,11 @@ public class Mqtt311Decoder
         
         var protocolLevel = (MqttProtocolVersion)buffer.Span[0];
         DecreaseRemainingLength(ref remainingLength, 1);
-        buffer = buffer.Slice(0,1);
+        buffer = buffer.Slice(1);
         
         var flags = ConnectFlags.Decode(buffer.Span[0]);
         DecreaseRemainingLength(ref remainingLength, 1);
-        buffer = buffer.Slice(0, 1);
+        buffer = buffer.Slice(1);
 
         var packet = new ConnectPacket(protocolLevel)
         {
@@ -389,7 +389,7 @@ public class Mqtt311Decoder
             DecreaseRemainingLength(ref remainingLength, willMessageLength);
             packet.Will = new MqttLastWill(willTopic, buffer.Slice(0, willMessageLength));
             DecreaseRemainingLength(ref remainingLength, remainingLength);
-            buffer = buffer.Slice(0, remainingLength);
+            buffer = buffer.Slice(remainingLength);
         }
         
         if (flags.UsernameFlag)
