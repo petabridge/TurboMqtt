@@ -4,7 +4,6 @@
 // </copyright>
 // -----------------------------------------------------------------------
 
-using System.Buffers;
 using System.Diagnostics;
 using System.Text;
 using TurboMqtt.Core.PacketTypes;
@@ -13,6 +12,19 @@ namespace TurboMqtt.Core.Protocol;
 
 public static class Mqtt311Encoder
 {
+    public static int EncodePackets(IEnumerable<(MqttPacket packet, int estimatedSize)> packets, ref Memory<byte> buffer)
+    {
+        var bytesWritten = 0;
+        foreach (var (packet, size) in packets)
+        {
+            var newBytesWritten = EncodePacket(packet, ref buffer, size);
+            buffer = buffer.Slice(newBytesWritten);
+            bytesWritten += newBytesWritten;
+        }
+
+        return bytesWritten;
+    }
+    
     /// <summary>
     /// Encode an <see cref="MqttPacket"/> into a <see cref="Memory{T}"/> buffer using MQTT 3.1.1 protocol.
     /// </summary>

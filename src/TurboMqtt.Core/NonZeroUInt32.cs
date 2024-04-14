@@ -11,6 +11,8 @@ namespace TurboMqtt.Core;
 /// </summary>
 public readonly struct NonZeroUInt32
 {
+    public static readonly NonZeroUInt32 MinValue = new(1);
+    
     /// <summary>
     /// The value of the identifier.
     /// </summary>
