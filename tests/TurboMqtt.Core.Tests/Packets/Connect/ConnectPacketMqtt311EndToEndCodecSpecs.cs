@@ -76,7 +76,29 @@ public class ConnectPacketMqtt311EndToEndCodecSpecs
                     UsernameFlag = true,
                     PasswordFlag = true
                 }
-            }
+            },
+            
+            // enable clean session
+            new ConnectPacket(MqttProtocolVersion.V3_1_1)
+            {
+                ClientId = "clientId",
+                Username = "username",
+                Password = "password",
+                ProtocolName = "MQTT",
+                KeepAliveSeconds = 100,
+                Will = new MqttLastWill("topic", new ReadOnlyMemory<byte>(new byte[] { 0, 1, 2, 3 }))
+                {
+                },
+                Flags = new ConnectFlags
+                {
+                    WillFlag = true,
+                    WillQoS = QualityOfService.AtLeastOnce,
+                    WillRetain = true,
+                    UsernameFlag = true,
+                    PasswordFlag = true,
+                    CleanSession = true
+                }
+            },
         };
 
         [Theory]
