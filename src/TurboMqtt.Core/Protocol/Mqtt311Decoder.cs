@@ -193,6 +193,7 @@ public class Mqtt311Decoder
     {
         var packet = new SubscribePacket();
         bufferForMsg = bufferForMsg.Slice(headerLength); // advance past the fixed + size header
+        DecodePacketId(ref bufferForMsg, packet, ref remainingLength);
         var subscribeTopics = new List<TopicSubscription>();
         while (remainingLength > 0)
         {
@@ -202,6 +203,7 @@ public class Mqtt311Decoder
             var subscribeOptionsByte = bufferForMsg.Span[0];
             var subscribeOptions = subscribeOptionsByte.ToSubscriptionOptions();
             subscribeTopics.Add(new TopicSubscription(topicFilter){ Options = subscribeOptions });
+            bufferForMsg = bufferForMsg.Slice(1); // advance past the options byte
         }
         packet.Topics = subscribeTopics;
         return packet;
