@@ -4,10 +4,220 @@
 // </copyright>
 // -----------------------------------------------------------------------
 
+using System.Buffers;
+using System.Diagnostics;
+using System.Text;
+using TurboMqtt.Core.PacketTypes;
+
 namespace TurboMqtt.Core.Protocol;
 
 public class Mqtt311Encoder
 {
+    /// <summary>
+    /// Encode an <see cref="MqttPacket"/> into a <see cref="Memory{T}"/> buffer using MQTT 3.1.1 protocol.
+    /// </summary>
+    /// <param name="packet">The MQTT 3.1.1 packet.</param>
+    /// <param name="buffer">A buffer big enough to store <see cref="packet"/> - use <see cref="MqttPacketSizeEstimator"/> to precompute this.</param>
+    /// <param name="estimatedSize">The expected size of this message</param>
+    /// <exception cref="NotSupportedException">For packet types not supported in MQTT 3.1.1.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">For unrecognized packet types.</exception>
+    public void EncodePacket(MqttPacket packet, ref Memory<byte> buffer, int estimatedSize)
+    {
+        switch (packet.PacketType)
+        {
+            case MqttPacketType.Publish:
+                EncodePublishPacket((PublishPacket)packet, ref buffer, estimatedSize);
+                break;
+            case MqttPacketType.PubAck:
+            case MqttPacketType.PubRec:
+            case MqttPacketType.PubRel:
+            case MqttPacketType.PubComp:
+            case MqttPacketType.UnsubAck:
+                EncodePacketWithIdOnly((MqttPacketWithId)packet, ref buffer, estimatedSize);
+                break;
+            case MqttPacketType.PingReq:
+            case MqttPacketType.PingResp:
+            case MqttPacketType.Disconnect:
+                EncodePacketWithFixedHeader(packet, ref buffer, estimatedSize);
+                break;
+            case MqttPacketType.Connect:
+                EncodeConnectPacket((ConnectPacket)packet, ref buffer, estimatedSize);
+                break;
+            case MqttPacketType.ConnAck:
+                EncodeConnAckPacket((ConnAckPacket)packet, ref buffer, estimatedSize);
+                break;
+            case MqttPacketType.Subscribe:
+                EncodeSubscribePacket((SubscribePacket)packet, ref buffer, estimatedSize);
+                break;
+            case MqttPacketType.SubAck:
+                EncodeSubAckPacket((SubAckPacket)packet, ref buffer, estimatedSize);
+                break;
+            case MqttPacketType.Unsubscribe:
+                EncodeUnsubscribePacket((UnsubscribePacket)packet, ref buffer, estimatedSize);
+                break;
+            case MqttPacketType.Auth: // MQTT 5.0 only - should throw an exception if we see this
+                throw new NotSupportedException("MQTT 5.0 packets are not supported.");
+            default:
+                throw new ArgumentOutOfRangeException(nameof(packet), $"Unknown packet type: {packet.PacketType}");
+        }
+    }
+
+    public static void EncodeUnsubscribePacket(UnsubscribePacket packet, ref Memory<byte> buffer, int estimatedSize)
+    {
+        var span = buffer.Span;
+        WriteByte(ref span, CalculateFirstByteOfFixedPacketHeader(packet));
+        EncodeFrameHeaderWithByteShifting(ref span, estimatedSize);
+        WriteUnsignedShort(ref span, (int)packet.PacketId.Value);
+        foreach (var topic in packet.Topics)
+        {
+            EncodeUtf8String(ref span, topic);
+        }
+    }
+
+    public static void EncodeSubAckPacket(SubAckPacket packet, ref Memory<byte> buffer, int estimatedSize)
+    {
+        var span = buffer.Span;
+        WriteByte(ref span, CalculateFirstByteOfFixedPacketHeader(packet));
+        EncodeFrameHeaderWithByteShifting(ref span, estimatedSize);
+        WriteUnsignedShort(ref span, (int)packet.PacketId.Value);
+        foreach (var qos in packet.ReasonCodes)
+        {
+            WriteByte(ref span, (byte)qos);
+        }
+    }
+
+    public static void EncodeSubscribePacket(SubscribePacket packet, ref Memory<byte> buffer, int estimatedSize)
+    {
+        var span = buffer.Span;
+        WriteByte(ref span, CalculateFirstByteOfFixedPacketHeader(packet));
+        EncodeFrameHeaderWithByteShifting(ref span, estimatedSize);
+        WriteUnsignedShort(ref span, (int)packet.PacketId.Value);
+        foreach (var topic in packet.Topics)
+        {
+            EncodeUtf8String(ref span, topic.Topic);
+            WriteByte(ref span, topic.Options.ToByte());
+        }
+    }
+
+    public static void EncodeConnAckPacket(ConnAckPacket packet, ref Memory<byte> buffer, int estimatedSize)
+    {
+        var span = buffer.Span;
+        WriteByte(ref span, CalculateFirstByteOfFixedPacketHeader(packet));
+        EncodeFrameHeaderWithByteShifting(ref span, estimatedSize);
+        if (packet.SessionPresent)
+        {
+            WriteByte(ref span, 0x01);
+        }
+        else
+        {
+            WriteByte(ref span, 0x00);
+        }
+        WriteByte(ref span, (byte)packet.ReasonCode);
+    }
+
+    public static void EncodeConnectPacket(ConnectPacket packet, ref Memory<byte> buffer, int estimatedSize)
+    {
+        var span = buffer.Span;
+        WriteByte(ref span, CalculateFirstByteOfFixedPacketHeader(packet));
+        EncodeFrameHeaderWithByteShifting(ref span, estimatedSize);
+        EncodeUtf8String(ref span, packet.ProtocolName);
+        WriteByte(ref span, (byte)packet.ProtocolVersion);
+        WriteByte(ref span, packet.Flags.Encode(MqttProtocolVersion.V3_1_1));
+        WriteUnsignedShort(ref span, packet.KeepAliveSeconds);
+        
+        // payload
+        EncodeUtf8String(ref span, packet.ClientId);
+        if (packet.Will != null)
+        {
+            EncodeUtf8String(ref span, packet.Will.Topic);
+            WriteUnsignedShort(ref span, packet.Will.Message.Length);
+        }
+
+        if (packet.Flags.UsernameFlag)
+        {
+            Debug.Assert(packet.Username != null, "packet.Username != null");
+            EncodeUtf8String(ref span, packet.Username);
+        }
+        
+        if (packet.Flags.PasswordFlag)
+        {
+            Debug.Assert(packet.Password != null, "packet.Password != null");
+            EncodeUtf8String(ref span, packet.Password);
+        }
+    }
+
+    public static void EncodePublishPacket(PublishPacket packet, ref Memory<byte> buffer, int estimatedSize)
+    {
+        var span = buffer.Span;
+        WriteByte(ref span, CalculateFirstByteOfFixedPacketHeader(packet));
+        EncodeFrameHeaderWithByteShifting(ref span, estimatedSize);
+        EncodeUtf8String(ref span, packet.TopicName);
+        if (packet.QualityOfService > QualityOfService.AtMostOnce)
+        {
+            WriteUnsignedShort(ref span, (int)packet.PacketId.Value);
+        }
+        // copy the payload directly into the buffer
+        packet.Payload.CopyTo(buffer.Slice(estimatedSize - span.Length - 2));
+    }
+    
+    public static void EncodePacketWithFixedHeader(MqttPacket packet, ref Memory<byte> buffer, int estimatedSize)
+    {
+        var span = buffer.Span;
+        WriteByte(ref span, CalculateFirstByteOfFixedPacketHeader(packet));
+        WriteByte(ref span, 0);
+    }
+    
+    public static void EncodePacketWithIdOnly(MqttPacketWithId packet, ref Memory<byte> buffer, int estimatedSize)
+    {
+        var span = buffer.Span;
+        WriteByte(ref span, CalculateFirstByteOfFixedPacketHeader(packet));
+        EncodeFrameHeaderWithByteShifting(ref span, estimatedSize);
+        WriteUnsignedShort(ref span, (int)packet.PacketId.Value);
+    }
+
+    protected static void WriteByte(ref Span<byte> buffer, byte a)
+    {
+        buffer[0] = a;
+        buffer = buffer.Slice(1);
+    }
+    
+    public static void WriteUnsignedShort(ref Span<byte> buffer, int a)
+    {
+        buffer[0] = (byte)(a >> 8);
+        buffer[1] = (byte)(a & 0xFF);
+        buffer = buffer.Slice(2);
+    }
+
+    public static void EncodeUtf8String(ref Span<byte> buffer, string str)
+    {
+        var strLen = Encoding.UTF8.GetByteCount(str);
+        WriteUnsignedShort(ref buffer, strLen);
+        Encoding.UTF8.GetBytes(str, buffer);
+        buffer = buffer.Slice(strLen);
+    }
+    
+    public static byte CalculateFirstByteOfFixedPacketHeader(MqttPacket packet)
+    {
+        var ret = 0;
+        ret |= (int)packet.PacketType << 4;
+        if (packet.Duplicate)
+        {
+            ret |= 0x08;
+        }
+        ret |= (int)packet.QualityOfService << 1;
+        if (packet.RetainRequested)
+        {
+            ret |= 0x01;
+        }
+        return (byte)ret;
+    }
+    
+    public static void EncodeFrameHeaderWithByteShifting(ref Span<byte> buffer, int length)
+    {
+        var headerLength = EncodeFrameHeader(ref buffer, 0, length);
+        buffer = buffer.Slice(0, headerLength);
+    }
+
     /// <summary>
     /// Returns the number of bytes written to the buffer.
     /// </summary>
