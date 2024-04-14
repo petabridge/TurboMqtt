@@ -165,7 +165,7 @@ public class Mqtt311Decoder
     public virtual MqttPacket DecodeUnsubAck(ref ReadOnlyMemory<byte> bufferForMsg, int packetSize, int headerLength)
     {
         var packet = new UnsubscribeAckPacket();
-        bufferForMsg = bufferForMsg.Slice(0, headerLength); // advance past the fixed + size header
+        bufferForMsg = bufferForMsg.Slice(headerLength); // advance past the fixed + size header
         DecodePacketId(ref bufferForMsg, packet, ref packetSize);
         return packet;
     }
@@ -173,7 +173,7 @@ public class Mqtt311Decoder
     public virtual MqttPacket DecodeUnsubscribe(ref ReadOnlyMemory<byte> bufferForMsg, int remainingSize, int headerLength)
     {
         var packet = new UnsubscribePacket();
-        bufferForMsg = bufferForMsg.Slice(0, headerLength); // advance past the fixed + size header
+        bufferForMsg = bufferForMsg.Slice(headerLength); // advance past the fixed + size header
         var unsubscribeTopics = new List<string>();
         while (remainingSize > 0)
         {
@@ -192,7 +192,7 @@ public class Mqtt311Decoder
     public virtual MqttPacket DecodeSubscribe(ref ReadOnlyMemory<byte> bufferForMsg, int remainingLength, int headerLength)
     {
         var packet = new SubscribePacket();
-        bufferForMsg = bufferForMsg.Slice(0, headerLength); // advance past the fixed + size header
+        bufferForMsg = bufferForMsg.Slice(headerLength); // advance past the fixed + size header
         var subscribeTopics = new List<TopicSubscription>();
         while (remainingLength > 0)
         {
@@ -210,7 +210,7 @@ public class Mqtt311Decoder
     public virtual MqttPacket DecodeSubAck(ref ReadOnlyMemory<byte> bufferForMsg, int remainingLength, int headerLength)
     {
         var packet = new SubAckPacket();
-        bufferForMsg = bufferForMsg.Slice(0, headerLength); // advance past the fixed + size header
+        bufferForMsg = bufferForMsg.Slice(headerLength); // advance past the fixed + size header
         DecodePacketId(ref bufferForMsg, packet, ref remainingLength);
         var reasonCodes = new List<MqttSubscribeReasonCode>();
         while (remainingLength > 0)
@@ -240,7 +240,7 @@ public class Mqtt311Decoder
     public virtual MqttPacket DecodePubComp(ref ReadOnlyMemory<byte> bufferForMsg, int packetSize, int headerLength)
     {
         var packet = new PubAckPacket();
-        bufferForMsg = bufferForMsg.Slice(0, headerLength); // advance past the fixed + size header
+        bufferForMsg = bufferForMsg.Slice(headerLength); // advance past the fixed + size header
         DecodePacketId(ref bufferForMsg, packet, ref packetSize);
         return packet;
     }
@@ -248,7 +248,7 @@ public class Mqtt311Decoder
     public virtual MqttPacket DecodePubRel(ref ReadOnlyMemory<byte> bufferForMsg, int packetSize, int headerLength)
     {
         var packet = new PubRelPacket();
-        bufferForMsg = bufferForMsg.Slice(0, headerLength); // advance past the fixed + size header
+        bufferForMsg = bufferForMsg.Slice(headerLength); // advance past the fixed + size header
         DecodePacketId(ref bufferForMsg, packet, ref packetSize);
         return packet;
     }
@@ -256,7 +256,7 @@ public class Mqtt311Decoder
     public virtual MqttPacket DecodePubRec(ref ReadOnlyMemory<byte> buffer, int remainingLength, int headerLength)
     {
         var packet = new PubAckPacket();
-        buffer = buffer.Slice(0, headerLength); // advance past the fixed + size header
+        buffer = buffer.Slice(headerLength); // advance past the fixed + size header
         DecodePacketId(ref buffer, packet, ref remainingLength);
         return packet;
     }
@@ -317,7 +317,7 @@ public class Mqtt311Decoder
     public virtual PubAckPacket DecodePubAck(ref ReadOnlyMemory<byte> buffer, int remainingLength, int headerLength)
     {
         var packet = new PubAckPacket();
-        buffer = buffer.Slice(0, headerLength); // advance past the fixed + size header
+        buffer = buffer.Slice(headerLength); // advance past the fixed + size header
         DecodePacketId(ref buffer, packet, ref remainingLength);
         return packet;
     }
