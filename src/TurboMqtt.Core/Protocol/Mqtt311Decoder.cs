@@ -276,7 +276,7 @@ public class Mqtt311Decoder
         remainingLength -= minExpectedLength;
     }
     
-    protected static ushort DecodeUnsignedShort(ref ReadOnlyMemory<byte> buffer, ref int remainingLength)
+    public static ushort DecodeUnsignedShort(ref ReadOnlyMemory<byte> buffer, ref int remainingLength)
     {
         var span = buffer.Span;
         var value = (ushort)(span[0] << 8 | span[1]);
