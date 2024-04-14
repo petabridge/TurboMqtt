@@ -69,7 +69,7 @@ public sealed class ConnectPacket(MqttProtocolVersion protocolVersion) : MqttPac
         }
     }
 
-    public string ProtocolName { get; set; } = string.Empty;
+    public string ProtocolName { get; set; } = "MQTT";
     
     public MqttProtocolVersion ProtocolVersion { get; } = protocolVersion;
     

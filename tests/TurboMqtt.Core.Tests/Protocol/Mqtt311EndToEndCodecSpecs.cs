@@ -48,12 +48,34 @@ public class Mqtt311EndToEndCodecSpecs
         
         public static readonly TheoryData<ConnectPacket> ConnectPackets = new()
         {
+            // basic case with no username or password - about as simple as it gets
+            new ConnectPacket(MqttProtocolVersion.V3_1_1)
+            {
+                ClientId = "customClientId",
+                ProtocolName = "MQTT",
+            },
+            
+            // user name and password
             new ConnectPacket(MqttProtocolVersion.V3_1_1)
             {
                 ClientId = "clientId",
                 Username = "username",
                 Password = "password",
                 ProtocolName = "MQTT",
+            },
+            
+            // user name and password with last will and testament
+            new ConnectPacket(MqttProtocolVersion.V3_1_1)
+            {
+                ClientId = "clientId",
+                Username = "username",
+                Password = "password",
+                ProtocolName = "MQTT",
+                Will = new MqttLastWill("topic", new ReadOnlyMemory<byte>(new byte[]{0,1,2,3}))
+                {
+                    WillQoS = QualityOfService.AtLeastOnce,
+                    WillRetain = true
+                }
             }
         };
         

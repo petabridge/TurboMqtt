@@ -388,8 +388,7 @@ public class Mqtt311Decoder
             var willMessageLength = DecodeUnsignedShort(ref buffer, ref remainingLength);
             DecreaseRemainingLength(ref remainingLength, willMessageLength);
             packet.Will = new MqttLastWill(willTopic, buffer.Slice(0, willMessageLength));
-            DecreaseRemainingLength(ref remainingLength, remainingLength);
-            buffer = buffer.Slice(remainingLength);
+            buffer = buffer.Slice(willMessageLength);
         }
         
         if (flags.UsernameFlag)

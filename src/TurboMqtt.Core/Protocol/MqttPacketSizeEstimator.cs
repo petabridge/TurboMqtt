@@ -595,8 +595,7 @@ internal static class MqttPacketSizeEstimator
 
         // Protocol Name (2 bytes length + actual length of string)
 
-        size += 2 + Encoding.UTF8.GetByteCount(
-            Mqtt311ProtocolName); // MQTT uses ASCII, not UTF8, for the protocol name: https://www.emqx.com/en/blog/mqtt-5-0-control-packets-01-connect-connack#connect-packet-structure
+        size += 2 + Encoding.UTF8.GetByteCount(packet.ProtocolName); // MQTT uses ASCII, not UTF8, for the protocol name: https://www.emqx.com/en/blog/mqtt-5-0-control-packets-01-connect-connack#connect-packet-structure
 
         // Protocol Version (1 byte)
         size += 1;
