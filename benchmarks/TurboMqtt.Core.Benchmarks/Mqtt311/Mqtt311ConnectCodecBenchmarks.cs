@@ -42,7 +42,7 @@ public class Mqtt311ConnectCodecBenchmarks
         }
     };
 
-    private byte[] _writeableBytes;
+    private byte[] _writeableBytes = Array.Empty<byte>();
     private ReadOnlyMemory<byte> _encodedConnectPacket;
     private int _estimatedConnectPacketSize;
     private int _estimatedHeaderSize;

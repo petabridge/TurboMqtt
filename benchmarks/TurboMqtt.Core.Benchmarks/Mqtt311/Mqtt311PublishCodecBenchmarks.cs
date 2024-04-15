@@ -19,7 +19,7 @@ public class Mqtt311PublishCodecBenchmarks
     [Params(1024, 2048, 4096, 8192)]
     public int PayloadSize { get; set; }
 
-    private PublishPacket _publishPacket; 
+    private PublishPacket _publishPacket = null!; 
     
     private ReadOnlyMemory<byte> _encodedPublishPacket;
     private int _estimatedPublishPacketSize;

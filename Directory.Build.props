@@ -1,8 +1,8 @@
 <Project>
     <PropertyGroup>
-        <Copyright>Copyright © 2023 Your Company</Copyright>
+        <Copyright>Copyright © 2024 Petabridge, LLC</Copyright>
         <NoWarn>$(NoWarn);CS1591</NoWarn>
-        <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+        <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
         <VersionPrefix>1.0.0</VersionPrefix>
     </PropertyGroup>
 
@@ -16,6 +16,11 @@
     <PropertyGroup Label="NuGetMetaData">
         <PackageLicenseFile>LICENSE.md</PackageLicenseFile>
         <PackageReadmeFile>README.md</PackageReadmeFile>
+    </PropertyGroup>
+
+    <!-- AOT compatibility -->
+    <PropertyGroup>
+        <IsAotCompatible Condition="$([MSBuild]::IsTargetFrameworkCompatible('$(TargetFramework)', 'net7.0'))">true</IsAotCompatible>
     </PropertyGroup>
 
     <ItemGroup>
