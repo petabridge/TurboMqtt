@@ -47,10 +47,24 @@ public sealed record LastWillAndTestament
 /// <summary>
 /// All of the MQTT protocol-specific options that can be set for a given client.
 /// </summary>
-public sealed record MqttClientOptions(
-    string ClientId,
-    MqttProtocolVersion ProtocolVersion = MqttProtocolVersion.V3_1_1)
+public sealed record MqttClientOptions
 {
+    public MqttClientOptions(string clientId, MqttProtocolVersion protocolVersion)
+    {
+        // validate the client ID
+        var (isValid, errorMessage) = MqttClientIdValidator.ValidateClientId(clientId);
+        if (!isValid)
+        {
+            throw new ArgumentException(errorMessage, nameof(clientId));
+        }
+        
+        ClientId = clientId;
+        ProtocolVersion = protocolVersion;
+    }
+    
+    public string ClientId { get; }
+    public MqttProtocolVersion ProtocolVersion { get; }
+
     public string? Username { get; init; }
     public string? Password { get; init; }
     public LastWillAndTestament? LastWill { get; init; }
