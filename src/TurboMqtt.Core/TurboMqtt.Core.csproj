@@ -6,9 +6,13 @@
         <Nullable>enable</Nullable>
     </PropertyGroup>
 
+    <!-- AOT compatibility -->
+    <PropertyGroup>
+        <IsAotCompatible Condition="$([MSBuild]::IsTargetFrameworkCompatible('$(TargetFramework)', 'net7.0'))">true</IsAotCompatible>
+    </PropertyGroup>
+
     <ItemGroup>
       <PackageReference Include="Akka.Streams" />
-      <PackageReference Include="CommunityToolkit.HighPerformance" />
     </ItemGroup>
 
 </Project>

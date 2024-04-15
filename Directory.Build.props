@@ -18,11 +18,6 @@
         <PackageReadmeFile>README.md</PackageReadmeFile>
     </PropertyGroup>
 
-    <!-- AOT compatibility -->
-    <PropertyGroup>
-        <IsAotCompatible Condition="$([MSBuild]::IsTargetFrameworkCompatible('$(TargetFramework)', 'net7.0'))">true</IsAotCompatible>
-    </PropertyGroup>
-
     <ItemGroup>
         <None Include="$(MSBuildThisFileDirectory)\README.md" Pack="true" Visible="false" PackagePath="\"/>
         <None Include="$(MSBuildThisFileDirectory)\LICENSE.md" Pack="true" Visible="false" PackagePath="\"/>

@@ -1,5 +1,5 @@
 ﻿// -----------------------------------------------------------------------
-// <copyright file="ClientOptions.cs" company="Petabridge, LLC">
+// <copyright file="MqttClientOptions.cs" company="Petabridge, LLC">
 //      Copyright (C) 2024 - 2024 Petabridge, LLC <https://petabridge.com>
 // </copyright>
 // -----------------------------------------------------------------------
@@ -44,18 +44,16 @@ public sealed record LastWillAndTestament
     */
 }
 
-public sealed record ClientOptions
+/// <summary>
+/// All of the MQTT protocol-specific options that can be set for a given client.
+/// </summary>
+public sealed record MqttClientOptions(
+    string ClientId,
+    MqttProtocolVersion ProtocolVersion = MqttProtocolVersion.V3_1_1)
 {
-    public ClientOptions(string clientId, MqttProtocolVersion protocolVersion = MqttProtocolVersion.V3_1_1)
-    {
-        ClientId = clientId;
-        ProtocolVersion = protocolVersion;
-    }
-
-    public string ClientId { get; }
-    public MqttProtocolVersion ProtocolVersion { get; init; } = MqttProtocolVersion.V3_1_1;
     public string? Username { get; init; }
     public string? Password { get; init; }
     public LastWillAndTestament? LastWill { get; init; }
     public bool CleanSession { get; init; } = true;
+    public ushort KeepAliveSeconds { get; init; } = 60;
 }

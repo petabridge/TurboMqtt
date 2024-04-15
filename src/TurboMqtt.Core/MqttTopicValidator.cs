@@ -6,7 +6,7 @@
 
 namespace TurboMqtt.Core;
 
-public static class MqttTopicValidator
+internal static class MqttTopicValidator
 {
     /// <summary>
     /// Validates an MQTT topic ID for publishing.

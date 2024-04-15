@@ -6,6 +6,8 @@
 
 namespace TurboMqtt.Core.Tests;
 
+using Xunit;
+
 public class MqttTopicValidatorSpecs
 {
     public class WhenSubscribing
