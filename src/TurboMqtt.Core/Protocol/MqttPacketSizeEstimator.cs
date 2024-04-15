@@ -128,8 +128,7 @@ internal static class MqttPacketSizeEstimator
     private static int EstimatePublishPacketSizeMqtt311(PublishPacket packet)
     {
         var size = 0; // fixed header not included in length calculation
-
-        // Variable header:
+        
         /*
         +-------------------+-------------------+-------------------+
         | Topic Name        | Packet Identifier | Payload           |
