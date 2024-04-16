@@ -39,6 +39,12 @@ public static class MqttDecodingFlows
     }
 }
 
+/// <summary>
+/// Accepts memory buffers and tries to decode them into a series of <see cref="MqttPacket"/> instances.
+/// </summary>
+/// <remarks>
+/// Will have to allocate additional byte arrays in order to be safe if we're using shared <see cref="IMemoryOwner{T}"/> instances.
+/// </remarks>
 internal sealed class Mqtt311DecoderFlow : GraphStage<FlowShape<(
     IMemoryOwner<byte> buffer, int readableBytes), IEnumerable<MqttPacket>>>
 {

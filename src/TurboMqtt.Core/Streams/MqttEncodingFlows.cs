@@ -44,7 +44,7 @@ public static class MqttEncodingFlows
 /// Accepts a range of MqttPackets and uses a shared memory pool for encode them into an <see cref="IMemoryOwner{T}"/>
 /// </summary>
 /// <remarks>
-/// The stages above this one guarantee that 
+/// The stages above this one guarantee that the total size of the packets will not exceed the maximum frame size.
 /// </remarks>
 internal sealed class Mqtt311EncoderFlow : GraphStage<FlowShape<IEnumerable<(MqttPacket packet, int predictedSize)>, (
     IMemoryOwner<byte> buffer, int readableBytes)>>
