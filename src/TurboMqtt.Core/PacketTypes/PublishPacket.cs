@@ -12,22 +12,29 @@ namespace TurboMqtt.Core.PacketTypes;
 /// <param name="qos">The delivery guarantee for this packet.</param>
 /// <param name="duplicate">Is this packet a duplicate?</param>
 /// <param name="retainRequested">Indicates whether or not this value has been retained by the MQTT broker.</param>
-public sealed class PublishPacket(QualityOfService qos, bool duplicate, bool retainRequested, string topicName) : MqttPacketWithId
+public sealed class PublishPacket : MqttPacketWithId
 {
+    public PublishPacket(QualityOfService qos, bool duplicate, bool retainRequested, string topicName)
+    {
+        QualityOfService = qos;
+        Duplicate = duplicate;
+        RetainRequested = retainRequested;
+        TopicName = topicName;
+    }
+    
     public override MqttPacketType PacketType => MqttPacketType.Publish;
+    
 
-    public override bool Duplicate { get; } = duplicate;
+    public override QualityOfService QualityOfService { get; }
 
-    public override QualityOfService QualityOfService { get; } = qos;
-
-    public override bool RetainRequested { get; } = retainRequested;
+    public override bool RetainRequested { get; }
     
     public ushort TopicAlias { get; set; } // MQTT 5.0 only
 
     /// <summary>
     /// Optional for <see cref="QualityOfService.AtMostOnce"/>
     /// </summary>
-    public string TopicName { get; } = topicName;
+    public string TopicName { get; }
 
     public uint MessageExpiryInterval { get; set; } // MQTT 5.0 only
 

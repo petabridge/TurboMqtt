@@ -4,10 +4,9 @@
 // </copyright>
 // -----------------------------------------------------------------------
 
-using TurboMqtt.Core.PacketTypes;
 using TurboMqtt.Core.Protocol;
 
-namespace TurboMqtt.Core;
+namespace TurboMqtt.Core.Config;
 
 /// <summary>
 /// Last Will and Testament (LWT) message that will be published by the broker on behalf of the client
