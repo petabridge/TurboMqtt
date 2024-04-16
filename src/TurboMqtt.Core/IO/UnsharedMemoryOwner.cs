@@ -15,7 +15,7 @@ namespace TurboMqtt.Core.IO;
 /// Used on the read-side of the Akka.Streams graph to ensure that we don't accidentally share memory buffers
 /// during async operations.
 /// </remarks>
-/// <typeparam name="T">The type of content being shared</typeparam>
+/// <typeparam name="T">The type of content being shared - usually bytes.s</typeparam>
 internal sealed class UnsharedMemoryOwner<T> : IMemoryOwner<T>
 {
     public UnsharedMemoryOwner(Memory<T> memory)
