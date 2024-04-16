@@ -61,7 +61,7 @@ internal interface IMqttTransport
     /// <remarks>
     /// It's not really a "packet packet" - just the maximum size of the payload that can be sent or received.
     ///
-    /// We need to be able to fit up to 2x this size in memory at any given time.
+    /// We need to be able to fit up to 2x this size in the transport's buffer at any given time.
     /// </remarks>
     public int MaxFrameSize { get; }
     
