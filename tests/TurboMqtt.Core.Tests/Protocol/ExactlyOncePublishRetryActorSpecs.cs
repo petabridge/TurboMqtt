@@ -8,13 +8,22 @@ using System.Threading.Channels;
 using Akka.Actor;
 using Akka.TestKit.Xunit2;
 using TurboMqtt.Core.PacketTypes;
-using TurboMqtt.Core.Protocol;
 using TurboMqtt.Core.Protocol.Publish;
+using Xunit.Abstractions;
 
 namespace TurboMqtt.Core.Tests.Protocol;
 
 public class ExactlyOncePublishRetryActorSpecs : TestKit
 {
+    // write HOCON to enable Debug logging
+    public static readonly string Config = """
+                                                   akka.loglevel = INFO
+                                           """;
+    
+    public ExactlyOncePublishRetryActorSpecs(ITestOutputHelper output) : base(output: output, config:Config)
+    {
+    }
+    
     /// <summary>
     /// Happy path test for <see cref="ExactlyOncePublishRetryActor"/> - should publish a packet and receive a <see cref="PublishingProtocol.PublishSuccess"/>
     /// </summary>
@@ -86,5 +95,26 @@ public class ExactlyOncePublishRetryActorSpecs : TestKit
         var result = await channel.Reader.ReadAsync(cts.Token);
         result.Should().Be(packet);
         packet.Duplicate.Should().BeTrue();
+        
+        // ack the packet
+        var pubRec = packet.ToPubRec();
+        actor.Tell(pubRec, probe);
+        
+        // we should have received a PubRel packet
+        var pubRel = await channel.Reader.ReadAsync(cts.Token);
+        pubRel.PacketType.Should().Be(MqttPacketType.PubRel);
+        ((PubRelPacket)pubRel).PacketId.Should().Be(packet.PacketId);
+        
+        // timeout the pubcomp
+        actor.Tell(PublishProtocolDefaults.CheckPublishTimeout.Instance);
+        
+        // should have received the PubRel packet back (again)
+        var pubRel2 = await channel.Reader.ReadAsync(cts.Token);
+        pubRel2.PacketType.Should().Be(MqttPacketType.PubRel);
+        ((PubRelPacket)pubRel2).PacketId.Should().Be(packet.PacketId);
+        
+        // send a pubcomp
+        actor.Tell(packet.ToPubComp(), probe);
+        await probe.ExpectMsgAsync<PublishingProtocol.PublishSuccess>(cancellationToken: cts.Token);
     }
 }
