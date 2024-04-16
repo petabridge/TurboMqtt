@@ -65,11 +65,7 @@ internal sealed class ExactlyOncePublishRetryActor : UntypedActor
                 if (_pendingPackets.TryGetValue(rec.PacketId, out var pending))
                 {
                     // need to send a PubRel packet
-                    var pubRel = new PubRelPacket()
-                    {
-                        PacketId = rec.PacketId, ReasonCode = PubRelReasonCode.Success, ReasonString = "Success",
-                        UserProperties = rec.UserProperties
-                    };
+                    var pubRel = pending.Packet.ToPubRel();
 
                     _outboundPackets.TryWrite(pubRel); // we use unbounded channels - this won't fail
 

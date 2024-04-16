@@ -9,11 +9,15 @@ namespace TurboMqtt.Core.PacketTypes;
 /// <summary>
 /// Used to send data to the server or client.
 /// </summary>
-/// <param name="qos">The delivery guarantee for this packet.</param>
-/// <param name="duplicate">Is this packet a duplicate?</param>
-/// <param name="retainRequested">Indicates whether or not this value has been retained by the MQTT broker.</param>
 public sealed class PublishPacket : MqttPacketWithId
 {
+    /// <summary>
+    /// Creates a new publish packet, of course.
+    /// </summary>
+    /// <param name="qos">The delivery guarantee for this packet.</param>
+    /// <param name="duplicate">Is this packet a duplicate?</param>
+    /// <param name="retainRequested">Indicates whether or not this value has been retained by the MQTT broker.</param>
+    /// <param name="topicName">The name of the topic we're publishing to.</param>
     public PublishPacket(QualityOfService qos, bool duplicate, bool retainRequested, string topicName)
     {
         QualityOfService = qos;
@@ -95,6 +99,9 @@ public enum PayloadFormatIndicator : byte
     Utf8Encoded = 1
 }
 
+/// <summary>
+/// Helper methods for generating QoS responses to <see cref="PublishPacket"/>s.
+/// </summary>
 internal static class PublishPacketExtensions
 {
     public static PubAckPacket ToPubAck(this PublishPacket packet)
@@ -114,6 +121,8 @@ internal static class PublishPacketExtensions
             Duplicate = false,
             PacketId = packet.PacketId,
             ReasonCode = PubRecReasonCode.Success,
+            ReasonString = "Success",
+            UserProperties = packet.UserProperties
         };
     }
     
@@ -124,6 +133,8 @@ internal static class PublishPacketExtensions
             Duplicate = false,
             PacketId = packet.PacketId,
             ReasonCode = PubRelReasonCode.Success,
+            ReasonString = "Success",
+            UserProperties = packet.UserProperties
         };
     }
     
@@ -134,6 +145,8 @@ internal static class PublishPacketExtensions
             Duplicate = false,
             PacketId = packet.PacketId,
             ReasonCode = PubCompReasonCode.Success,
+            ReasonString = "Success",
+            UserProperties = packet.UserProperties
         };
     }
 }
