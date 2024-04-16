@@ -94,3 +94,46 @@ public enum PayloadFormatIndicator : byte
     /// </summary>
     Utf8Encoded = 1
 }
+
+internal static class PublishPacketExtensions
+{
+    public static PubAckPacket ToPubAck(this PublishPacket packet)
+    {
+        return new PubAckPacket()
+        {
+            Duplicate = false,
+            PacketId = packet.PacketId,
+            ReasonCode = MqttPubAckReasonCode.Success
+        };
+    }
+    
+    public static PubRecPacket ToPubRec(this PublishPacket packet)
+    {
+        return new PubRecPacket()
+        {
+            Duplicate = false,
+            PacketId = packet.PacketId,
+            ReasonCode = PubRecReasonCode.Success,
+        };
+    }
+    
+    public static PubRelPacket ToPubRel(this PublishPacket packet)
+    {
+        return new PubRelPacket()
+        {
+            Duplicate = false,
+            PacketId = packet.PacketId,
+            ReasonCode = PubRelReasonCode.Success,
+        };
+    }
+    
+    public static PubCompPacket ToPubComp(this PublishPacket packet)
+    {
+        return new PubCompPacket()
+        {
+            Duplicate = false,
+            PacketId = packet.PacketId,
+            ReasonCode = PubCompReasonCode.Success,
+        };
+    }
+}
