@@ -19,10 +19,14 @@ public class MqttEncodingFlowSpecs : TestKit
     [Fact]
     public async Task MqttEncodingFlow_should_encode_MqttPackets()
     {
-        var flow = MqttEncodingFlows.Mqtt311Encoding(MemoryPool<byte>.Shared, 100);
+        var connectPacket = new ConnectPacket(MqttProtocolVersion.V3_1_1)
+        {
+            ClientId = "test", ConnectFlags = new ConnectFlags { CleanSession = true }, ProtocolName = "MQTT"
+        };
+        var flow = MqttEncodingFlows.Mqtt311Encoding(MemoryPool<byte>.Shared, 1024);
 
         var bytes = await Source
-            .Single<MqttPacket>(new ConnectPacket(MqttProtocolVersion.V3_1_1) { ClientId = "test" })
+            .Single<MqttPacket>(connectPacket)
             .Via(flow)
             .Select(c =>
             {
@@ -32,7 +36,7 @@ public class MqttEncodingFlowSpecs : TestKit
                 return byteCount;
             })
             .RunAggregate(0, (a, b) => a + b, Sys);
-        
+
         bytes.Should().BeGreaterThan(0);
     }
 }

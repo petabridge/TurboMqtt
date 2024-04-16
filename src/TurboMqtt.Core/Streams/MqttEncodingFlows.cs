@@ -31,7 +31,7 @@ public static class MqttEncodingFlows
        var g = (Flow.Create<MqttPacket>()
             .Select(c => (c, MqttPacketSizeEstimator.EstimateMqtt3PacketSize(c)))
             .Via(new PacketSizeFilter(
-                maxFrameSize)) // drops any packets bigger than the maximum frame size with a warning
+                maxFrameSize)) // drops any packets bigger than the maximum frame size with a warning (accounts for header too)
             .GroupedWeightedWithin(maxFrameSize, int.MaxValue, TimeSpan.FromMicroseconds(20), p => p.Item2)
             .Via(new Mqtt311EncoderFlow(memoryPool)));
 
@@ -90,14 +90,16 @@ internal sealed class Mqtt311EncoderFlow : GraphStage<FlowShape<IEnumerable<(Mqt
             // DOH! have to allocate a list here if we haven't already
             var packets = Grab(_flow.In).ToList();
 
-            var predictedBytes = packets.Sum(c => c.predictedSize);
+            // sum the size of the payloads and their headers
+            var totalBytes = packets.Select(c =>
+                c.predictedSize + MqttPacketSizeEstimator.GetPacketLengthHeaderSize(c.predictedSize) + 1).Sum();
 
-            var memoryOwner = _memoryPool.Rent(predictedBytes);
+            var memoryOwner = _memoryPool.Rent(totalBytes);
             var writeableBuffer = memoryOwner.Memory;
 
             var bytesWritten = Mqtt311Encoder.EncodePackets(packets, ref writeableBuffer);
             
-            System.Diagnostics.Debug.Assert(bytesWritten == predictedBytes, "bytesWritten == predictedBytes");
+            System.Diagnostics.Debug.Assert(bytesWritten == totalBytes, "bytesWritten == predictedBytes");
             
             Log.Debug("Encoded {0} messages using {1} bytes", packets.Count, bytesWritten);
             

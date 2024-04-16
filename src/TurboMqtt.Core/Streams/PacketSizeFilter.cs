@@ -8,6 +8,7 @@ using Akka.Event;
 using Akka.Streams;
 using Akka.Streams.Stage;
 using TurboMqtt.Core.PacketTypes;
+using TurboMqtt.Core.Protocol;
 
 namespace TurboMqtt.Core.Streams;
 
@@ -45,7 +46,10 @@ internal sealed class PacketSizeFilter : GraphStage<FlowShape<(MqttPacket, int),
         public override void OnPush()
         {
             var (packet, size) = Grab(_stage.In);
-            if (size > _stage._maxPacketSize)
+            
+            // have to adjust the packet size to account for the length header
+            var maxHeaderSize = MqttPacketSizeEstimator.GetPacketLengthHeaderSize(size) + 1;
+            if (size + maxHeaderSize > _stage._maxPacketSize)
             {
                 Log.Warning("Dropping MQTT packet [{0}] for exceeding max size: {1} bytes.", packet, _stage._maxPacketSize);
                 Pull(_stage.In); // Request next element
