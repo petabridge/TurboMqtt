@@ -14,8 +14,15 @@ namespace TurboMqtt.Core.Streams;
 // for each message that needs to be sent out over the wire
 internal sealed class PacketIdSource : GraphStage<SourceShape<ushort>>
 {
-    public PacketIdSource()
+    private readonly ushort _startingValue;
+    
+    /// <summary>
+    /// Initializes a new instance of the <see cref="PacketIdSource"/> class.
+    /// </summary>
+    /// <param name="startingValue">For testing purposes primarily</param>
+    public PacketIdSource(ushort startingValue = 0)
     {
+        _startingValue = startingValue;
         Shape = new SourceShape<ushort>(Out);
     }
 
@@ -23,8 +30,17 @@ internal sealed class PacketIdSource : GraphStage<SourceShape<ushort>>
 
     public override SourceShape<ushort> Shape { get; }
 
-    private sealed class Logic(PacketIdSource source) : OutGraphStageLogic(source.Shape)
+    private sealed class Logic : OutGraphStageLogic
     {
+        private readonly PacketIdSource _source;
+        
+        public Logic(PacketIdSource source, ushort startingValue) : base(source.Shape)
+        {
+            _source = source;
+            _currentId = startingValue;
+            SetHandler(source.Out, this);
+        }
+        
         private ushort _currentId = 0;
 
         public override void OnPull()
@@ -36,12 +52,12 @@ internal sealed class PacketIdSource : GraphStage<SourceShape<ushort>>
             }
 
             // guarantees that we never hit zero
-            Push(source.Out, ++_currentId);
+            Push(_source.Out, ++_currentId);
         }
     }
 
     protected override GraphStageLogic CreateLogic(Attributes inheritedAttributes)
     {
-        return new Logic(this);
+        return new Logic(this, _startingValue);
     }
 }
