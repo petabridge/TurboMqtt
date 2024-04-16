@@ -37,5 +37,5 @@ public abstract class MqttPacketWithId : MqttPacket
     /// <remarks>
     /// Not all packets require an identifier.
     /// </remarks>
-    public NonZeroUInt32 PacketId { get; set; }
+    public NonZeroUInt16 PacketId { get; set; }
 }

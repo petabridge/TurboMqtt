@@ -16,7 +16,7 @@ public sealed class SubscribePacket : MqttPacketWithId
     /// <remarks>
     /// Must be a value greater than 0.
     /// </remarks>
-    public NonZeroUInt32 SubscriptionIdentifier { get; set; }
+    public NonZeroUInt16 SubscriptionIdentifier { get; set; }
 
     /// <summary>
     /// The set of topics we're subscribing to.
