@@ -5,9 +5,10 @@
   <!-- Akka.NET Package Versions -->
   <ItemGroup>
     <PackageVersion Include="Akka.Hosting" Version="1.5.18" />
+    <PackageVersion Include="Akka.Hosting.TestKit" Version="1.5.18" />
     <PackageVersion Include="Akka.Streams" Version="1.5.19" />
+    <PackageVersion Include="Akka.Streams.TestKit" Version="1.5.19" />
     <PackageVersion Include="BenchmarkDotNet" Version="0.13.12" />
-    <PackageVersion Include="CommunityToolkit.HighPerformance" Version="8.2.2" />
   </ItemGroup>
   <!-- Test Package Versions -->
   <ItemGroup>

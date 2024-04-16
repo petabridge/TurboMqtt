@@ -103,7 +103,7 @@ public sealed class MqttLastWill
     public ReadOnlyMemory<byte>? WillCorrelationData { get; set; } // MQTT 5.0 only
     public string? ContentType { get; set; } // MQTT 5.0 only
     public PayloadFormatIndicator PayloadFormatIndicator { get; set; } // MQTT 5.0 only
-    public NonZeroUInt32 DelayInterval { get; set; } // MQTT 5.0 only
+    public NonZeroUInt16 DelayInterval { get; set; } // MQTT 5.0 only
     public uint MessageExpiryInterval { get; set; } // MQTT 5.0 only
     public IReadOnlyDictionary<string, string>? WillProperties { get; set; } // MQTT 5.0 custom properties
     

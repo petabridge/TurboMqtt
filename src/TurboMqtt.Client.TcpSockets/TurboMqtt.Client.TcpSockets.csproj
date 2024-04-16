@@ -12,7 +12,7 @@
     </PropertyGroup>
 
     <ItemGroup>
-      <PackageReference Include="Akka.Streams" />
+      <ProjectReference Include="..\TurboMqtt.Core\TurboMqtt.Core.csproj" />
     </ItemGroup>
 
 </Project>
