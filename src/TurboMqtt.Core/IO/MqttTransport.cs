@@ -68,12 +68,12 @@ internal interface IMqttTransport
     /// <summary>
     /// Used to write data to the underlying transport.
     /// </summary>
-    public ChannelWriter<IMemoryOwner<byte>> Writer { get; }
+    public ChannelWriter<(IMemoryOwner<byte> buffer, int readableBytes)> Writer { get; }
     
     /// <summary>
     /// Used to read data from the underlying transport.
     /// </summary>
-    public ChannelReader<IMemoryOwner<byte>> Reader { get; }
+    public ChannelReader<(IMemoryOwner<byte> buffer, int readableBytes)> Reader { get; }
 }
 
 public enum ConnectionStatus

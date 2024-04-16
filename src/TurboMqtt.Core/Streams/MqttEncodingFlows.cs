@@ -91,6 +91,8 @@ internal sealed class Mqtt311EncoderFlow : GraphStage<FlowShape<IEnumerable<(Mqt
             SetHandler(flow.Out, this);
         }
 
+        // TODO: error handling
+        
         public override void OnPush()
         {
             // DOH! have to allocate a list here if we haven't already
