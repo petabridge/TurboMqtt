@@ -43,7 +43,7 @@ internal interface IMqttTransport
     ///
     /// Also, this method is idempotent - it can be called multiple times without any side effects after the first call.
     /// </remarks>
-    public Task CloseAsync();
+    public Task CloseAsync(CancellationToken ct = default);
 
     /// <summary>
     /// If this is a client, this method will be used to establish a connection to the server.
@@ -53,7 +53,7 @@ internal interface IMqttTransport
     /// <remarks>
     /// The connection information is passed into the implementation's constructor, so no need to specify here.
     /// </remarks>
-    public Task ConnectAsync();
+    public Task ConnectAsync(CancellationToken ct = default);
     
     /// <summary>
     /// Maximum packet size that can be sent or received over the wire.

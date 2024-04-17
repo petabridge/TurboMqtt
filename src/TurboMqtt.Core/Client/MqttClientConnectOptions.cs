@@ -1,12 +1,37 @@
 ﻿// -----------------------------------------------------------------------
-// <copyright file="MqttClientOptions.cs" company="Petabridge, LLC">
+// <copyright file="MqttClientConnectOptions.cs" company="Petabridge, LLC">
 //      Copyright (C) 2024 - 2024 Petabridge, LLC <https://petabridge.com>
 // </copyright>
 // -----------------------------------------------------------------------
 
+using System.Net;
+using System.Net.Sockets;
 using TurboMqtt.Core.Protocol;
 
 namespace TurboMqtt.Core.Config;
+
+/// <summary>
+/// Used to configure the TCP connection for the MQTT client.
+/// </summary>
+public sealed record MqttClientTcpOptions
+{
+    /// <summary>
+    /// Would love to just do IPV6, but that still meets resistance everywhere
+    /// </summary>
+    public AddressFamily AddressFamily { get; set; } = AddressFamily.Unspecified;
+    
+    /// <summary>
+    /// Will get set to 2x the maximum frame size automatically
+    /// </summary>
+    public uint BufferSize { get; set; }
+    
+    public EndPoint? RemoteEndpoint { get; set; }
+    
+    /// <summary>
+    /// Doesn't need to be set - will automatically bind to an appropriate address determined by the OS if not set.
+    /// </summary>
+    public EndPoint? LocalEndpoint { get; set; }
+}
 
 /// <summary>
 /// Last Will and Testament (LWT) message that will be published by the broker on behalf of the client
@@ -46,9 +71,9 @@ public sealed record LastWillAndTestament
 /// <summary>
 /// All of the MQTT protocol-specific options that can be set for a given client.
 /// </summary>
-public sealed record MqttClientOptions
+public sealed record MqttClientConnectOptions
 {
-    public MqttClientOptions(string clientId, MqttProtocolVersion protocolVersion)
+    public MqttClientConnectOptions(string clientId, MqttProtocolVersion protocolVersion)
     {
         // validate the client ID
         var (isValid, errorMessage) = MqttClientIdValidator.ValidateClientId(clientId);

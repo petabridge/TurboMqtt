@@ -11,16 +11,16 @@ namespace TurboMqtt.Core.Protocol;
 /// <summary>
 /// Ack protocol for client-side messages that require an acknowledgment from the broker.
 /// </summary>
-internal interface IAckResponse
+public interface IAckResponse
 {
     bool IsSuccess { get; }
     string? Reason { get; }
 }
 
 /// <summary>
-/// INTERNAL API
+/// Responses to the various client-side messages that require an acknowledgment from the broker.
 /// </summary>
-internal static class AckProtocol
+public static class AckProtocol
 {
     public sealed class SubscribeSuccess : IAckResponse
     {
