@@ -78,6 +78,7 @@ internal interface IMqttTransport
 
 public enum ConnectionStatus
 {
+    NotStarted,
     Connecting,
     Connected,
     Disconnected,

@@ -4,6 +4,8 @@
 // </copyright>
 // -----------------------------------------------------------------------
 
+using Akka.Actor;
+using Akka.Streams;
 using TurboMqtt.Core.Config;
 using TurboMqtt.Core.IO;
 using TurboMqtt.Core.Protocol;
@@ -77,4 +79,62 @@ public interface IMqttClient
     /// Does not cause the connection to terminate - just waits for it to finish.
     /// </remarks>
     public Task<ConnectionTerminatedReason> WaitForTermination();
+}
+
+/// <summary>
+/// Default MQTT client implementation
+/// </summary>
+public sealed class MqttClient : IMqttClient
+{
+    private readonly IMqttTransport _transport;
+    private readonly IActorRefFactory _actorRefFactory;
+    private readonly IMaterializer _materializer;
+
+    internal MqttClient(IMqttTransport transport, IActorRefFactory actorRefFactory)
+    {
+        _transport = transport;
+        _actorRefFactory = actorRefFactory;
+        _materializer = _actorRefFactory.Materializer();
+    }
+
+    public bool IsConnected => _transport.Status == ConnectionStatus.Connected;
+    public async Task<IAckResponse> ConnectAsync(MqttClientConnectOptions options, CancellationToken cancellationToken = default)
+    {
+        if (_transport.Status != ConnectionStatus.NotStarted)
+            return new AckProtocol.ConnectFailure($"Already in state [{_transport.Status}]");
+        
+        // this will blow up if there's a problem with the connection
+        await _transport.ConnectAsync(cancellationToken);
+    }
+
+    public async Task DisconnectAsync(CancellationToken cancellationToken = default)
+    {
+        throw new NotImplementedException();
+    }
+
+    public async Task<IPublishControlMessage> PublishAsync(string topic, ReadOnlyMemory<byte> message, QualityOfService qos, bool retain,
+        CancellationToken cancellationToken = default)
+    {
+        throw new NotImplementedException();
+    }
+
+    public async Task<IAckResponse> SubscribeAsync(string topic, QualityOfService qos, CancellationToken cancellationToken = default)
+    {
+        throw new NotImplementedException();
+    }
+
+    public IAsyncEnumerable<MqttMessage> ReceiveMessagesAsync(CancellationToken cancellationToken = default)
+    {
+        throw new NotImplementedException();
+    }
+
+    public async Task<IAckResponse> UnsubscribeAsync(string topic, CancellationToken cancellationToken = default)
+    {
+        throw new NotImplementedException();
+    }
+
+    public async Task<ConnectionTerminatedReason> WaitForTermination()
+    {
+        throw new NotImplementedException();
+    }
 }
