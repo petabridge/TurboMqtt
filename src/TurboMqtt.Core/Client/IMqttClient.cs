@@ -19,6 +19,11 @@ namespace TurboMqtt.Core.Client;
 public interface IMqttClient
 {
     /// <summary>
+    /// The version of the MQTT protocol that this client is using.
+    /// </summary>
+    public MqttProtocolVersion ProtocolVersion { get; }
+    
+    /// <summary>
     /// The state of the connection to the MQTT broker.
     /// </summary>
     public bool IsConnected { get; }
