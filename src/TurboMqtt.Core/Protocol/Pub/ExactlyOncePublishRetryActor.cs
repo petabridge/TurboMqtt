@@ -122,6 +122,20 @@ internal sealed class ExactlyOncePublishRetryActor : UntypedActor, IWithTimers
 
                 return;
             }
+            
+            case PublishingProtocol.PublishCancelled cancel:
+            {
+                if (_pendingPackets.Remove(cancel.PacketId, out var pending))
+                {
+                    pending.Sender.Tell(new PublishingProtocol.PublishFailure("Cancelled"));
+                }
+                else
+                {
+                    _log.Warning("Received cancel request for unknown packet ID [{0}]", cancel.PacketId);
+                }
+
+                return;
+            }
 
             case CheckTimeout _:
             {
