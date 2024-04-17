@@ -132,4 +132,13 @@ internal static class SubscriptionOptionsHelpers
 
         return result;
     }
+    
+    public static SubAckPacket ToSubAckPacket(this SubscribePacket packet, IReadOnlyList<MqttSubscribeReasonCode> returnCodes)
+    {
+        return new SubAckPacket
+        {
+            PacketId = packet.PacketId,
+            ReasonCodes = returnCodes
+        };
+    }
 }
