@@ -8,7 +8,7 @@ using System.Net;
 using System.Net.Sockets;
 using TurboMqtt.Core.Protocol;
 
-namespace TurboMqtt.Core.Config;
+namespace TurboMqtt.Core.Client;
 
 /// <summary>
 /// Used to configure the TCP connection for the MQTT client.
@@ -94,4 +94,34 @@ public sealed record MqttClientConnectOptions
     public LastWillAndTestament? LastWill { get; init; }
     public bool CleanSession { get; init; } = true;
     public ushort KeepAliveSeconds { get; init; } = 60;
+
+    public uint MaximumPacketSize { get; set; } = 1024 * 8;
+    
+    /// <summary>
+    /// Used for de-duplication across all clients.
+    /// </summary>
+    /// <remarks>
+    /// Defaults to 5000 retained packet IDs
+    /// </remarks>
+    public int MaxRetainedPacketIds { get; init; } = 5000;
+    
+    /// <summary>
+    /// Maximum amount of time a packet ID can be retained for before it is considered stale and can be reused.
+    /// </summary>
+    /// <remarks>
+    /// Defaults to 5 seconds.
+    /// </remarks>
+    public TimeSpan MaxPacketIdRetentionTime { get; init; } = TimeSpan.FromSeconds(5);
+    
+    /// <summary>
+    /// Maximum number of times a message can be retried before it is considered a failure.
+    /// </summary>
+    public int MaxPublishRetries { get; init; } = 3;
+    
+    /// <summary>
+    /// The interval at which we should retry publishing a message if it fails.
+    /// </summary>
+    public TimeSpan PublishRetryInterval { get; init; } = TimeSpan.FromSeconds(5);
+
+    public ushort ReceiveMaximum { get; set; }
 }

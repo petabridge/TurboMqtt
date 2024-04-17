@@ -14,21 +14,24 @@ using TurboMqtt.Core.PacketTypes;
 
 namespace TurboMqtt.Core.Streams;
 
+/// <summary>
+/// INTERNAL API
+/// </summary>
 internal static class MqttClientStreams
 {
-    public static IGraph<SinkShape<MqttPacket>> Mqtt311OutboundPacketSink(IMqttTransport transport,
+    public static Sink<MqttPacket, NotUsed> Mqtt311OutboundPacketSink(IMqttTransport transport,
         MemoryPool<byte> memoryPool, int maxFrameSize)
     {
         var finalSink = Sink.FromWriter(transport.Writer, true);
         var g = Flow.Create<MqttPacket>()
-            .Via(PacketIdEncodingFlows.PacketIdEncoding())
+            //.Via(PacketIdEncodingFlows.PacketIdEncoding())
             .Via(MqttEncodingFlows.Mqtt311Encoding(memoryPool, maxFrameSize))
             .To(finalSink);
 
         return g;
     }
 
-    public static IGraph<SourceShape<MqttMessage>> Mqtt311InboundMessageSource(IMqttTransport transport, 
+    public static Source<MqttMessage, NotUsed> Mqtt311InboundMessageSource(IMqttTransport transport, 
         ChannelWriter<MqttPacket> outboundPackets,
         MqttRequiredActors actors, int maxRememberedPacketIds, TimeSpan packetIdExpiry)
     {
