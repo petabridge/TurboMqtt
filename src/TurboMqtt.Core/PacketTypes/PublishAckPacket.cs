@@ -44,7 +44,7 @@ internal static class MqttPubAckHelpers
 }
 
 /// <summary>
-/// Used to acknowledge the receipt of a Publish packet.
+/// Used to acknowledge the receipt of a Pub packet.
 /// </summary>
 public sealed class PubAckPacket : MqttPacketWithId
 {

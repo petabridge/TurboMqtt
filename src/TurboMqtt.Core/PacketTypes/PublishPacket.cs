@@ -82,7 +82,7 @@ public sealed class PublishPacket : MqttPacketWithId
     public override string ToString()
     {
         return
-            $"Publish: [Topic={TopicName}] [PayloadLength={Payload.Length}] [QoSLevel={QualityOfService}] [Dup={Duplicate}] [Retain={RetainRequested}] [PacketIdentifier={PacketId}]";
+            $"Pub: [Topic={TopicName}] [PayloadLength={Payload.Length}] [QoSLevel={QualityOfService}] [Dup={Duplicate}] [Retain={RetainRequested}] [PacketIdentifier={PacketId}]";
     }
 }
 
