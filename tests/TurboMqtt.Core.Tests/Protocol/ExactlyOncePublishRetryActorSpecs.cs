@@ -117,4 +117,71 @@ public class ExactlyOncePublishRetryActorSpecs : TestKit
         actor.Tell(packet.ToPubComp(), probe);
         await probe.ExpectMsgAsync<PublishingProtocol.PublishSuccess>(cancellationToken: cts.Token);
     }
+    
+    // create a spec where we cancel a publish operation
+    [Fact]
+    public async Task ExactlyOncePublishRetryActor_should_cancel_publish_operation()
+    {
+        var probe = CreateTestProbe();
+        var channel = Channel.CreateUnbounded<MqttPacket>();
+        var actor = Sys.ActorOf(Props.Create(() =>
+            new ExactlyOncePublishRetryActor(channel.Writer, 1, TimeSpan.FromMinutes(1))));
+
+        var packet = new PublishPacket(QualityOfService.ExactlyOnce, false, false, "topic")
+        {
+            PacketId = 2
+        };
+        
+        actor.Tell(packet, probe);
+        actor.Tell(new PublishingProtocol.PublishCancelled(packet.PacketId), probe);
+        
+        // should have received a failure message
+        await probe.ExpectMsgAsync<PublishingProtocol.PublishFailure>();
+    }
+    
+    [Fact]
+    public async Task ExactlyOncePublishRetryActor_should_fail_undeliverable_packets()
+    {
+        var probe = CreateTestProbe();
+        var channel = Channel.CreateUnbounded<MqttPacket>();
+        
+        // set the timespan to zero, so we have to immediately retry - no retries available, so we'll immediately fail
+        var actor = Sys.ActorOf(Props.Create(() =>
+            new ExactlyOncePublishRetryActor(channel.Writer, 0, TimeSpan.Zero)));
+
+        var packet = new PublishPacket(QualityOfService.ExactlyOnce, false, false, "topic")
+        {
+            PacketId = 1
+        };
+        
+        actor.Tell(packet, probe);
+        actor.Tell(PublishProtocolDefaults.CheckTimeout.Instance);
+        // should get a failure message
+        await probe.ExpectMsgAsync<PublishingProtocol.PublishFailure>();
+    }
+    
+    // create a case where we get a negative PubRec back from the broker (i.e. non-success return code)
+    [Fact]
+    public async Task ExactlyOncePublishRetryActor_should_fail_on_negative_pubrec()
+    {
+        var probe = CreateTestProbe();
+        var channel = Channel.CreateUnbounded<MqttPacket>();
+        
+        // set the timespan to zero, so we have to immediately retry - no retries available, so we'll immediately fail
+        var actor = Sys.ActorOf(Props.Create(() =>
+            new ExactlyOncePublishRetryActor(channel.Writer, 3, TimeSpan.Zero)));
+
+        var packet = new PublishPacket(QualityOfService.ExactlyOnce, false, false, "topic")
+        {
+            PacketId = 1
+        };
+        
+        var pubRec = packet.ToPubRec();
+        pubRec.ReasonCode = PubRecReasonCode.QuotaExceeded;
+        
+        actor.Tell(packet, probe);
+        actor.Tell(pubRec, probe);
+        // should get a failure message
+        await probe.ExpectMsgAsync<PublishingProtocol.PublishFailure>();
+    }
 }

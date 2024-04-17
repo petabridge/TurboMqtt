@@ -99,4 +99,50 @@ public class AtLeastOncePublishRetryActorSpecs : TestKit
         // should get a failure message
         await probe.ExpectMsgAsync<PublishingProtocol.PublishFailure>();
     }
+    
+    // create a spec where we cancel a publish operation`
+    [Fact] public async Task AtLeastOncePublishRetryActor_should_cancel_publish_operation()
+    {
+        var probe = CreateTestProbe();
+        var channel = Channel.CreateUnbounded<MqttPacket>();
+        
+        // set the timespan to zero, so we have to immediately retry - no retries available, so we'll immediately fail
+        var actor = Sys.ActorOf(Props.Create(() =>
+            new AtLeastOncePublishRetryActor(channel.Writer, 3, TimeSpan.Zero)));
+
+        var packet = new PublishPacket(QualityOfService.AtLeastOnce, false, false, "topic")
+        {
+            PacketId = 1
+        };
+        
+        actor.Tell(packet, probe);
+        actor.Tell(new PublishingProtocol.PublishCancelled(1), probe);
+        // should get a failure message
+        await probe.ExpectNoMsgAsync(TimeSpan.FromSeconds(1));
+    }
+    
+    // create a spec where we get a negative PubAck back from the broker (i.e. a failure)
+    [Fact] public async Task AtLeastOncePublishRetryActor_should_fail_on_negative_puback()
+    {
+        var probe = CreateTestProbe();
+        var channel = Channel.CreateUnbounded<MqttPacket>();
+        
+        // set the timespan to zero, so we have to immediately retry - no retries available, so we'll immediately fail
+        var actor = Sys.ActorOf(Props.Create(() =>
+            new AtLeastOncePublishRetryActor(channel.Writer, 3, TimeSpan.Zero)));
+
+        var packet = new PublishPacket(QualityOfService.AtLeastOnce, false, false, "topic")
+        {
+            PacketId = 1
+        };
+        
+        actor.Tell(packet, probe);
+        actor.Tell(new PubAckPacket
+        {
+            PacketId =1,
+            ReasonCode = MqttPubAckReasonCode.NotAuthorized
+        }, probe);
+        // should get a failure message
+        await probe.ExpectMsgAsync<PublishingProtocol.PublishFailure>();
+    }
 }

@@ -64,7 +64,7 @@ internal sealed class ExactlyOncePublishRetryActor : UntypedActor, IWithTimers
 
                 // we don't send packets to the server first time around - Akka.Streams handles that
                 _pendingPackets[packet.PacketId] = new PendingPublish(packet, Deadline.FromNow(_publishTimeout),
-                    Sender, false, 3);
+                    Sender, false, _maxRetries);
                 return;
             }
 
@@ -72,8 +72,20 @@ internal sealed class ExactlyOncePublishRetryActor : UntypedActor, IWithTimers
             {
                 if (_pendingPackets.TryGetValue(rec.PacketId, out var pending))
                 {
+                    // check the reason code
+                    if (rec.ReasonCode != PubRecReasonCode.Success)
+                    {
+                        // remove the pending packet
+                        _pendingPackets.Remove(rec.PacketId, out _);
+                        _log.Warning("Received PubRec with reason code [{0}] for packet ID [{1}]", rec.ReasonCode,
+                            rec.PacketId);
+                        pending.Sender.Tell(new PublishingProtocol.PublishFailure("PubRec failed"));
+                        return;
+                    }
+                    
                     // need to send a PubRel packet
                     var pubRel = pending.Packet.ToPubRel();
+                    pubRel.Duplicate = pending.PubRecReceived; // mark this as a duplicate if we've already received a PubRec
 
                     _outboundPackets.TryWrite(pubRel); // we use unbounded channels - this won't fail
 

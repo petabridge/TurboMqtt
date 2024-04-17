@@ -66,6 +66,13 @@ internal sealed class AtLeastOncePublishRetryActor : UntypedActor, IWithTimers
             {
                 if (_pendingPackets.Remove(ack.PacketId, out var pending))
                 {
+                    // check the return code
+                    if (ack.ReasonCode != MqttPubAckReasonCode.Success)
+                    {
+                        _log.Warning("Received PubAck with non-success return code [{0}]", ack.ReasonCode);
+                        pending.Sender.Tell(new PublishFailure(ack.ReasonString));
+                        return;
+                    }
                     pending.Sender.Tell(PublishSuccess.Instance);
                 }
                 else
