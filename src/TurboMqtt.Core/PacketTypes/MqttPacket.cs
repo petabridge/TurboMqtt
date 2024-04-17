@@ -13,7 +13,7 @@ public abstract class MqttPacket
 {
     public abstract MqttPacketType PacketType { get; }
 
-    public virtual bool Duplicate => false;
+    public bool Duplicate { get; set; } = false;
 
     public virtual QualityOfService QualityOfService => QualityOfService.AtMostOnce;
 

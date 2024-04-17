@@ -7,7 +7,7 @@
 namespace TurboMqtt.Core.PacketTypes;
 
 /// <summary>
-/// Used to acknowledge the receipt of a Publish packet with <see cref="QualityOfService.ExactlyOnce"/>.
+/// Used to acknowledge the receipt of a Pub packet with <see cref="QualityOfService.ExactlyOnce"/>.
 /// This packet type is part of the QoS 2 message flow.
 /// </summary>
 public sealed class PubRecPacket : MqttPacketWithId

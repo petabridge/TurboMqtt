@@ -4,7 +4,6 @@
 // </copyright>
 // -----------------------------------------------------------------------
 
-using Akka;
 using Akka.Streams;
 using Akka.Streams.Stage;
 
