@@ -78,7 +78,7 @@ internal sealed class AtLeastOncePublishRetryActor : UntypedActor, IWithTimers
             }
 
             // Timeout for a packet
-            case CheckPublishTimeout _:
+            case CheckTimeout _:
             {
                 foreach (var (packetId, pending) in _pendingPackets)
                 {
@@ -127,7 +127,7 @@ internal sealed class AtLeastOncePublishRetryActor : UntypedActor, IWithTimers
 
     protected override void PreStart()
     {
-        Timers.StartPeriodicTimer(PublishTimerKey, CheckPublishTimeout.Instance, TimeSpan.FromSeconds(1));
+        Timers.StartPeriodicTimer(PublishTimerKey, CheckTimeout.Instance, TimeSpan.FromSeconds(1));
     }
 
     /// <summary>

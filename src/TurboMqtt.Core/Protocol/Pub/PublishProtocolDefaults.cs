@@ -11,10 +11,10 @@ namespace TurboMqtt.Core.Protocol.Publish;
 /// </summary>
 internal static class PublishProtocolDefaults
 {
-    public sealed class CheckPublishTimeout
+    public sealed class CheckTimeout
     {
-        public static CheckPublishTimeout Instance { get; } = new();
-        private CheckPublishTimeout() { }
+        public static CheckTimeout Instance { get; } = new();
+        private CheckTimeout() { }
     }
     
     /// <summary>

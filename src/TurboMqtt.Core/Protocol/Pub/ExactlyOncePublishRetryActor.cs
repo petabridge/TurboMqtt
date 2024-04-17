@@ -46,7 +46,7 @@ internal sealed class ExactlyOncePublishRetryActor : UntypedActor, IWithTimers
 
     protected override void PreStart()
     {
-        Timers.StartPeriodicTimer(PublishTimerKey, CheckPublishTimeout.Instance, TimeSpan.FromSeconds(1));
+        Timers.StartPeriodicTimer(PublishTimerKey, CheckTimeout.Instance, TimeSpan.FromSeconds(1));
     }
 
     protected override void OnReceive(object message)
@@ -110,7 +110,7 @@ internal sealed class ExactlyOncePublishRetryActor : UntypedActor, IWithTimers
                 return;
             }
 
-            case CheckPublishTimeout _:
+            case CheckTimeout _:
             {
                 foreach (var (packetId, pending) in _pendingPackets)
                 {

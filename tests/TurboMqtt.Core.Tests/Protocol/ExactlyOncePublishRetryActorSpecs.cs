@@ -88,7 +88,7 @@ public class ExactlyOncePublishRetryActorSpecs : TestKit
         };
         
         actor.Tell(packet, probe);
-        actor.Tell(PublishProtocolDefaults.CheckPublishTimeout.Instance);
+        actor.Tell(PublishProtocolDefaults.CheckTimeout.Instance);
         
         // we should have received the packet back
         using var cts = new CancellationTokenSource(RemainingOrDefault);
@@ -106,7 +106,7 @@ public class ExactlyOncePublishRetryActorSpecs : TestKit
         ((PubRelPacket)pubRel).PacketId.Should().Be(packet.PacketId);
         
         // timeout the pubcomp
-        actor.Tell(PublishProtocolDefaults.CheckPublishTimeout.Instance);
+        actor.Tell(PublishProtocolDefaults.CheckTimeout.Instance);
         
         // should have received the PubRel packet back (again)
         var pubRel2 = await channel.Reader.ReadAsync(cts.Token);

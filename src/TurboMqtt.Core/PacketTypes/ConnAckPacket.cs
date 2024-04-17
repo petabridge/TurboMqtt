@@ -15,9 +15,15 @@ public sealed class ConnAckPacket : MqttPacket
 
     public bool SessionPresent { get; set; }
     public ConnAckReasonCode ReasonCode { get; set; } // Enum defined below
+    
+    public uint MaximumPacketSize { get; set; }
+    
+    public ushort ReceiveMaximum { get; set; }
 
     // MQTT 5.0 - Optional Properties
     public IReadOnlyDictionary<string, string>? UserProperties { get; set; }
+    
+    public string? ReasonString { get; set; }
 
     public override string ToString()
     {

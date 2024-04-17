@@ -66,7 +66,7 @@ public class AtLeastOncePublishRetryActorSpecs : TestKit
         };
         
         actor.Tell(packet, probe);
-        actor.Tell(PublishProtocolDefaults.CheckPublishTimeout.Instance);
+        actor.Tell(PublishProtocolDefaults.CheckTimeout.Instance);
         
         // we should have received the packet back
         using var cts = new CancellationTokenSource(RemainingOrDefault);
@@ -95,7 +95,7 @@ public class AtLeastOncePublishRetryActorSpecs : TestKit
         };
         
         actor.Tell(packet, probe);
-        actor.Tell(PublishProtocolDefaults.CheckPublishTimeout.Instance);
+        actor.Tell(PublishProtocolDefaults.CheckTimeout.Instance);
         // should get a failure message
         await probe.ExpectMsgAsync<PublishingProtocol.PublishFailure>();
     }
