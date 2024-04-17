@@ -59,6 +59,7 @@ internal sealed class PacketIdFlow : GraphStage<FlowShape<MqttPacket, MqttPacket
             _flow = flow;
             _currentId = startingValue;
             SetHandler(flow.Out, this);
+            SetHandler(flow.In, this);
         }
         
         private ushort _currentId = 0;

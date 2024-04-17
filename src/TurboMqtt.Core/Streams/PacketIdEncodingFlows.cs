@@ -6,7 +6,6 @@
 
 using Akka;
 using Akka.Streams;
-using Akka.Streams.Dsl;
 using TurboMqtt.Core.PacketTypes;
 
 namespace TurboMqtt.Core.Streams;
@@ -23,7 +22,7 @@ public static class PacketIdEncodingFlows
     /// <returns>An Akka.Streams graph - still needs to be connected to a source and a sink in order to run.</returns>
     public static IGraph<FlowShape<MqttPacket, MqttPacket>, NotUsed> PacketIdEncoding()
     {
-        var g = Flow.Create<MqttPacket, MqttPacket>().Via(new PacketIdFlow());
+        var g = new PacketIdFlow();
         return g;
     }
 }
