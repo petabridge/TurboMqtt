@@ -45,7 +45,7 @@ internal sealed class HeartBeatActor : UntypedActor, IWithTimers
     /// </summary>
     public sealed class HeartbeatTimeout
     {
-        public static HeartbeatTimeout Instance = new();
+        public static readonly HeartbeatTimeout Instance = new();
 
         private HeartbeatTimeout()
         {
@@ -57,7 +57,7 @@ internal sealed class HeartBeatActor : UntypedActor, IWithTimers
     /// </summary>
     public sealed class CheckHeartbeat
     {
-        public static CheckHeartbeat Instance = new();
+        public static readonly CheckHeartbeat Instance = new();
 
         private CheckHeartbeat()
         {
@@ -111,7 +111,12 @@ internal sealed class HeartBeatActor : UntypedActor, IWithTimers
                     _failureDetector.Trigger(ex);
                     Context.Stop(Self); // stop the actor
                 }
+
+                break;
             }
+            default:
+                Unhandled(message);
+                break;
         }
     }
 
