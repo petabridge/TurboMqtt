@@ -52,3 +52,15 @@ public enum PubRecReasonCode : byte
     QuotaExceeded = 0x97,
     PayloadFormatInvalid = 0x99
 }
+
+internal static class PubRecHelpers
+{
+    public static PubRelPacket ToPubRel(this PubRecPacket packet)
+    {
+        return new PubRelPacket
+        {
+            PacketId = packet.PacketId,
+            ReasonCode = PubRelReasonCode.Success
+        };
+    }
+}

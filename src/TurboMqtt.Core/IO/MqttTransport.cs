@@ -6,6 +6,7 @@
 
 using System.Buffers;
 using System.Threading.Channels;
+using Akka.Event;
 
 namespace TurboMqtt.Core.IO;
 
@@ -21,6 +22,11 @@ namespace TurboMqtt.Core.IO;
 /// </remarks>
 internal interface IMqttTransport
 {
+    /// <summary>
+    /// The logger used to log messages from the transport.
+    /// </summary>
+    public ILoggingAdapter Log { get; }
+    
     /// <summary>
     /// Reflects the current status of the connection.
     /// </summary>
