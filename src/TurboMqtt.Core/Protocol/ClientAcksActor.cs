@@ -47,7 +47,7 @@ internal sealed class ClientAcksActor : UntypedActor, IWithTimers
     
     protected override void PreStart()
     {
-        Timers.StartPeriodicTimer("ack-timeout", PublishProtocolDefaults.CheckTimeout.Instance, _actionTimeout);
+        Timers.StartPeriodicTimer("ack-timeout", PublishProtocolDefaults.CheckTimeout.Instance, TimeSpan.FromSeconds(1));
     }
 
     protected override void OnReceive(object message)

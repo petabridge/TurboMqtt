@@ -9,6 +9,7 @@ using Akka.Event;
 using Akka.TestKit.Xunit2;
 using TurboMqtt.Core.PacketTypes;
 using TurboMqtt.Core.Protocol;
+using TurboMqtt.Core.Protocol.Publish;
 using Xunit.Abstractions;
 using static TurboMqtt.Core.Protocol.AckProtocol;
 
@@ -58,12 +59,44 @@ public class ClientAcksActorSpecs : TestKit
         subSuccess.SubAck.PacketId.Should().Be(subAckPacket.PacketId);
     }
     
+    // handle a timeout scenario for Subscribes
+    [Fact]
+    public async Task ClientAcksActor_should_handle_pending_subscribes_with_timeout()
+    {
+        // create a new ClientAcksActor
+        var clientAcksActor = Sys.ActorOf(Props.Create(() => new ClientAcksActor(TimeSpan.Zero)));
+
+        // create a new SubscribePacket
+        var subscribePacket = new SubscribePacket
+        {
+            PacketId = 2, Topics = new []
+            {
+                new TopicSubscription("test/topic")
+                {
+                    Options = new SubscriptionOptions
+                    {
+                        QoS = QualityOfService.AtLeastOnce
+                    }
+                }
+            }
+        };
+
+        // send the SubscribePacket to the ClientAcksActor
+        clientAcksActor.Tell(subscribePacket);
+        clientAcksActor.Tell(PublishProtocolDefaults.CheckTimeout.Instance);
+
+        // expect the ClientAcksActor to have a pending subscribe
+        var subFailure = await ExpectMsgAsync<SubscribeFailure>();
+        subFailure.IsSuccess.Should().BeFalse();
+        subFailure.Reason.Should().Be("Timeout");
+    }
+    
     //test a SubAck scenario where we get an unsuccessful SubAck packet back (i.e. bad return code for all topics)
     [Fact]
     public async Task ClientAcksActor_should_handle_pending_subscribes_with_failure()
     {
         // create a new ClientAcksActor
-        var clientAcksActor = Sys.ActorOf(Props.Create(() => new ClientAcksActor(TimeSpan.FromMinutes(1))));
+        var clientAcksActor = Sys.ActorOf(Props.Create(() => new ClientAcksActor(TimeSpan.Zero)));
 
         // create a new SubscribePacket
         var subscribePacket = new SubscribePacket
@@ -209,5 +242,28 @@ public class ClientAcksActorSpecs : TestKit
         var connectFailure = await ExpectMsgAsync<ConnectFailure>();
         connectFailure.IsSuccess.Should().BeFalse();
         connectFailure.Reason.Should().Be(connAckPacket.ReasonCode.ToString());
+    }
+    
+    // add a timeout scenario for Connects
+    [Fact]
+    public async Task ClientAcksActor_should_handle_pending_connects_with_timeout()
+    {
+        // create a new ClientAcksActor
+        var clientAcksActor = Sys.ActorOf(Props.Create(() => new ClientAcksActor(TimeSpan.Zero)));
+
+        // create a new ConnectPacket
+        var connectPacket = new ConnectPacket(MqttProtocolVersion.V3_1_1)
+        {
+            ClientId = "test-client"
+        };
+
+        // send the ConnectPacket to the ClientAcksActor
+        clientAcksActor.Tell(connectPacket);
+        clientAcksActor.Tell(PublishProtocolDefaults.CheckTimeout.Instance);
+
+        // expect the ClientAcksActor to have a pending connect
+        var connectFailure = await ExpectMsgAsync<ConnectFailure>();
+        connectFailure.IsSuccess.Should().BeFalse();
+        connectFailure.Reason.Should().Be("Timeout");
     }
 }
