@@ -22,7 +22,7 @@ namespace TurboMqtt.Core.Streams;
 /// <summary>
 /// Actor responsible for owning a client's streams and child actors.
 /// </summary>
-internal sealed class ClientStreamOwner : UntypedActor, IWithStash
+internal sealed class ClientStreamOwner : UntypedActor
 {
     /// <summary>
     /// Used to create a new client.
@@ -30,21 +30,14 @@ internal sealed class ClientStreamOwner : UntypedActor, IWithStash
     /// <param name="Transport">The underlying transport we're going to use to communicate with the broker.</param>
     public sealed record CreateClient(IMqttTransport Transport, MqttClientConnectOptions ConnectOptions)
         : INoSerializationVerificationNeeded;
-    
-    public sealed record CreateClientFailed(string Reason) : INoSerializationVerificationNeeded;
-
-    public sealed class ClientConnected : INoSerializationVerificationNeeded;
-
-    // public sealed record ClientConnectedParts(
-    //     MqttRequiredActors RequiredActors,
-    //     Source<MqttMessage, NotUsed> InboundMessages,
-    //     Sink<MqttPacket, NotUsed> OutboundMessages) : INoSerializationVerificationNeeded;
 
     private IActorRef? _exactlyOnceActor;
     private IActorRef? _atLeastOnceActor;
     private IActorRef? _clientAckActor;
     private IActorRef? _heartBeatActor;
     private IMqttClient? _client;
+    private Channel<MqttPacket>? _outboundChannel;
+    private Channel<MqttMessage>? _inboundChannel;
     
     private readonly IMaterializer _materializer = ActorMaterializer.Create(Context);
     private readonly ILoggingAdapter _log = Context.GetLogger();
@@ -53,16 +46,16 @@ internal sealed class ClientStreamOwner : UntypedActor, IWithStash
     {
         switch (message)
         {
-            case CreateClient createClient:
+            case CreateClient createClient when _client is null:
             {
                 var clientConnectOptions = createClient.ConnectOptions;
-
+                
                 // outbound channel for packets
-                var outboundChannel =
+                _outboundChannel =
                     Channel.CreateUnbounded<MqttPacket>(new UnboundedChannelOptions() { SingleReader = true });
-                var outboundPackets = outboundChannel.Writer;
-                var outboundPacketsReader = outboundChannel.Reader;
-                var inboundChannel =
+                var outboundPackets = _outboundChannel.Writer;
+                var outboundPacketsReader = _outboundChannel.Reader;
+                _inboundChannel =
                     Channel.CreateUnbounded<MqttMessage>(new UnboundedChannelOptions() { SingleWriter = true });
 
                 // start the actors
@@ -100,13 +93,34 @@ internal sealed class ClientStreamOwner : UntypedActor, IWithStash
                 
                 // begin inbound stream
                 inboundStream
-                    .To(ChannelSink.FromWriter(inboundChannel.Writer, true))
+                    .To(ChannelSink.FromWriter(_inboundChannel.Writer, true))
                     .Run(_materializer);
                 
+                _client = new MqttClient(createClient.Transport, 
+                    Self, 
+                    requiredActors,
+                    _inboundChannel.Reader, 
+                    outboundPackets, _log, clientConnectOptions);
                 
-                
+                // client is now fully constructed
+                Sender.Tell(_client);
                 break;
             }
+            
+            case CreateClient:
+                // Just resend the existing client
+                Sender.Tell(_client);
+                break;
+
+            case Terminated t:
+            {
+                _log.Error("One of the required actors [{0}] has terminated. This is an unexpected and fatal error. Shutting down the client.", t.ActorRef);
+                Context.Stop(Self);
+                break;
+            }
+            default:
+                Unhandled(message);
+                break;
         }
     }
 
@@ -133,10 +147,10 @@ internal sealed class ClientStreamOwner : UntypedActor, IWithStash
         }
     }
 
-    private void Connected(object message)
+    protected override void PostStop()
     {
+        // force both channels to complete - this will shut down the streams and the transport
+        _outboundChannel?.Writer.Complete();
+        _inboundChannel?.Writer.Complete();
     }
-
-    // Will be populated by Akka.NET at actor startup
-    public IStash Stash { get; set; } = null!;
 }

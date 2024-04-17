@@ -74,10 +74,28 @@ public interface IMqttClient : IAsyncDisposable
     /// </summary>
     /// <param name="topic">The topic to subscribe to.</param>
     /// <param name="qos">The quality of service level to use when subscribing to the topic.</param>
-    /// <param name="cancellationToken">The token used to cancel the subscription.</param>
-    /// <returns></returns>
+    /// <param name="cancellationToken">The token used to cancel the subscription push operation to the server.</param>
+    /// <remarks>
+    /// Cancelling this operation DOES NOT GUARANTEE that the server will stop sending messages to the client on this topic.
+    /// It only guarantees that we will stop awaiting on the server's response to our SUBSCRIBE packet.
+    ///
+    /// Use the <see cref="UnsubscribeAsync"/> method to stop receiving messages on a topic.
+    /// </remarks>
     Task<IAckResponse> SubscribeAsync(string topic, QualityOfService qos,
         CancellationToken cancellationToken = default);
+    
+    /// <summary>
+    /// Subscribe to multiple topics on the MQTT broker.
+    /// </summary>
+    /// <param name="topics">The topics to subscribe to.</param>
+    /// <param name="cancellationToken">The token used to cancel the subscription push operation to the server.</param>
+    /// <remarks>
+    /// Cancelling this operation DOES NOT GUARANTEE that the server will stop sending messages to the client on this topic.
+    /// It only guarantees that we will stop awaiting on the server's response to our SUBSCRIBE packet.
+    ///
+    /// Use the <see cref="UnsubscribeAsync"/> method to stop receiving messages on a topic.
+    /// </remarks>
+    Task<IAckResponse> SubscribeAsync(TopicSubscription[] topics, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Receives a stream of messages from the MQTT broker.
@@ -91,8 +109,14 @@ public interface IMqttClient : IAsyncDisposable
     /// </summary>
     /// <param name="topic">The topic to unsubscribe from.</param>
     /// <param name="cancellationToken">The token used to cancel the unsubscription.</param>
-    /// <returns></returns>
     Task<IAckResponse> UnsubscribeAsync(string topic, CancellationToken cancellationToken = default);
+    
+    /// <summary>
+    /// Unsubscribes from multiple topics on the MQTT broker.
+    /// </summary>
+    /// <param name="topics">The range of topics we want to unsubscribe from</param>
+    /// <param name="cancellationToken">The token used to cancel the unsubscription.</param>
+    Task<IAckResponse> UnsubscribeAsync(string[] topics, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// A task we can use to wait for the connection to terminate.
@@ -148,13 +172,15 @@ public sealed class MqttClient : IMqttClient
         // this will blow up if there's a problem with the connection
         await _transport.ConnectAsync(cancellationToken);
 
-        var connectFlags = new ConnectFlags();
-        connectFlags.CleanSession = _options.CleanSession;
-        connectFlags.UsernameFlag = !string.IsNullOrEmpty(_options.Username);
-        connectFlags.PasswordFlag = !string.IsNullOrEmpty(_options.Password);
-        connectFlags.WillFlag = _options.LastWill != null;
-        connectFlags.WillQoS = _options.LastWill?.QosLevel ?? QualityOfService.AtMostOnce;
-        connectFlags.WillRetain = _options.LastWill?.Retain ?? false;
+        var connectFlags = new ConnectFlags
+        {
+            CleanSession = _options.CleanSession,
+            UsernameFlag = !string.IsNullOrEmpty(_options.Username),
+            PasswordFlag = !string.IsNullOrEmpty(_options.Password),
+            WillFlag = _options.LastWill != null,
+            WillQoS = _options.LastWill?.QosLevel ?? QualityOfService.AtMostOnce,
+            WillRetain = _options.LastWill?.Retain ?? false
+        };
 
 
         // now we need to send the CONNECT packet
@@ -325,25 +351,104 @@ public sealed class MqttClient : IMqttClient
         return PublishAsync(mqttMessage, cancellationToken);
     }
 
-    public async Task<IAckResponse> SubscribeAsync(string topic, QualityOfService qos,
+    public Task<IAckResponse> SubscribeAsync(string topic, QualityOfService qos,
         CancellationToken cancellationToken = default)
     {
-        throw new NotImplementedException();
+        var subscriptionOptions = new SubscriptionOptions
+        {
+            QoS = qos
+        };
+        var subscription = new TopicSubscription(topic)
+        {
+            Options = subscriptionOptions
+        };
+        
+        return SubscribeAsync([subscription], cancellationToken);
+    }
+
+    public async Task<IAckResponse> SubscribeAsync(TopicSubscription[] topics, CancellationToken cancellationToken = default)
+    {
+        if (_transport.Status != ConnectionStatus.Connected)
+            return new AckProtocol.SubscribeFailure("Not connected to broker.");
+
+        var subscribePacket = new SubscribePacket()
+        {
+            PacketId = _packetIdCounter.GetNextValue(),
+            Topics = topics
+        };
+
+        var askTask = _clientOwner.Ask<IAckResponse>(subscribePacket, cancellationToken);
+
+        // flush the packet to the wire
+        await _packetWriter.WriteAsync(subscribePacket, cancellationToken);
+
+        // wait for the response
+        try
+        {
+            var resp = await askTask;
+            if (!resp.IsSuccess)
+            {
+                _log.Error("Failed to subscribe to topics - Reason: {0}", resp.Reason);
+                return resp;
+            }
+
+            return resp;
+        }
+        catch (Exception ex)
+        {
+            _log.Error(ex, "Failed to subscribe to topics - Reason: {0}", ex.Message);
+            return new AckProtocol.SubscribeFailure(ex.Message);
+        }
     }
 
     public IAsyncEnumerable<MqttMessage> ReceiveMessagesAsync(CancellationToken cancellationToken = default)
     {
-        throw new NotImplementedException();
+        return _messageReader.ReadAllAsync(cancellationToken);
     }
 
-    public async Task<IAckResponse> UnsubscribeAsync(string topic, CancellationToken cancellationToken = default)
+    public Task<IAckResponse> UnsubscribeAsync(string topic, CancellationToken cancellationToken = default)
     {
-        throw new NotImplementedException();
+        return UnsubscribeAsync([topic], cancellationToken);
     }
 
-    public async Task<ConnectionTerminatedReason> WaitForTermination()
+    public async Task<IAckResponse> UnsubscribeAsync(string[] topics, CancellationToken cancellationToken = default)
     {
-        throw new NotImplementedException();
+        if (_transport.Status != ConnectionStatus.Connected)
+            return new AckProtocol.UnsubscribeFailure("Not connected to broker.");
+
+        var subscribePacket = new UnsubscribePacket()
+        {
+            PacketId = _packetIdCounter.GetNextValue(),
+            Topics = topics
+        };
+
+        var askTask = _clientOwner.Ask<IAckResponse>(subscribePacket, cancellationToken);
+
+        // flush the packet to the wire
+        await _packetWriter.WriteAsync(subscribePacket, cancellationToken);
+
+        // wait for the response
+        try
+        {
+            var resp = await askTask;
+            if (!resp.IsSuccess)
+            {
+                _log.Error("Failed to unsubscribe to topics - Reason: {0}", resp.Reason);
+                return resp;
+            }
+
+            return resp;
+        }
+        catch (Exception ex)
+        {
+            _log.Error(ex, "Failed to unsubscribe to topics - Reason: {0}", ex.Message);
+            return new AckProtocol.UnsubscribeFailure(ex.Message);
+        }
+    }
+
+    public Task<ConnectionTerminatedReason> WaitForTermination()
+    {
+        return _transport.WaitForTermination();
     }
 
     public async ValueTask DisposeAsync()
