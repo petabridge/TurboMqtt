@@ -273,7 +273,7 @@ public sealed class MqttClient : IMqttClient
             return task;
         }
 
-        Task<IPublishControlMessage> ackTask = Qos0Task;
+        var ackTask = Qos0Task;
         switch (publishPacket.QualityOfService)
         {
             case QualityOfService.AtLeastOnce:
@@ -284,13 +284,11 @@ public sealed class MqttClient : IMqttClient
             }
             case QualityOfService.ExactlyOnce:
             {
-                
-            }
+                publishPacket.PacketId = _packetIdCounter.GetNextValue();
+                ackTask = WaitForAck(_requiredActors.Qos2Actor, publishPacket);
                 break;
+            }
         }
-
-        // send the PUBLISH packet for completion tracking
-        var askTask = _clientOwner.Ask<IAckResponse>(publishPacket, cancellationToken);
 
         // flush the packet to the wire
         await _packetWriter.WriteAsync(publishPacket, cancellationToken);
@@ -298,19 +296,19 @@ public sealed class MqttClient : IMqttClient
         // wait for the response
         try
         {
-            var resp = await askTask;
+            var resp = await ackTask;
             if (!resp.IsSuccess)
             {
                 _log.Error("Failed to publish message to MQTT broker - Reason: {0}", resp.Reason);
-                return new PublishControlMessage(message, PublishControlMessageStatus.Failed);
+                return resp;
             }
 
-            return new PublishControlMessage(message, PublishControlMessageStatus.Success);
+            return resp;
         }
         catch (Exception ex)
         {
             _log.Error(ex, "Failed to publish message to MQTT broker - Reason: {0}", ex.Message);
-            return new PublishControlMessage(message, PublishControlMessageStatus.Failed);
+            return new PublishingProtocol.PublishFailure(ex.Message);
         }
     }
 

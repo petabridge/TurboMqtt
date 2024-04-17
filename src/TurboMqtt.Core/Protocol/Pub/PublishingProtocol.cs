@@ -13,6 +13,8 @@ public interface IPublishControlMessage : INoSerializationVerificationNeeded
     public PublishingStatus Status { get; }
     
     public bool IsSuccess => Status == PublishingStatus.Completed;
+    
+    public string Reason { get; }
 }
 
 public enum PublishingStatus
@@ -55,6 +57,7 @@ public static class PublishingProtocol{
         public static readonly PublishSuccess Instance = new();
         private PublishSuccess(){}
         public PublishingStatus Status => PublishingStatus.Completed;
+        public string Reason => string.Empty;
     }
     
     public sealed class PublishFailure(string reason) : IPublishControlMessage
@@ -76,5 +79,6 @@ public static class PublishingProtocol{
 
         public NonZeroUInt16 PacketId { get; }
         public PublishingStatus Status => PublishingStatus.Failed;
+        public string Reason => "Publish operation was cancelled.";
     }
 }
