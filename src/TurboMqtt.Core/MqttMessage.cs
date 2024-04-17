@@ -64,7 +64,7 @@ public sealed record MqttMessage
 /// </summary>
 internal static class MqttMessageExtensions
 {
-    internal static MqttMessage FromPacket(PublishPacket packet)
+    internal static MqttMessage FromPacket(this PublishPacket packet)
     {
         return new MqttMessage(packet.TopicName, packet.Payload)
         {

@@ -5,6 +5,7 @@
 // -----------------------------------------------------------------------
 
 using System.Threading.Channels;
+using Akka;
 using Akka.Actor;
 using Akka.Event;
 using Akka.Streams;
@@ -14,12 +15,17 @@ using TurboMqtt.Core.Utility;
 
 namespace TurboMqtt.Core.Streams;
 
-public static class MqttReceiverFlows
+/// <summary>
+/// Used to power the business logic for receiving MQTT packets from the broker.
+/// </summary>
+internal static class MqttReceiverFlows
 {
-    
+    public static IGraph<FlowShape<MqttPacket, MqttPacket>, NotUsed> ClientAckingFlow(int bufferSize, TimeSpan bufferExpiry, ChannelWriter<MqttPacket> outboundPackets, MqttRequiredActors actors)
+    {
+        var g = new ClientAckingFlow(bufferSize, bufferExpiry, outboundPackets, actors);
+        return g;
+    }
 }
-
-internal sealed record MqttRequiredActors(IActorRef Qos2Actor, IActorRef Qos1Actor, IActorRef ClientAck, IActorRef HeartBeatActor);
 
 /// <summary>
 /// Stage that handles the process of acknowledging packets from the client.
