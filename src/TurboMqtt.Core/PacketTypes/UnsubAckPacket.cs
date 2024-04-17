@@ -1,5 +1,5 @@
 // -----------------------------------------------------------------------
-// <copyright file="UnsubscribeAckPacket.cs" company="Petabridge, LLC">
+// <copyright file="UnsubAckPacket.cs" company="Petabridge, LLC">
 //      Copyright (C) 2024 - 2024 Petabridge, LLC <https://petabridge.com>
 // </copyright>
 // -----------------------------------------------------------------------
@@ -29,7 +29,7 @@ public enum MqttUnsubscribeReasonCode : byte
 /// <summary>
 /// Used to acknowledge an unsubscribe request.
 /// </summary>
-public sealed class UnsubscribeAckPacket : MqttPacketWithId
+public sealed class UnsubAckPacket : MqttPacketWithId
 {
     public override MqttPacketType PacketType => MqttPacketType.UnsubAck;
 

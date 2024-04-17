@@ -68,10 +68,18 @@ internal static class AckProtocol
     
     public sealed class ConnectFailure : IAckResponse
     {
+        public ConnectFailure(ConnAckPacket connAck)
+        {
+            ConnAck = connAck;
+            Reason = ConnAck.ReasonString ?? ConnAck.ReasonCode.ToString();
+        }
+        
         public ConnectFailure(string reason)
         {
             Reason = reason;
         }
+        
+        public ConnAckPacket? ConnAck { get; }
 
         public bool IsSuccess => false;
         public string Reason { get; }
@@ -88,12 +96,12 @@ internal static class AckProtocol
     
     public sealed class UnsubscribeSuccess : IAckResponse
     {
-        public UnsubscribeSuccess(UnsubscribeAckPacket unsubAck)
+        public UnsubscribeSuccess(UnsubAckPacket unsubAck)
         {
             UnsubAck = unsubAck;
         }
         
-        public UnsubscribeAckPacket UnsubAck { get; }
+        public UnsubAckPacket UnsubAck { get; }
         public bool IsSuccess => true;
         public string? Reason => UnsubAck.ReasonString;
     }
@@ -104,6 +112,14 @@ internal static class AckProtocol
         {
             Reason = reason;
         }
+        
+        public UnsubscribeFailure(UnsubAckPacket unsubAck)
+        {
+            UnsubAck = unsubAck;
+            Reason = UnsubAck.ReasonString;
+        }
+        
+        public UnsubAckPacket? UnsubAck { get; }
         
         public bool IsSuccess => false;
         public string Reason { get; }

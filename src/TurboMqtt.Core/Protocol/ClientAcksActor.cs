@@ -104,6 +104,13 @@ internal sealed class ClientAcksActor : UntypedActor, IWithTimers
             {
                 if (_pendingSubscribes.Remove(ack.PacketId, out var pending))
                 {
+                    // check the return code
+                    if (ack.ReasonCodes.Any(rc => rc >= MqttSubscribeReasonCode.UnspecifiedError))
+                    {
+                        pending.Sender.Tell(new SubscribeFailure(ack));
+                        return;
+                    }
+                    
                     pending.Sender.Tell(new SubscribeSuccess(ack));
                 }
                 else
@@ -114,10 +121,16 @@ internal sealed class ClientAcksActor : UntypedActor, IWithTimers
                 break;
             }
             
-            case UnsubscribeAckPacket ack:
+            case UnsubAckPacket ack:
             {
                 if (_pendingUnsubscribes.Remove(ack.PacketId, out var pending))
                 {
+                    // check the return code (MQTT 5.0)
+                    if (ack.ReasonCodes.Any(rc => rc >= MqttUnsubscribeReasonCode.UnspecifiedError))
+                    {
+                        pending.Sender.Tell(new UnsubscribeFailure(ack));
+                        return;
+                    }
                     pending.Sender.Tell(new UnsubscribeSuccess(ack));
                 }
                 else
@@ -132,6 +145,14 @@ internal sealed class ClientAcksActor : UntypedActor, IWithTimers
             {
                 if (_pendingConnect is not null)
                 {
+                    // check the return code
+                    if (ack.ReasonCode > ConnAckReasonCode.Success)
+                    {
+                        _pendingConnect.Value.Sender.Tell(new ConnectFailure(ack.ReasonString ?? ack.ReasonCode.ToString()));
+                        _pendingConnect = null;
+                        return;
+                    }
+                    
                     _pendingConnect.Value.Sender.Tell(new ConnectSuccess(ack));
                     _pendingConnect = null;
                 }
