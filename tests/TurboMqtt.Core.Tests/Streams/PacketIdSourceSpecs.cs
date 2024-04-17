@@ -11,12 +11,12 @@ using TurboMqtt.Core.Streams;
 
 namespace TurboMqtt.Core.Tests.Streams;
 
-public class PacketIdSourceSpecs : TestKit
+public class PacketIdFlowSpecs : TestKit
 {
     [Fact]
     public async Task PacketIdSource_should_generate_unique_packet_ids()
     {
-        var source = new PacketIdSource();
+        var source = new PacketIdFlow();
         var probe = this.CreateManualSubscriberProbe<ushort>();
 
         Source.FromGraph(source).RunWith(Sink.FromSubscriber(probe), Sys);
@@ -32,7 +32,7 @@ public class PacketIdSourceSpecs : TestKit
     [Fact]
     public async Task PacketIdSource_should_wrap_around_when_max_value_reached()
     {
-        var source = new PacketIdSource(ushort.MaxValue-1);
+        var source = new PacketIdFlow(ushort.MaxValue-1);
         var probe = this.CreateManualSubscriberProbe<ushort>();
 
         Source.FromGraph(source).RunWith(Sink.FromSubscriber(probe), Sys);
