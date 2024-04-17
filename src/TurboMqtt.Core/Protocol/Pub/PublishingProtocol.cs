@@ -6,7 +6,7 @@
 
 using Akka.Actor;
 
-namespace TurboMqtt.Core.Protocol.Publish;
+namespace TurboMqtt.Core.Protocol.Pub;
 
 internal interface IPublishControlMessage : INoSerializationVerificationNeeded
 {

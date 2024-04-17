@@ -8,7 +8,7 @@ using System.Threading.Channels;
 using Akka.Actor;
 using Akka.TestKit.Xunit2;
 using TurboMqtt.Core.PacketTypes;
-using TurboMqtt.Core.Protocol.Publish;
+using TurboMqtt.Core.Protocol.Pub;
 using Xunit.Abstractions;
 
 namespace TurboMqtt.Core.Tests.Protocol;

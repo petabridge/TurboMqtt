@@ -9,7 +9,7 @@ using Akka.Actor;
 using Akka.TestKit.Xunit2;
 using TurboMqtt.Core.PacketTypes;
 using TurboMqtt.Core.Protocol;
-using TurboMqtt.Core.Protocol.Publish;
+using TurboMqtt.Core.Protocol.Pub;
 
 namespace TurboMqtt.Core.Tests.Protocol;
 

@@ -7,7 +7,7 @@
 using Akka.Actor;
 using Akka.Event;
 using TurboMqtt.Core.PacketTypes;
-using TurboMqtt.Core.Protocol.Publish;
+using TurboMqtt.Core.Protocol.Pub;
 using TurboMqtt.Core.Utility;
 using static TurboMqtt.Core.Protocol.AckProtocol;
 

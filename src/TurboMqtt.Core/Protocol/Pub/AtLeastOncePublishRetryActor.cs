@@ -9,10 +9,10 @@ using Akka.Actor;
 using Akka.Event;
 using TurboMqtt.Core.PacketTypes;
 using TurboMqtt.Core.Utility;
-using static TurboMqtt.Core.Protocol.Publish.PublishingProtocol;
-using static TurboMqtt.Core.Protocol.Publish.PublishProtocolDefaults;
+using static TurboMqtt.Core.Protocol.Pub.PublishingProtocol;
+using static TurboMqtt.Core.Protocol.Pub.PublishProtocolDefaults;
 
-namespace TurboMqtt.Core.Protocol.Publish;
+namespace TurboMqtt.Core.Protocol.Pub;
 
 /// <summary>
 /// Actor is responsible for handling QoS 1 requirements for outbound <see cref="PublishPacket"/>s.
