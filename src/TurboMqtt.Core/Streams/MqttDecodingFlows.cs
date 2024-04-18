@@ -73,6 +73,8 @@ internal sealed class Mqtt311DecoderFlow : GraphStage<FlowShape<(
         private readonly Decider _decider;
         private readonly Mqtt311Decoder _decoder = new();
         
+        protected override object LogSource => Akka.Event.LogSource.Create("Mqtt311DecoderFlow");
+        
         public Mqtt311DecoderFlowLogic(Mqtt311DecoderFlow flow, Attributes inheritedAttributes) : base(flow.Shape)
         {
             _flow = flow;

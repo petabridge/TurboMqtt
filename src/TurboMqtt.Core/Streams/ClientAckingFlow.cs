@@ -60,6 +60,8 @@ internal sealed class ClientAckingFlow : GraphStage<FlowShape<MqttPacket, MqttPa
         private readonly SimpleLruCache<NonZeroUInt16> _pubRelIds;
         private readonly ClientAckingFlow _stage;
 
+        protected override object LogSource => Akka.Event.LogSource.Create("ClientAckingFlow");
+
         public Logic(ClientAckingFlow stage) : base(stage.Shape)
         {
             _stage = stage;
@@ -73,6 +75,7 @@ internal sealed class ClientAckingFlow : GraphStage<FlowShape<MqttPacket, MqttPa
         public void OnPush()
         {
             var packet = Grab(_stage.In);
+            Log.Debug("Received packet of type [{0}] from client.", packet.PacketType);
 
             switch (packet.PacketType)
             {

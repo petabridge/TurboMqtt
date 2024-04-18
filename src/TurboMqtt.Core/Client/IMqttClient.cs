@@ -151,7 +151,7 @@ public sealed class MqttClient : IMqttClient
         _messageReader = messageReader;
         _packetWriter = packetWriter;
         _log = log;
-        this._options = options;
+        _options = options;
     }
 
     public MqttProtocolVersion ProtocolVersion => _options.ProtocolVersion;
@@ -216,7 +216,12 @@ public sealed class MqttClient : IMqttClient
         var askTask = _requiredActors.ClientAck.Ask<IAckResponse>(connectPacket, cancellationToken);
 
         // flush the packet to the wire
-        await _packetWriter.WriteAsync(connectPacket, cancellationToken);
+        var wrote = _packetWriter.TryWrite(connectPacket);
+        if (!wrote)
+        {
+            _log.Error("Failed to write CONNECT packet to wire.");
+            return new AckProtocol.ConnectFailure("Failed to write CONNECT packet to wire.");
+        }
 
         // wait for the response
         try
@@ -254,9 +259,9 @@ public sealed class MqttClient : IMqttClient
         // the broker SHOULD disconnect from us
         try
         {
-            await _transport.WaitForTermination().WaitAsync(TimeSpan.FromSeconds(5), cancellationToken);
+            await (_transport.WaitForTermination().WaitAsync(TimeSpan.FromSeconds(5), cancellationToken));
         }
-        finally
+        catch
         {
             // force the connection to close after grace period has elapsed
             await AbortConnectionAsync();
@@ -317,7 +322,12 @@ public sealed class MqttClient : IMqttClient
         }
 
         // flush the packet to the wire
-        await _packetWriter.WriteAsync(publishPacket, cancellationToken);
+        var didWrite = _packetWriter.TryWrite(publishPacket);
+        if (!didWrite)
+        {
+            _log.Error("Failed to write PUBLISH packet to wire.");
+            return new PublishingProtocol.PublishFailure("Failed to write PUBLISH packet to wire.");
+        }
 
         // wait for the response
         try

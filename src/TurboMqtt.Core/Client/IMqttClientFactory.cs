@@ -5,6 +5,7 @@
 // -----------------------------------------------------------------------
 
 using Akka.Actor;
+using Akka.Event;
 using TurboMqtt.Core.IO;
 using TurboMqtt.Core.PacketTypes;
 using TurboMqtt.Core.Protocol;
@@ -60,7 +61,7 @@ public sealed class MqttClientFactory : IMqttClientFactory, IInternalMqttClientF
         var clientActor =
             await _mqttClientManager.Ask<IActorRef>(new ClientManagerActor.StartClientActor(options.ClientId));
         return await clientActor.Ask<IMqttClient>(new ClientStreamOwner.CreateClient(
-            new InMemoryMqttTransport((int)options.MaximumPacketSize * 2, _system.Log, MqttProtocolVersion.V3_1_1),
+            new InMemoryMqttTransport((int)options.MaximumPacketSize * 2, _system.CreateLogger<InMemoryMqttTransport>(options.ClientId), MqttProtocolVersion.V3_1_1),
             options));
     }
 

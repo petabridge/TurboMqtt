@@ -50,19 +50,23 @@ internal sealed class InMemoryMqttTransport : IMqttTransport
     {
         Status = ConnectionStatus.Disconnected;
         _terminationSource.TrySetResult(ConnectionTerminatedReason.Normal);
+        _shutdownTokenSource.Cancel();
+        _shutdownTokenSource.Dispose();
+        _writesToTransport.Writer.TryComplete();
+        _readsFromTransport.Writer.TryComplete();
         return Task.CompletedTask;
     }
 
     public Task ConnectAsync(CancellationToken ct = default)
     {
-        if (Status != ConnectionStatus.NotStarted)
+        if (Status == ConnectionStatus.NotStarted)
         {
             Status = ConnectionStatus.Connected;
-        }
-
+            
 #pragma warning disable CS4014 // Because this call is not awaited, execution of the current method continues before the call is completed
-        DoByteWritesAsync(_shutdownTokenSource.Token);
+            DoByteWritesAsync(_shutdownTokenSource.Token);
 #pragma warning restore CS4014 // Because this call is not awaited, execution of the current method continues before the call is completed
+        }
 
         return Task.CompletedTask;
     }
@@ -77,18 +81,24 @@ internal sealed class InMemoryMqttTransport : IMqttTransport
     private async Task DoByteWritesAsync(CancellationToken ct)
     {
         Log.Debug("Starting to read from transport.");
-        await foreach(var msg in _writesToTransport.Reader.ReadAllAsync(ct))
+        do
         {
+            if (!_writesToTransport.Reader.TryRead(out var msg))
+            {
+                await _writesToTransport.Reader.WaitToReadAsync(ct);
+                continue;
+            }
+            
             try
             {
-                ReadOnlyMemory<byte> buffer = msg.buffer.Memory.Slice(0,msg.readableBytes);
+                ReadOnlyMemory<byte> buffer = msg.buffer.Memory.Slice(0, msg.readableBytes);
                 Log.Debug("Received {0} bytes from transport.", buffer.Length);
                 if (_decoder.TryDecode(in buffer, out var msgs))
                 {
                     Log.Debug("Decoded {0} packets from transport.", msgs.Count);
                     foreach (var m in msgs)
                     {
-                        await HandlePacket(m);
+                        HandlePacket(m);
                     }
                 }
                 else
@@ -101,14 +111,14 @@ internal sealed class InMemoryMqttTransport : IMqttTransport
                 // have to free the shared buffer
                 msg.buffer.Dispose();
             }
-        }
+        } while (!_writesToTransport.Reader.Completion.IsCompleted);
     }
 
     public int MaxFrameSize { get; }
     public ChannelWriter<(IMemoryOwner<byte> buffer, int readableBytes)> Writer { get; }
     public ChannelReader<(IMemoryOwner<byte> buffer, int readableBytes)> Reader { get; }
 
-    private async ValueTask TryPush(MqttPacket packet)
+    private void TryPush(MqttPacket packet)
     {
         switch (ProtocolVersion)
         {
@@ -124,7 +134,7 @@ internal sealed class InMemoryMqttTransport : IMqttTransport
                 var unshared = new UnsharedMemoryOwner<byte>(buffer);
                 
                 // simulate reads back on the client here
-                await _readsFromTransport.Writer.WriteAsync((unshared, estimatedSize + headerSize));
+                _readsFromTransport.Writer.TryWrite((unshared, estimatedSize + headerSize));
                 break;
             }
             case MqttProtocolVersion.V5_0:
@@ -135,7 +145,7 @@ internal sealed class InMemoryMqttTransport : IMqttTransport
     private readonly HashSet<string> _subscribedTopics = new();
 
 
-    public async ValueTask HandlePacket(MqttPacket packet)
+    public void HandlePacket(MqttPacket packet)
     {
         Log.Debug("Received packet of type {0}", packet.PacketType);
         switch (packet.PacketType)
@@ -147,11 +157,11 @@ internal sealed class InMemoryMqttTransport : IMqttTransport
                 {
                     case QualityOfService.AtLeastOnce:
                         var pubAck = publish.ToPubAck();
-                        await TryPush(pubAck);
+                        TryPush(pubAck);
                         break;
                     case QualityOfService.ExactlyOnce:
                         var pubRec = publish.ToPubRec();
-                        await TryPush(pubRec);
+                        TryPush(pubRec);
                         break;
                 }
 
@@ -159,7 +169,7 @@ internal sealed class InMemoryMqttTransport : IMqttTransport
                 if (_subscribedTopics.Contains(publish.TopicName))
                 {
                     // if so, we need to propagate this message to them
-                    await TryPush(publish);
+                    TryPush(publish);
                 }
 
                 break;
@@ -176,12 +186,12 @@ internal sealed class InMemoryMqttTransport : IMqttTransport
                     ReasonCode = ConnAckReasonCode.Success,
                     MaximumPacketSize = connect.MaximumPacketSize
                 };
-                await TryPush(connAck);
+                TryPush(connAck);
                 break;
 
             case MqttPacketType.PingReq:
                 var pingResp = PingRespPacket.Instance;
-                await TryPush(pingResp);
+                TryPush(pingResp);
                 break;
             case MqttPacketType.Subscribe:
             {
@@ -206,21 +216,21 @@ internal sealed class InMemoryMqttTransport : IMqttTransport
                     };
                 }).ToArray());
 
-                await TryPush(subAck);
+                TryPush(subAck);
                 break;
             }
             case MqttPacketType.PubRec:
             {
                 var pubRec = (PubRecPacket)packet;
                 var pubRel = pubRec.ToPubRel();
-                await TryPush(pubRel);
+                TryPush(pubRel);
                 break;
             }
             case MqttPacketType.PubRel:
             {
                 var pubRel = (PubRelPacket)packet;
                 var pubComp = pubRel.ToPubComp();
-                await TryPush(pubComp);
+                TryPush(pubComp);
                 break;
             }
             case MqttPacketType.Unsubscribe:
@@ -242,12 +252,12 @@ internal sealed class InMemoryMqttTransport : IMqttTransport
                         return MqttUnsubscribeReasonCode.Success;
                     }).ToArray()
                 };
-                await TryPush(unsubAck);
+                TryPush(unsubAck);
                 break;
             }
             case MqttPacketType.Disconnect:
                 // shut it down
-                _writesToTransport.Writer.Complete();
+                CloseAsync();
                 break;
             default:
                 throw new NotSupportedException($"Packet type {packet.PacketType} is not supported by this flow.");

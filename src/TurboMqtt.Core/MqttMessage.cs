@@ -4,6 +4,7 @@
 // </copyright>
 // -----------------------------------------------------------------------
 
+using System.Text;
 using TurboMqtt.Core.PacketTypes;
 
 namespace TurboMqtt.Core;
@@ -13,6 +14,10 @@ namespace TurboMqtt.Core;
 /// </summary>
 public sealed record MqttMessage
 {
+    public MqttMessage(string topic, string payload) : this(topic, Encoding.UTF8.GetBytes(payload))
+    {
+    }
+    
     public MqttMessage(string topic, ReadOnlyMemory<byte> payload)
     {
         Topic = topic;
