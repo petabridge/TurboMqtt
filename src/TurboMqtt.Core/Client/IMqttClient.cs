@@ -213,7 +213,7 @@ public sealed class MqttClient : IMqttClient
         }
 
         // send the CONNECT packet for completion tracking
-        var askTask = _clientOwner.Ask<IAckResponse>(connectPacket, cancellationToken);
+        var askTask = _requiredActors.ClientAck.Ask<IAckResponse>(connectPacket, cancellationToken);
 
         // flush the packet to the wire
         await _packetWriter.WriteAsync(connectPacket, cancellationToken);

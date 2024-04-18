@@ -31,6 +31,12 @@ internal interface IInternalMqttClientFactory
     Task<IMqttClient> CreateInMemoryClient(MqttClientConnectOptions options);
 }
 
+/// <summary>
+/// Used to create instances of <see cref="IMqttClient"/> for use in end-user applications.
+/// </summary>
+/// <remarks>
+/// Requires an <see cref="ActorSystem"/> to function properly. 
+/// </remarks>
 public sealed class MqttClientFactory : IMqttClientFactory, IInternalMqttClientFactory
 {
     private readonly ActorSystem _system;
@@ -72,14 +78,9 @@ public sealed class MqttClientFactory : IMqttClientFactory, IInternalMqttClientF
 /// </summary>
 internal sealed class ClientManagerActor : UntypedActor
 {
-    public sealed class StartClientActor
+    public sealed class StartClientActor(string endpointDescriptor)
     {
-        public StartClientActor(string endpointDescriptor)
-        {
-            EndpointDescriptor = endpointDescriptor;
-        }
-
-        public string EndpointDescriptor { get; }
+        public string EndpointDescriptor { get; } = endpointDescriptor;
     }
 
     /// <summary>
@@ -91,6 +92,7 @@ internal sealed class ClientManagerActor : UntypedActor
     {
         switch (message)
         {
+            // TODO: probably need to enforce duplicates of client ids
             case StartClientActor start:
                 var actorName = Uri.EscapeDataString($"mqttclient-{start.EndpointDescriptor}-{_clientCounter++}");
                 var client = Context.ActorOf(Props.Create(() => new ClientStreamOwner()), actorName);
