@@ -101,8 +101,6 @@ public class InMemoryMqtt311End2EndSpecs : TestKit
         using var cts = new CancellationTokenSource(RemainingOrDefault);
         var connectResult = await client.ConnectAsync(cts.Token);
         connectResult.IsSuccess.Should().BeTrue();
-
-        var allReceivedMessage = client.ReceiveMessagesAsync(cts.Token).ToListAsync(cts.Token);
         
         foreach (var message in messages)
         {

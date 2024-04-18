@@ -75,8 +75,8 @@ internal sealed class ExactlyOncePublishRetryActor : UntypedActor, IWithTimers
                 
                 if (_pendingPackets.TryGetValue(rec.PacketId, out var pending))
                 {
-                    // check the reason code
-                    if (rec.ReasonCode != PubRecReasonCode.Success)
+                    // check the reason code (which will be null for MQTT 3.1.1)
+                    if (rec.ReasonCode != null && rec.ReasonCode != PubRecReasonCode.Success)
                     {
                         // remove the pending packet
                         _pendingPackets.Remove(rec.PacketId, out _);
