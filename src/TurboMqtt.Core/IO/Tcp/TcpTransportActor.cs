@@ -1,5 +1,5 @@
-// -----------------------------------------------------------------------
-// <copyright file="TcpTransport.cs" company="Petabridge, LLC">
+﻿// -----------------------------------------------------------------------
+// <copyright file="TcpTransportActor.cs" company="Petabridge, LLC">
 //      Copyright (C) 2024 - 2024 Petabridge, LLC <https://petabridge.com>
 // </copyright>
 // -----------------------------------------------------------------------
@@ -15,49 +15,6 @@ using TurboMqtt.Core.Protocol;
 using Debug = System.Diagnostics.Debug;
 
 namespace TurboMqtt.Core.IO;
-
-/// <summary>
-/// TCP implementation of <see cref="IMqttTransport"/>.
-/// </summary>
-internal sealed class TcpTransport : IMqttTransport
-{
-    internal TcpTransport(ILoggingAdapter log, TcpTransportActor.ConnectionState state, IActorRef connectionActor)
-    {
-        Log = log;
-        State = state;
-        _connectionActor = connectionActor;
-        Reader = state.Reader;
-        Writer = state.Writer;
-        MaxFrameSize = state.MaxFrameSize;
-    }
-
-    public ILoggingAdapter Log { get; }
-    public ConnectionStatus Status => State.Status;
-
-    private TcpTransportActor.ConnectionState State { get; }
-    private readonly IActorRef _connectionActor;
-
-    public Task<ConnectionTerminatedReason> WaitForTermination()
-    {
-        return State.WhenTerminated;
-    }
-
-    public Task CloseAsync(CancellationToken ct = default)
-    {
-        var watch = _connectionActor.WatchAsync(ct);
-        _connectionActor.Tell(new TcpTransportActor.DoClose(ct));
-        return watch;
-    }
-
-    public Task ConnectAsync(CancellationToken ct = default)
-    {
-        return _connectionActor.Ask<TcpTransportActor.ConnectResult>(new TcpTransportActor.DoConnect(ct), ct);
-    }
-
-    public int MaxFrameSize { get; }
-    public ChannelWriter<(IMemoryOwner<byte> buffer, int readableBytes)> Writer { get; }
-    public ChannelReader<(IMemoryOwner<byte> buffer, int readableBytes)> Reader { get; }
-}
 
 /// <summary>
 /// Actor responsible for managing the TCP transport layer for MQTT.
@@ -120,7 +77,7 @@ internal sealed class TcpTransportActor : UntypedActor, IWithStash
     public sealed record ConnectResult(ConnectionStatus Status, string ReasonMessage);
 
     public sealed record DoClose(CancellationToken Cancel);
-    
+
     /// <summary>
     /// We are done reading from the socket.
     /// </summary>
@@ -132,7 +89,7 @@ internal sealed class TcpTransportActor : UntypedActor, IWithStash
 
         public static ReadFinished Instance { get; } = new();
     }
-    
+
     /// <summary>
     /// In the event that our connection gets aborted by the broker, we will send ourselves this message.
     /// </summary>
@@ -160,6 +117,8 @@ internal sealed class TcpTransportActor : UntypedActor, IWithStash
     private readonly TaskCompletionSource<ConnectionTerminatedReason> _whenTerminated = new();
     private readonly ILoggingAdapter _log = Context.GetLogger();
 
+    private int _reconnectAttempts = 0;
+
     /// <summary>
     /// We always use this for the initial socket read
     /// </summary>
@@ -176,7 +135,7 @@ internal sealed class TcpTransportActor : UntypedActor, IWithStash
             protocolVersion, maxFrameSize);
         _readBuffer = new byte[maxFrameSize];
     }
-    
+
     /*
      * FSM:
      * OnReceive (nothing has happened) --> CreateTcpTransport --> TransportCreated BECOME Connecting
@@ -191,13 +150,7 @@ internal sealed class TcpTransportActor : UntypedActor, IWithStash
             case CreateTcpTransport when State.Status == ConnectionStatus.NotStarted:
             {
                 // first things first - attempt to create the socket
-                _tcpClient = new TcpClient(TcpOptions.AddressFamily)
-                {
-                    ReceiveBufferSize = (int)TcpOptions.BufferSize,
-                    SendBufferSize = (int)TcpOptions.BufferSize,
-                    NoDelay = true,
-                    LingerState = new LingerOption(true, 2) // give us a little time to flush the socket
-                };
+                CreateTcpClient();
 
                 // return the transport to the client
                 var tcpTransport = new TcpTransport(_log, State, Self);
@@ -218,6 +171,17 @@ internal sealed class TcpTransportActor : UntypedActor, IWithStash
         }
     }
 
+    private void CreateTcpClient()
+    {
+        _tcpClient = new TcpClient(TcpOptions.AddressFamily)
+        {
+            ReceiveBufferSize = (int)TcpOptions.BufferSize,
+            SendBufferSize = (int)TcpOptions.BufferSize,
+            NoDelay = true,
+            LingerState = new LingerOption(true, 2) // give us a little time to flush the socket
+        };
+    }
+
     private async Task DoConnectAsync(IPAddress[] addresses, int port, IActorRef destination,
         CancellationToken ct = default)
     {
@@ -236,12 +200,12 @@ internal sealed class TcpTransportActor : UntypedActor, IWithStash
             _log.Error(ex, "Failed to connect to [{0}]", TcpOptions.RemoteEndpoint);
             connectResult = new ConnectResult(ConnectionStatus.Failed, ex.Message);
         }
-        
+
         // let both parties know the result of the connection attempt
         destination.Tell(connectResult);
         _closureSelf.Tell(connectResult);
     }
-    
+
     private readonly IActorRef _closureSelf = Context.Self;
 
     private void TransportCreated(object message)
@@ -300,17 +264,17 @@ internal sealed class TcpTransportActor : UntypedActor, IWithStash
             {
                 _log.Info("Successfully connected to [{0}]", TcpOptions.RemoteEndpoint);
                 State.Status = ConnectionStatus.Connected;
-                
+                _reconnectAttempts = 0; // reset the reconnect attempts
                 _tcpStream = _tcpClient!.GetStream();
-                
+
                 BecomeRunning();
                 break;
             }
             case ConnectResult { Status: ConnectionStatus.Failed }:
             {
-                // TODO: automatically retry the connection
                 _log.Error("Failed to connect to [{0}]: {1}", TcpOptions.RemoteEndpoint, message);
                 State.Status = ConnectionStatus.Failed;
+                DoReconnect();
                 break;
             }
             default:
@@ -318,7 +282,7 @@ internal sealed class TcpTransportActor : UntypedActor, IWithStash
                 break;
         }
     }
-    
+
     private void BecomeRunning()
     {
         Become(Running);
@@ -329,7 +293,7 @@ internal sealed class TcpTransportActor : UntypedActor, IWithStash
         DoWriteToSocketAsync(State.ShutDownCts.Token);
 #pragma warning restore CS4014 // Because this call is not awaited, execution of the current method continues before the call is completed
     }
-    
+
     private async Task DoWriteToSocketAsync(CancellationToken ct)
     {
         while (!ct.IsCancellationRequested)
@@ -359,7 +323,7 @@ internal sealed class TcpTransportActor : UntypedActor, IWithStash
             }
         }
     }
-    
+
     private async Task DoReadFromSocketAsync(CancellationToken ct)
     {
         while (!ct.IsCancellationRequested)
@@ -377,7 +341,7 @@ internal sealed class TcpTransportActor : UntypedActor, IWithStash
             }
 
             // send the data to the reader
-            
+
             // copy data into new appropriately sized buffer (we do not do pooling on reads)
             Memory<byte> realBuffer = new byte[bytesRead];
             _readBuffer.Span.Slice(0, bytesRead).CopyTo(realBuffer.Span);
@@ -390,10 +354,19 @@ internal sealed class TcpTransportActor : UntypedActor, IWithStash
     {
         switch (message)
         {
-            case DoClose close:
+            case DoClose:
             {
                 // we are done
-                Context.Stop(Self);
+                Context.Stop(Self); // will perform a full shutdown
+                break;
+            }
+
+            case ConnectionUnexpectedlyClosed closed:
+            {
+                _log.Warning("Connection to [{0}] was unexpectedly closed: {1}", TcpOptions.RemoteEndpoint,
+                    closed.ReasonMessage);
+                DisposeSocket(ConnectionStatus.Aborted); // got aborted by broker
+                DoReconnect();
                 break;
             }
         }
@@ -401,18 +374,17 @@ internal sealed class TcpTransportActor : UntypedActor, IWithStash
 
     private void DisposeSocket(ConnectionStatus newStatus)
     {
-       
-        if(_tcpStream is null && _tcpClient is null)
+        if (_tcpStream is null && _tcpClient is null)
             return; // already disposed
-        
+
         try
         {
             State.Status = newStatus;
-            
-                    
+
+
             // stop reading from the socket
             State.ShutDownCts.Cancel();
-            
+
             _tcpStream?.Dispose();
             _tcpClient?.Close();
             _tcpClient?.Dispose();
@@ -427,7 +399,7 @@ internal sealed class TcpTransportActor : UntypedActor, IWithStash
             _tcpClient = null;
         }
     }
-    
+
     /// <summary>
     /// This is for when we run out of retries or we were explicitly told to close the connection.
     /// </summary>
@@ -440,20 +412,42 @@ internal sealed class TcpTransportActor : UntypedActor, IWithStash
             ConnectionTerminatedReason.CouldNotConnect => ConnectionStatus.Failed,
             _ => ConnectionStatus.Aborted
         };
-        
+
         DisposeSocket(newStatus);
-        
+
         // mark the channels as complete
         _writesToTransport.Writer.Complete();
         _readsFromTransport.Writer.Complete();
-        
+
         _whenTerminated.TrySetResult(reason);
     }
 
-    public IStash Stash { get; set; } = null!;
+    private void DoReconnect()
+    {
+        if (_reconnectAttempts >= TcpOptions.MaxReconnectAttempts)
+        {
+            _log.Warning("Failed to reconnect to [{0}] after {1} attempts.", TcpOptions.RemoteEndpoint,
+                _reconnectAttempts);
+            FullShutdown(ConnectionTerminatedReason.CouldNotConnect);
+            Context.Stop(Self);
+            return;
+        }
+
+        _reconnectAttempts++;
+        _log.Info("Attempting to reconnect to [{0}] - attempt {1}", TcpOptions.RemoteEndpoint, _reconnectAttempts);
+        CreateTcpClient();
+        Become(TransportCreated);
+        State.ShutDownCts = new CancellationTokenSource(); // need a fresh CTS
+        CancellationTokenSource cts = new(TcpOptions.ReconnectInterval);
+        Self.Tell(new DoConnect(cts.Token));
+    }
+
 
     protected override void PostStop()
     {
         FullShutdown();
     }
+
+    // These will both get assigned automatically by Akka.NET
+    public IStash Stash { get; set; } = null!;
 }

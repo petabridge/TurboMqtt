@@ -73,32 +73,3 @@ public sealed class MqttClientFactory : IMqttClientFactory, IInternalMqttClientF
         }
     }
 }
-
-/// <summary>
-/// Aggregate root actor for managing all TurboMqtt clients.
-/// </summary>
-internal sealed class ClientManagerActor : UntypedActor
-{
-    public sealed class StartClientActor(string endpointDescriptor)
-    {
-        public string EndpointDescriptor { get; } = endpointDescriptor;
-    }
-
-    /// <summary>
-    /// Used to help generate unique actor names for each client.
-    /// </summary>
-    private int _clientCounter = 0;
-
-    protected override void OnReceive(object message)
-    {
-        switch (message)
-        {
-            // TODO: probably need to enforce duplicates of client ids
-            case StartClientActor start:
-                var actorName = Uri.EscapeDataString($"mqttclient-{start.EndpointDescriptor}-{_clientCounter++}");
-                var client = Context.ActorOf(Props.Create(() => new ClientStreamOwner()), actorName);
-                Sender.Tell(client);
-                break;
-        }
-    }
-}

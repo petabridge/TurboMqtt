@@ -4,51 +4,9 @@
 // </copyright>
 // -----------------------------------------------------------------------
 
-using System.Net;
-using System.Net.Sockets;
 using TurboMqtt.Core.Protocol;
 
 namespace TurboMqtt.Core.Client;
-
-/// <summary>
-/// Used to configure the TCP connection for the MQTT client.
-/// </summary>
-public sealed record MqttClientTcpOptions
-{
-    public MqttClientTcpOptions(EndPoint remoteEndpoint)
-    {
-        RemoteEndpoint = remoteEndpoint;
-    }
-
-    /// <summary>
-    /// Would love to just do IPV6, but that still meets resistance everywhere
-    /// </summary>
-    public AddressFamily AddressFamily { get; set; } = AddressFamily.Unspecified;
-    
-    /// <summary>
-    /// Will get set to 2x the maximum frame size automatically
-    /// </summary>
-    public uint BufferSize { get; set; }
-    
-    public EndPoint RemoteEndpoint { get; }
-    
-    /// <summary>
-    /// Automatically reconnect the client if the connection is lost?
-    /// </summary>
-    public bool AutomaticReconnect { get; set; } = true;
-    
-    /// <summary>
-    /// How long should we wait before attempting to reconnect the client?
-    /// </summary>
-    public TimeSpan ReconnectInterval { get; set; } = TimeSpan.FromSeconds(5);
-    
-    /// <summary>
-    /// Maximum number of times we should attempt to reconnect the client before giving up.
-    ///
-    /// Resets back to 0 after a successful connection.
-    /// </summary>
-    public int MaxReconnectAttempts { get; set; } = 10;
-}
 
 /// <summary>
 /// Last Will and Testament (LWT) message that will be published by the broker on behalf of the client
