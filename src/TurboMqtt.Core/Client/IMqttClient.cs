@@ -79,7 +79,7 @@ public interface IMqttClient : IAsyncDisposable
     /// Cancelling this operation DOES NOT GUARANTEE that the server will stop sending messages to the client on this topic.
     /// It only guarantees that we will stop awaiting on the server's response to our SUBSCRIBE packet.
     ///
-    /// Use the <see cref="UnsubscribeAsync"/> method to stop receiving messages on a topic.
+    /// Use the <see cref="UnsubscribeAsync(string,System.Threading.CancellationToken)"/> method to stop receiving messages on a topic.
     /// </remarks>
     Task<IAckResponse> SubscribeAsync(string topic, QualityOfService qos,
         CancellationToken cancellationToken = default);
@@ -93,7 +93,7 @@ public interface IMqttClient : IAsyncDisposable
     /// Cancelling this operation DOES NOT GUARANTEE that the server will stop sending messages to the client on this topic.
     /// It only guarantees that we will stop awaiting on the server's response to our SUBSCRIBE packet.
     ///
-    /// Use the <see cref="UnsubscribeAsync"/> method to stop receiving messages on a topic.
+    /// Use the <see cref="UnsubscribeAsync(string,System.Threading.CancellationToken)"/> method to stop receiving messages on a topic.
     /// </remarks>
     Task<IAckResponse> SubscribeAsync(TopicSubscription[] topics, CancellationToken cancellationToken = default);
 
