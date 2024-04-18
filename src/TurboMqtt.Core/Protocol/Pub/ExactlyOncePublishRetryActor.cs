@@ -71,6 +71,8 @@ internal sealed class ExactlyOncePublishRetryActor : UntypedActor, IWithTimers
 
             case PubRecPacket rec:
             {
+                _log.Debug("Received PubRec with id [{0}], reason [{1}] from broker", rec.PacketId, rec.ReasonCode);
+                
                 if (_pendingPackets.TryGetValue(rec.PacketId, out var pending))
                 {
                     // check the reason code
@@ -111,6 +113,8 @@ internal sealed class ExactlyOncePublishRetryActor : UntypedActor, IWithTimers
             // PubRel is the acknowledgment of the PubRec packet
             case PubCompPacket comp:
             {
+                _log.Debug("Received PubComp with id [{0}], reason [{1}] from broker", comp.PacketId, comp.ReasonCode);
+                
                 if (_pendingPackets.Remove(comp.PacketId, out var pending))
                 {
                     pending.Sender.Tell(PublishingProtocol.PublishSuccess.Instance);

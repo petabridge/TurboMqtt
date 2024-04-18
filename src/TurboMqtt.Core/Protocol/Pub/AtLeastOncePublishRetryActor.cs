@@ -65,6 +65,8 @@ internal sealed class AtLeastOncePublishRetryActor : UntypedActor, IWithTimers
             // Acknowledgement from the server
             case PubAckPacket ack:
             {
+                _log.Debug("Received PubAck with id [{0}], reason [{1}] from broker", ack.PacketId, ack.ReasonCode);
+                
                 if (_pendingPackets.Remove(ack.PacketId, out var pending))
                 {
                     // check the return code
