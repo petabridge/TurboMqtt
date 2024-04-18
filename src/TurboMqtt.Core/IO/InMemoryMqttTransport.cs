@@ -140,6 +140,11 @@ internal sealed class InMemoryMqttTransport : IMqttTransport
                     Log.Error("Failed to write packet of type {0} to transport.", packet.PacketType);
                     unshared.Dispose();
                 }
+                else
+                {
+                    Log.Debug("Successfully wrote packet of type {0} [{1} bytes] to transport.", packet.PacketType, estimatedSize + headerSize);
+                }
+                
                 break;
             }
             case MqttProtocolVersion.V5_0:

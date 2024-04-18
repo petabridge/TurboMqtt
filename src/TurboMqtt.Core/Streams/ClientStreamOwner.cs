@@ -52,11 +52,11 @@ internal sealed class ClientStreamOwner : UntypedActor
                 
                 // outbound channel for packets
                 _outboundChannel =
-                    Channel.CreateUnbounded<MqttPacket>(new UnboundedChannelOptions() { SingleReader = true });
+                    Channel.CreateUnbounded<MqttPacket>(new UnboundedChannelOptions() { SingleReader = true, SingleWriter = false});
                 var outboundPackets = _outboundChannel.Writer;
                 var outboundPacketsReader = _outboundChannel.Reader;
                 _inboundChannel =
-                    Channel.CreateUnbounded<MqttMessage>(new UnboundedChannelOptions() { SingleWriter = true });
+                    Channel.CreateUnbounded<MqttMessage>(new UnboundedChannelOptions() { SingleWriter = true, SingleReader = true});
 
                 // start the actors
                 _exactlyOnceActor =
