@@ -88,7 +88,8 @@ public enum ConnectionStatus
     Connecting,
     Connected,
     Disconnected,
-    Aborted
+    Aborted,
+    Failed
 }
 
 public enum ConnectionTerminatedReason

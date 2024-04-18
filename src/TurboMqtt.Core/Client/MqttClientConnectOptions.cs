@@ -15,6 +15,11 @@ namespace TurboMqtt.Core.Client;
 /// </summary>
 public sealed record MqttClientTcpOptions
 {
+    public MqttClientTcpOptions(EndPoint remoteEndpoint)
+    {
+        RemoteEndpoint = remoteEndpoint;
+    }
+
     /// <summary>
     /// Would love to just do IPV6, but that still meets resistance everywhere
     /// </summary>
@@ -25,12 +30,24 @@ public sealed record MqttClientTcpOptions
     /// </summary>
     public uint BufferSize { get; set; }
     
-    public EndPoint? RemoteEndpoint { get; set; }
+    public EndPoint RemoteEndpoint { get; }
     
     /// <summary>
-    /// Doesn't need to be set - will automatically bind to an appropriate address determined by the OS if not set.
+    /// Automatically reconnect the client if the connection is lost?
     /// </summary>
-    public EndPoint? LocalEndpoint { get; set; }
+    public bool AutomaticReconnect { get; set; } = true;
+    
+    /// <summary>
+    /// How long should we wait before attempting to reconnect the client?
+    /// </summary>
+    public TimeSpan ReconnectInterval { get; set; } = TimeSpan.FromSeconds(5);
+    
+    /// <summary>
+    /// Maximum number of times we should attempt to reconnect the client before giving up.
+    ///
+    /// Resets back to 0 after a successful connection.
+    /// </summary>
+    public int MaxReconnectAttempts { get; set; } = 10;
 }
 
 /// <summary>
