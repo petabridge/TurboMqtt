@@ -24,6 +24,8 @@ internal sealed class InMemoryMqttTransport : IMqttTransport
 
     private readonly Channel<(IMemoryOwner<byte> buffer, int readableBytes)> _readsFromTransport =
         Channel.CreateUnbounded<(IMemoryOwner<byte> buffer, int readableBytes)>();
+    
+    private readonly CancellationTokenSource _shutdownTokenSource = new();
 
     public InMemoryMqttTransport(int maxFrameSize, ILoggingAdapter log, MqttProtocolVersion protocolVersion)
     {
@@ -58,6 +60,10 @@ internal sealed class InMemoryMqttTransport : IMqttTransport
             Status = ConnectionStatus.Connected;
         }
 
+#pragma warning disable CS4014 // Because this call is not awaited, execution of the current method continues before the call is completed
+        DoByteWritesAsync(_shutdownTokenSource.Token);
+#pragma warning restore CS4014 // Because this call is not awaited, execution of the current method continues before the call is completed
+
         return Task.CompletedTask;
     }
     
@@ -70,15 +76,30 @@ internal sealed class InMemoryMqttTransport : IMqttTransport
     /// <returns></returns>
     private async Task DoByteWritesAsync(CancellationToken ct)
     {
+        Log.Debug("Starting to read from transport.");
         await foreach(var msg in _writesToTransport.Reader.ReadAllAsync(ct))
         {
-            ReadOnlyMemory<byte> buffer = msg.buffer.Memory;
-            if (_decoder.TryDecode(in buffer, out var msgs))
+            try
             {
-                foreach(var m in msgs)
+                ReadOnlyMemory<byte> buffer = msg.buffer.Memory.Slice(0,msg.readableBytes);
+                Log.Debug("Received {0} bytes from transport.", buffer.Length);
+                if (_decoder.TryDecode(in buffer, out var msgs))
                 {
-                    await HandlePacket(m);
+                    Log.Debug("Decoded {0} packets from transport.", msgs.Count);
+                    foreach (var m in msgs)
+                    {
+                        await HandlePacket(m);
+                    }
                 }
+                else
+                {
+                    Log.Debug("Didn't have enough bytes to decode a packet. Waiting for more.");
+                }
+            }
+            finally
+            {
+                // have to free the shared buffer
+                msg.buffer.Dispose();
             }
         }
     }
@@ -93,6 +114,7 @@ internal sealed class InMemoryMqttTransport : IMqttTransport
         {
             case MqttProtocolVersion.V3_1_1:
             {
+                Log.Debug("Sending packet of type {0} using {1}", packet.PacketType, ProtocolVersion);
                 var estimatedSize = MqttPacketSizeEstimator.EstimateMqtt3PacketSize(packet);
                 var headerSize = MqttPacketSizeEstimator.GetPacketLengthHeaderSize(estimatedSize) + 1;
                 var buffer = new Memory<byte>(new byte[estimatedSize + headerSize]);
@@ -115,6 +137,7 @@ internal sealed class InMemoryMqttTransport : IMqttTransport
 
     public async ValueTask HandlePacket(MqttPacket packet)
     {
+        Log.Debug("Received packet of type {0}", packet.PacketType);
         switch (packet.PacketType)
         {
             case MqttPacketType.Publish:

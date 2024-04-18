@@ -13,7 +13,13 @@ namespace TurboMqtt.Core.Tests.End2End;
 
 public class InMemoryMqtt311End2EndSpecs : TestKit
 {
-    public InMemoryMqtt311End2EndSpecs(ITestOutputHelper output) : base(output: output)
+    // enable debug logging
+    public static readonly string Config = """
+                                                   akka.loglevel = DEBUG
+                                           """;
+
+    
+    public InMemoryMqtt311End2EndSpecs(ITestOutputHelper output) : base(output: output, config:Config)
     {
         ClientFactory = new MqttClientFactory(Sys);
     }
