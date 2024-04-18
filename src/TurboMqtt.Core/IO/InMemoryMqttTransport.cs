@@ -118,16 +118,6 @@ internal sealed class InMemoryMqttTransport : IMqttTransport
     public ChannelWriter<(IMemoryOwner<byte> buffer, int readableBytes)> Writer { get; }
     public ChannelReader<(IMemoryOwner<byte> buffer, int readableBytes)> Reader { get; }
     
-    /// <summary>
-    /// Used to simulate messages being sent from the server to the client
-    /// </summary>
-    /// <param name="message"></param>
-    public void WriteServerSidePublish(MqttMessage message)
-    {
-        var pub = message.ToPacket();
-        TryPush(pub);
-    }
-
     private void TryPush(MqttPacket packet)
     {
         switch (ProtocolVersion)

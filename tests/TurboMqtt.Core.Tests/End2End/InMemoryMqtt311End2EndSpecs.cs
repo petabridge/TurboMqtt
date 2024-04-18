@@ -159,4 +159,162 @@ public class InMemoryMqtt311End2EndSpecs : TestKit
         await client.DisconnectAsync(cts.Token);
         client.IsConnected.Should().BeFalse();
     }
+    
+    [Fact]
+    public async Task ShouldSubscribeAndReceiveMessagesWithMultipleSubscriptions()
+    {
+        var client = await ClientFactory.CreateInMemoryClient(DefaultConnectOptions);
+
+        using var cts = new CancellationTokenSource(RemainingOrDefault);
+        var connectResult = await client.ConnectAsync(cts.Token);
+        connectResult.IsSuccess.Should().BeTrue();
+
+        var subscribeResult1 = await client.SubscribeAsync("topic1", QualityOfService.AtLeastOnce, cts.Token);
+        subscribeResult1.IsSuccess.Should().BeTrue();
+        
+        var subscribeResult2 = await client.SubscribeAsync("topic2", QualityOfService.AtLeastOnce, cts.Token);
+        subscribeResult2.IsSuccess.Should().BeTrue();
+
+        var receivedMessages = new List<MqttMessage>();
+
+        // technically, we can receive our own messages that we publish - so let's do that
+        var messages = new[]
+        {
+            new MqttMessage("topic1", "hello world 1")
+            {
+                QoS = QualityOfService.AtLeastOnce,
+                Retain = false,
+            },
+            new MqttMessage("topic2", "hello world 2")
+            {
+                QoS = QualityOfService.AtLeastOnce,
+                Retain = false,
+            }
+        };
+        
+        foreach (var message in messages)
+        {
+            var publishResult = await client.PublishAsync(message, cts.Token);
+            publishResult.IsSuccess.Should().BeTrue();
+        }
+
+        await foreach (var message in client.ReceiveMessagesAsync(cts.Token))
+        {
+            receivedMessages.Add(message);
+            if (receivedMessages.Count == messages.Length)
+            {
+                break;
+            }
+        }
+
+        receivedMessages.Should().BeEquivalentTo(messages, options => options.Excluding(c => c.Payload));
+        
+        // check that all the payloads are the same
+        for (var i = 0; i < messages.Length; i++)
+        {
+            // UTF8 decode both payloads and compare
+            var expectedPayload = Encoding.UTF8.GetString(messages[i].Payload.Span);
+            var actualPayload = Encoding.UTF8.GetString(receivedMessages[i].Payload.Span);
+            actualPayload.Should().BeEquivalentTo(expectedPayload);
+        }
+
+        await client.DisconnectAsync(cts.Token);
+        client.IsConnected.Should().BeFalse();
+    }
+    
+    [Fact]
+    public async Task ShouldSubscribeAndReceiveMessagesWithMultipleSubscriptionsAndUnsubscribe()
+    {
+        var client = await ClientFactory.CreateInMemoryClient(DefaultConnectOptions);
+
+        using var cts = new CancellationTokenSource(RemainingOrDefault);
+        var connectResult = await client.ConnectAsync(cts.Token);
+        connectResult.IsSuccess.Should().BeTrue();
+
+        var subscribeResult1 = await client.SubscribeAsync("topic1", QualityOfService.AtLeastOnce, cts.Token);
+        subscribeResult1.IsSuccess.Should().BeTrue();
+        
+        var subscribeResult2 = await client.SubscribeAsync("topic2", QualityOfService.AtLeastOnce, cts.Token);
+        subscribeResult2.IsSuccess.Should().BeTrue();
+
+        var receivedMessages = new List<MqttMessage>();
+
+        // technically, we can receive our own messages that we publish - so let's do that
+        var messages = new[]
+        {
+            new MqttMessage("topic1", "hello world 1")
+            {
+                QoS = QualityOfService.AtLeastOnce,
+                Retain = false,
+            },
+            new MqttMessage("topic2", "hello world 2")
+            {
+                QoS = QualityOfService.AtLeastOnce,
+                Retain = false,
+            }
+        };
+        
+        foreach (var message in messages)
+        {
+            var publishResult = await client.PublishAsync(message, cts.Token);
+            publishResult.IsSuccess.Should().BeTrue();
+        }
+
+        await foreach (var message in client.ReceiveMessagesAsync(cts.Token))
+        {
+            receivedMessages.Add(message);
+            if (receivedMessages.Count == messages.Length)
+            {
+                break;
+            }
+        }
+
+        receivedMessages.Should().BeEquivalentTo(messages, options => options.Excluding(c => c.Payload));
+        
+        // check that all the payloads are the same
+        for (var i = 0; i < messages.Length; i++)
+        {
+            // UTF8 decode both payloads and compare
+            var expectedPayload = Encoding.UTF8.GetString(messages[i].Payload.Span);
+            var actualPayload = Encoding.UTF8.GetString(receivedMessages[i].Payload.Span);
+            actualPayload.Should().BeEquivalentTo(expectedPayload);
+        }
+
+        var unsubscribeResult1 = await client.UnsubscribeAsync("topic1", cts.Token);
+        unsubscribeResult1.IsSuccess.Should().BeTrue();
+        
+        var unsubscribeResult2 = await client.UnsubscribeAsync("topic2", cts.Token);
+        unsubscribeResult2.IsSuccess.Should().BeTrue();
+        
+        // publish some additional messages
+        var additionalMessages = new[]
+        {
+            new MqttMessage("topic1", "hello world 3")
+            {
+                QoS = QualityOfService.AtLeastOnce,
+                Retain = false,
+            },
+            new MqttMessage("topic2", "hello world 4")
+            {
+                QoS = QualityOfService.AtLeastOnce,
+                Retain = false,
+            }
+        };
+        
+        foreach (var message in additionalMessages)
+        {
+            var publishResult = await client.PublishAsync(message, cts.Token);
+            publishResult.IsSuccess.Should().BeTrue();
+        }
+        
+        // we shouldn't receive any more messages
+        // try reading 1 message from the IAsyncEnumerable - or give up after 1 second
+        
+        var a = async () =>
+        {
+            using var shortCts = new CancellationTokenSource(TimeSpan.FromMilliseconds(100));
+            var receivedMessage = await client.ReceiveMessagesAsync(shortCts.Token).FirstOrDefaultAsync(shortCts.Token);
+        };
+        await a.Should().ThrowAsync<OperationCanceledException>();
+    }
 }
