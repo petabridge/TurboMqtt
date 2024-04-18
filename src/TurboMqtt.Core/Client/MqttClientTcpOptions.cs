@@ -25,9 +25,9 @@ public sealed record MqttClientTcpOptions
     public AddressFamily AddressFamily { get; set; } = AddressFamily.Unspecified;
     
     /// <summary>
-    /// Will get set to 2x the maximum frame size automatically
+    /// Needs to be at least 2x the size of the largest possible MQTT packet.
     /// </summary>
-    public uint BufferSize { get; set; }
+    public uint BufferSize { get; set; } 
     
     public EndPoint RemoteEndpoint { get; }
     

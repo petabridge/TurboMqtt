@@ -19,7 +19,6 @@ internal sealed class TcpConnectionManager : UntypedActor
     public sealed record CreateTcpTransport(
         MqttClientTcpOptions Options,
         int MaxFrameSize,
-        bool AutomaticRestarts,
         MqttProtocolVersion ProtocolVersion);
     
     private readonly ILoggingAdapter _log = Context.GetLogger();
@@ -32,8 +31,7 @@ internal sealed class TcpConnectionManager : UntypedActor
             {
                 _log.Debug("Creating new TCP transport for [{0}]", create);
                 var tcpTransport = Context.ActorOf(Props.Create(() => new TcpTransportActor(create.Options,
-                    create.MaxFrameSize, create.AutomaticRestarts, create.ProtocolVersion)));
-                tcpTransport.Tell(TcpTransportActor.CreateTcpTransport.Instance);
+                    create.MaxFrameSize, create.ProtocolVersion)));
                 Sender.Tell(tcpTransport);
                 break;
             }

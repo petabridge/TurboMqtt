@@ -101,7 +101,6 @@ internal sealed class TcpTransportActor : UntypedActor, IWithStash
 
     public MqttClientTcpOptions TcpOptions { get; }
     public int MaxFrameSize { get; }
-    public bool AutomaticRestarts { get; }
 
     public ConnectionState State { get; private set; }
 
@@ -124,12 +123,11 @@ internal sealed class TcpTransportActor : UntypedActor, IWithStash
     /// </summary>
     private readonly Memory<byte> _readBuffer;
 
-    public TcpTransportActor(MqttClientTcpOptions tcpOptions, int maxFrameSize, bool automaticRestarts,
+    public TcpTransportActor(MqttClientTcpOptions tcpOptions, int maxFrameSize,
         MqttProtocolVersion protocolVersion)
     {
         TcpOptions = tcpOptions;
         MaxFrameSize = maxFrameSize;
-        AutomaticRestarts = automaticRestarts;
 
         State = new ConnectionState(_writesToTransport.Writer, _readsFromTransport.Reader, _whenTerminated.Task,
             protocolVersion, maxFrameSize);
