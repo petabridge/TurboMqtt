@@ -44,7 +44,9 @@ internal sealed class TcpTransport : IMqttTransport
 
     public Task CloseAsync(CancellationToken ct = default)
     {
-        return _connectionActor.Ask<TcpTransportActor.CloseResult>(new TcpTransportActor.DoClose(ct), ct);
+        var watch = _connectionActor.WatchAsync(ct);
+        _connectionActor.Tell(new TcpTransportActor.DoClose(ct));
+        return watch;
     }
 
     public Task ConnectAsync(CancellationToken ct = default)
@@ -60,7 +62,7 @@ internal sealed class TcpTransport : IMqttTransport
 /// <summary>
 /// Actor responsible for managing the TCP transport layer for MQTT.
 /// </summary>
-internal sealed class TcpTransportActor : UntypedActor
+internal sealed class TcpTransportActor : UntypedActor, IWithStash
 {
     #region Internal Types
 
@@ -118,8 +120,18 @@ internal sealed class TcpTransportActor : UntypedActor
     public sealed record ConnectResult(ConnectionStatus Status, string ReasonMessage);
 
     public sealed record DoClose(CancellationToken Cancel);
+    
+    /// <summary>
+    /// We are done reading from the socket.
+    /// </summary>
+    public sealed class ReadFinished
+    {
+        private ReadFinished()
+        {
+        }
 
-    public sealed record CloseResult(ConnectionStatus Status, string ReasonMessage);
+        public static ReadFinished Instance { get; } = new();
+    }
     
     /// <summary>
     /// In the event that our connection gets aborted by the broker, we will send ourselves this message.
@@ -137,6 +149,7 @@ internal sealed class TcpTransportActor : UntypedActor
     public ConnectionState State { get; private set; }
 
     private TcpClient? _tcpClient;
+    private Stream? _tcpStream;
 
     private readonly Channel<(IMemoryOwner<byte> buffer, int readableBytes)> _writesToTransport =
         Channel.CreateUnbounded<(IMemoryOwner<byte> buffer, int readableBytes)>();
@@ -163,6 +176,13 @@ internal sealed class TcpTransportActor : UntypedActor
             protocolVersion, maxFrameSize);
         _readBuffer = new byte[maxFrameSize];
     }
+    
+    /*
+     * FSM:
+     * OnReceive (nothing has happened) --> CreateTcpTransport --> TransportCreated BECOME Connecting
+     * Connecting --> DoConnect --> Connecting (already connecting) --> ConnectResult (Connected) BECOME Running
+     * Running --> DoReadFromSocketAsync --> Running (read data from socket) --> DoWriteToSocketAsync --> Running (write data to socket)
+     */
 
     protected override void OnReceive(object message)
     {
@@ -183,6 +203,7 @@ internal sealed class TcpTransportActor : UntypedActor
                 var tcpTransport = new TcpTransport(_log, State, Self);
                 Sender.Tell(tcpTransport);
                 _log.Debug("Created new TCP transport for client connecting to [{0}]", TcpOptions.RemoteEndpoint);
+                Stash.UnstashAll();
                 Become(TransportCreated);
                 break;
             }
@@ -191,6 +212,9 @@ internal sealed class TcpTransportActor : UntypedActor
                 _log.Warning("Attempted to create a TCP transport when one already exists.");
                 break;
             }
+            default:
+                Stash.Stash(); // stash all other messages
+                break;
         }
     }
 
@@ -245,7 +269,7 @@ internal sealed class TcpTransportActor : UntypedActor
                     async Task ResolveAndConnect(CancellationToken ct)
                     {
                         var resolved = await Dns.GetHostAddressesAsync(dns.Host, ct);
-                        await DoConnectAsync(resolved, dns.Port, Sender, ct);
+                        await DoConnectAsync(resolved, dns.Port, sender, ct);
                     }
 
 #pragma warning disable CS4014 // Because this call is not awaited, execution of the current method continues before the call is completed
@@ -257,7 +281,7 @@ internal sealed class TcpTransportActor : UntypedActor
                     // we have an IP address already
                     var ip = (IPEndPoint)TcpOptions.RemoteEndpoint;
 #pragma warning disable CS4014 // Because this call is not awaited, execution of the current method continues before the call is completed
-                    DoConnectAsync(new[] { ip.Address }, ip.Port, Sender, connect.Cancel);
+                    DoConnectAsync([ip.Address], ip.Port, sender, connect.Cancel);
 #pragma warning restore CS4014 // Because this call is not awaited, execution of the current method continues before the call is completed
                 }
 
@@ -276,6 +300,9 @@ internal sealed class TcpTransportActor : UntypedActor
             {
                 _log.Info("Successfully connected to [{0}]", TcpOptions.RemoteEndpoint);
                 State.Status = ConnectionStatus.Connected;
+                
+                _tcpStream = _tcpClient!.GetStream();
+                
                 BecomeRunning();
                 break;
             }
@@ -286,28 +313,63 @@ internal sealed class TcpTransportActor : UntypedActor
                 State.Status = ConnectionStatus.Failed;
                 break;
             }
+            default:
+                Stash.Stash();
+                break;
         }
     }
     
     private void BecomeRunning()
     {
         Become(Running);
-        
-        // need to begin reading from the socket and writing to it
-        
-        
+        Stash.UnstashAll();
+
+#pragma warning disable CS4014 // Because this call is not awaited, execution of the current method continues before the call is completed
+        DoReadFromSocketAsync(State.ShutDownCts.Token);
+        DoWriteToSocketAsync(State.ShutDownCts.Token);
+#pragma warning restore CS4014 // Because this call is not awaited, execution of the current method continues before the call is completed
+    }
+    
+    private async Task DoWriteToSocketAsync(CancellationToken ct)
+    {
+        while (!ct.IsCancellationRequested)
+        {
+            try
+            {
+                var (buffer, readableBytes) = await _writesToTransport.Reader.ReadAsync(ct);
+                try
+                {
+                    await _tcpStream!.WriteAsync(buffer.Memory.Slice(0, readableBytes), ct);
+                }
+                finally
+                {
+                    // free the pooled buffer
+                    buffer.Dispose();
+                }
+            }
+            catch (Exception ex)
+            {
+                _log.Error(ex, "Failed to write to socket.");
+                // we are done writing
+                _closureSelf.Tell(new ConnectionUnexpectedlyClosed(ConnectionTerminatedReason.Error, ex.Message));
+                // socket was closed
+                // abort ongoing reads and writes, but don't shutdown the transport
+                await State.ShutDownCts.CancelAsync();
+                return;
+            }
+        }
     }
     
     private async Task DoReadFromSocketAsync(CancellationToken ct)
     {
         while (!ct.IsCancellationRequested)
         {
-            var stream = _tcpClient!.GetStream();
-            
             // read from the socket
-            var bytesRead = await stream.ReadAsync(_readBuffer, ct);
+            var bytesRead = await _tcpStream!.ReadAsync(_readBuffer, ct);
             if (bytesRead == 0)
             {
+                // we are done reading
+                _closureSelf.Tell(ReadFinished.Instance);
                 // socket was closed
                 // abort ongoing reads and writes, but don't shutdown the transport
                 await State.ShutDownCts.CancelAsync();
@@ -326,6 +388,72 @@ internal sealed class TcpTransportActor : UntypedActor
 
     private void Running(object message)
     {
+        switch (message)
+        {
+            case DoClose close:
+            {
+                // we are done
+                Context.Stop(Self);
+                break;
+            }
+        }
+    }
+
+    private void DisposeSocket(ConnectionStatus newStatus)
+    {
+       
+        if(_tcpStream is null && _tcpClient is null)
+            return; // already disposed
         
+        try
+        {
+            State.Status = newStatus;
+            
+                    
+            // stop reading from the socket
+            State.ShutDownCts.Cancel();
+            
+            _tcpStream?.Dispose();
+            _tcpClient?.Close();
+            _tcpClient?.Dispose();
+        }
+        catch (Exception ex)
+        {
+            _log.Warning(ex, "Failed to cleanly dispose of TCP client and stream.");
+        }
+        finally
+        {
+            _tcpStream = null;
+            _tcpClient = null;
+        }
+    }
+    
+    /// <summary>
+    /// This is for when we run out of retries or we were explicitly told to close the connection.
+    /// </summary>
+    private void FullShutdown(ConnectionTerminatedReason reason = ConnectionTerminatedReason.Normal)
+    {
+        var newStatus = reason switch
+        {
+            ConnectionTerminatedReason.Error => ConnectionStatus.Failed,
+            ConnectionTerminatedReason.Normal => ConnectionStatus.Disconnected,
+            ConnectionTerminatedReason.CouldNotConnect => ConnectionStatus.Failed,
+            _ => ConnectionStatus.Aborted
+        };
+        
+        DisposeSocket(newStatus);
+        
+        // mark the channels as complete
+        _writesToTransport.Writer.Complete();
+        _readsFromTransport.Writer.Complete();
+        
+        _whenTerminated.TrySetResult(reason);
+    }
+
+    public IStash Stash { get; set; } = null!;
+
+    protected override void PostStop()
+    {
+        FullShutdown();
     }
 }

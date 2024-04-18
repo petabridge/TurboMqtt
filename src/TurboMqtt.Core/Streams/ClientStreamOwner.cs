@@ -38,8 +38,8 @@ internal sealed class ClientStreamOwner : UntypedActor
     private IMqttClient? _client;
     private Channel<MqttPacket>? _outboundChannel;
     private Channel<MqttMessage>? _inboundChannel;
-    
-    private readonly IMaterializer _materializer = ActorMaterializer.Create(Context);
+
+    private readonly IMaterializer _materializer = Context.Materializer();
     private readonly ILoggingAdapter _log = Context.GetLogger();
 
     protected override void OnReceive(object message)
