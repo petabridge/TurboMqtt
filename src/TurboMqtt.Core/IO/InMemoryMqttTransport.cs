@@ -254,6 +254,11 @@ internal sealed class InMemoryMqttTransport : IMqttTransport
                 TryPush(pubComp);
                 break;
             }
+            case MqttPacketType.PubComp:
+            {
+                // nothing to do here
+                break;
+            }
             case MqttPacketType.Unsubscribe:
             {
                 var unsubscribe = (UnsubscribePacket)packet;
@@ -281,7 +286,9 @@ internal sealed class InMemoryMqttTransport : IMqttTransport
                 CloseAsync();
                 break;
             default:
-                throw new NotSupportedException($"Packet type {packet.PacketType} is not supported by this flow.");
+                var ex = new NotSupportedException($"Packet type {packet.PacketType} is not supported by this flow.");
+                Log.Error(ex, "Received unsupported packet type {0}", packet.PacketType);
+                throw ex; 
         }
     }
 }

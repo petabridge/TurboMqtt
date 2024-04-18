@@ -117,6 +117,7 @@ internal sealed class ExactlyOncePublishRetryActor : UntypedActor, IWithTimers
                 
                 if (_pendingPackets.Remove(comp.PacketId, out var pending))
                 {
+                    _log.Debug("Successfully published packet with ID [{0}] and QoS=2", comp.PacketId);
                     pending.Sender.Tell(PublishingProtocol.PublishSuccess.Instance);
                 }
                 else

@@ -31,7 +31,7 @@ public class InMemoryMqtt311End2EndSpecs : TestKit
         {
             Username = "test",
             Password = "test",
-            PublishRetryInterval = TimeSpan.FromSeconds(1),
+            //PublishRetryInterval = TimeSpan.FromSeconds(1),
         };
 
     public MqttClientFactory ClientFactory { get; }
