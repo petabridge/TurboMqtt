@@ -4,6 +4,7 @@
 // </copyright>
 // -----------------------------------------------------------------------
 
+using System.Text;
 using Akka.TestKit.Xunit2;
 using TurboMqtt.Core.Client;
 using TurboMqtt.Core.Protocol;
@@ -144,7 +145,16 @@ public class InMemoryMqtt311End2EndSpecs : TestKit
             }
         }
 
-        receivedMessages.Should().BeEquivalentTo(messages);
+        receivedMessages.Should().BeEquivalentTo(messages, options => options.Excluding(c => c.Payload));
+        
+        // check that all the payloads are the same
+        for (var i = 0; i < messages.Length; i++)
+        {
+            // UTF8 decode both payloads and compare
+            var expectedPayload = Encoding.UTF8.GetString(messages[i].Payload.Span);
+            var actualPayload = Encoding.UTF8.GetString(receivedMessages[i].Payload.Span);
+            actualPayload.Should().BeEquivalentTo(expectedPayload);
+        }
 
         await client.DisconnectAsync(cts.Token);
         client.IsConnected.Should().BeFalse();
