@@ -387,7 +387,7 @@ public sealed class MqttClient : IMqttClient
             Topics = topics
         };
 
-        var askTask = _clientOwner.Ask<IAckResponse>(subscribePacket, cancellationToken);
+        var askTask = _requiredActors.ClientAck.Ask<IAckResponse>(subscribePacket, cancellationToken);
 
         // flush the packet to the wire
         await _packetWriter.WriteAsync(subscribePacket, cancellationToken);
@@ -432,7 +432,7 @@ public sealed class MqttClient : IMqttClient
             Topics = topics
         };
 
-        var askTask = _clientOwner.Ask<IAckResponse>(subscribePacket, cancellationToken);
+        var askTask = _requiredActors.ClientAck.Ask<IAckResponse>(subscribePacket, cancellationToken);
 
         // flush the packet to the wire
         await _packetWriter.WriteAsync(subscribePacket, cancellationToken);

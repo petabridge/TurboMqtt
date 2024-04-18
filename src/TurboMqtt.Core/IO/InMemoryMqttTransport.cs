@@ -117,6 +117,16 @@ internal sealed class InMemoryMqttTransport : IMqttTransport
     public int MaxFrameSize { get; }
     public ChannelWriter<(IMemoryOwner<byte> buffer, int readableBytes)> Writer { get; }
     public ChannelReader<(IMemoryOwner<byte> buffer, int readableBytes)> Reader { get; }
+    
+    /// <summary>
+    /// Used to simulate messages being sent from the server to the client
+    /// </summary>
+    /// <param name="message"></param>
+    public void WriteServerSidePublish(MqttMessage message)
+    {
+        var pub = message.ToPacket();
+        TryPush(pub);
+    }
 
     private void TryPush(MqttPacket packet)
     {
@@ -148,6 +158,7 @@ internal sealed class InMemoryMqttTransport : IMqttTransport
                 break;
             }
             case MqttProtocolVersion.V5_0:
+            default:
                 throw new NotSupportedException();
         }
     }
