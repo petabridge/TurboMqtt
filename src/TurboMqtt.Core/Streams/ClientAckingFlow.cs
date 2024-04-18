@@ -76,15 +76,19 @@ internal sealed class ClientAckingFlow : GraphStage<FlowShape<MqttPacket, MqttPa
         {
             var packet = Grab(_stage.In);
             Log.Debug("Received packet of type [{0}] from client.", packet.PacketType);
+            
+            if(packet.PacketType == MqttPacketType.Publish)
+            {
+                var publish = (PublishPacket) packet;
+                HandlePublish(publish);
+                return;
+            }
+            
+            // need to do this to ensure that we don't block the stream
+            Pull(_stage.In);
 
             switch (packet.PacketType)
             {
-                case MqttPacketType.Publish:
-                {
-                    var publish = (PublishPacket) packet;
-                    HandlePublish(publish);
-                    break;
-                }
                 case MqttPacketType.PubAck:
                 {
                     // QoS 1 actor handles this
