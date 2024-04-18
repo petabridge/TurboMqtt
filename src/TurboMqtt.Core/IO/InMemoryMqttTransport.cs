@@ -134,7 +134,12 @@ internal sealed class InMemoryMqttTransport : IMqttTransport
                 var unshared = new UnsharedMemoryOwner<byte>(buffer);
                 
                 // simulate reads back on the client here
-                _readsFromTransport.Writer.TryWrite((unshared, estimatedSize + headerSize));
+                var didWrite = _readsFromTransport.Writer.TryWrite((unshared, estimatedSize + headerSize));
+                if (!didWrite)
+                {
+                    Log.Error("Failed to write packet of type {0} to transport.", packet.PacketType);
+                    unshared.Dispose();
+                }
                 break;
             }
             case MqttProtocolVersion.V5_0:
