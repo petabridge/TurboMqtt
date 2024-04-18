@@ -86,7 +86,7 @@ internal sealed class Mqtt311DecoderFlow : GraphStage<FlowShape<(
         {
             var (buffer, readableBytes) = Grab(_flow.In);
             
-            var safeBytes = buffer.Memory[..(readableBytes-1)];
+            var safeBytes = buffer.Memory[..readableBytes];
 
             // optimize for the case where we don't need to copy the buffer
             // UnsharedMemoryOwner is what IMqttTransport returns internally for reads
