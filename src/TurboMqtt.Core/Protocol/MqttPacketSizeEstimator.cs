@@ -183,7 +183,7 @@ internal static class MqttPacketSizeEstimator
             case MqttPacketType.Unsubscribe:
                 return EstimateUnsubscribePacketSizeMqtt5((UnsubscribePacket)packet);
             case MqttPacketType.UnsubAck:
-                return EstimateUnsubscribeAckPacketSizeMqtt5((UnsubscribeAckPacket)packet);
+                return EstimateUnsubscribeAckPacketSizeMqtt5((UnsubAckPacket)packet);
             case MqttPacketType.PingReq:
             case MqttPacketType.PingResp:
                 return 2; // fixed header only
@@ -229,7 +229,7 @@ internal static class MqttPacketSizeEstimator
         return size + propertiesSize;
     }
 
-    private static int EstimateUnsubscribeAckPacketSizeMqtt5(UnsubscribeAckPacket packet)
+    private static int EstimateUnsubscribeAckPacketSizeMqtt5(UnsubAckPacket packet)
     {
         var size = 0; // fixed header not included in length calculation
 

@@ -18,7 +18,7 @@ public class UnsubAckPacketMqt311End2EndCodecSpecs
         [Fact]
         public void ShouldEncodeAndDecodeCorrectly()
         {
-            var packet = new UnsubscribeAckPacket()
+            var packet = new UnsubAckPacket()
             {
                 PacketId = 1
             };

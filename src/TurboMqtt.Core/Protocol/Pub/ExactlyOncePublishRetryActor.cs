@@ -8,9 +8,10 @@ using System.Threading.Channels;
 using Akka.Actor;
 using Akka.Event;
 using TurboMqtt.Core.PacketTypes;
-using static TurboMqtt.Core.Protocol.Publish.PublishProtocolDefaults;
+using TurboMqtt.Core.Utility;
+using static TurboMqtt.Core.Protocol.Pub.PublishProtocolDefaults;
 
-namespace TurboMqtt.Core.Protocol.Publish;
+namespace TurboMqtt.Core.Protocol.Pub;
 
 /// <summary>
 /// Actor is responsible for handling QoS 2 requirements for outbound <see cref="PublishPacket"/>s.
@@ -46,7 +47,7 @@ internal sealed class ExactlyOncePublishRetryActor : UntypedActor, IWithTimers
 
     protected override void PreStart()
     {
-        Timers.StartPeriodicTimer(PublishTimerKey, CheckPublishTimeout.Instance, TimeSpan.FromSeconds(1));
+        Timers.StartPeriodicTimer(PublishTimerKey, CheckTimeout.Instance, TimeSpan.FromSeconds(1));
     }
 
     protected override void OnReceive(object message)
@@ -64,16 +65,30 @@ internal sealed class ExactlyOncePublishRetryActor : UntypedActor, IWithTimers
 
                 // we don't send packets to the server first time around - Akka.Streams handles that
                 _pendingPackets[packet.PacketId] = new PendingPublish(packet, Deadline.FromNow(_publishTimeout),
-                    Sender, false, 3);
+                    Sender, false, _maxRetries);
                 return;
             }
 
             case PubRecPacket rec:
             {
+                _log.Debug("Received PubRec with id [{0}], reason [{1}] from broker", rec.PacketId, rec.ReasonCode);
+                
                 if (_pendingPackets.TryGetValue(rec.PacketId, out var pending))
                 {
+                    // check the reason code (which will be null for MQTT 3.1.1)
+                    if (rec.ReasonCode != null && rec.ReasonCode != PubRecReasonCode.Success)
+                    {
+                        // remove the pending packet
+                        _pendingPackets.Remove(rec.PacketId, out _);
+                        _log.Warning("Received PubRec with reason code [{0}] for packet ID [{1}]", rec.ReasonCode,
+                            rec.PacketId);
+                        pending.Sender.Tell(new PublishingProtocol.PublishFailure("PubRec failed"));
+                        return;
+                    }
+                    
                     // need to send a PubRel packet
                     var pubRel = pending.Packet.ToPubRel();
+                    pubRel.Duplicate = pending.PubRecReceived; // mark this as a duplicate if we've already received a PubRec
 
                     _outboundPackets.TryWrite(pubRel); // we use unbounded channels - this won't fail
 
@@ -98,8 +113,11 @@ internal sealed class ExactlyOncePublishRetryActor : UntypedActor, IWithTimers
             // PubRel is the acknowledgment of the PubRec packet
             case PubCompPacket comp:
             {
+                _log.Debug("Received PubComp with id [{0}], reason [{1}] from broker", comp.PacketId, comp.ReasonCode);
+                
                 if (_pendingPackets.Remove(comp.PacketId, out var pending))
                 {
+                    _log.Debug("Successfully published packet with ID [{0}] and QoS=2", comp.PacketId);
                     pending.Sender.Tell(PublishingProtocol.PublishSuccess.Instance);
                 }
                 else
@@ -109,8 +127,22 @@ internal sealed class ExactlyOncePublishRetryActor : UntypedActor, IWithTimers
 
                 return;
             }
+            
+            case PublishingProtocol.PublishCancelled cancel:
+            {
+                if (_pendingPackets.Remove(cancel.PacketId, out var pending))
+                {
+                    pending.Sender.Tell(new PublishingProtocol.PublishFailure("Cancelled"));
+                }
+                else
+                {
+                    _log.Warning("Received cancel request for unknown packet ID [{0}]", cancel.PacketId);
+                }
 
-            case CheckPublishTimeout _:
+                return;
+            }
+
+            case CheckTimeout _:
             {
                 foreach (var (packetId, pending) in _pendingPackets)
                 {

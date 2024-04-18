@@ -6,11 +6,15 @@
 
 using Akka.Actor;
 
-namespace TurboMqtt.Core.Protocol.Publish;
+namespace TurboMqtt.Core.Protocol.Pub;
 
-internal interface IPublishControlMessage : INoSerializationVerificationNeeded
+public interface IPublishControlMessage : INoSerializationVerificationNeeded
 {
     public PublishingStatus Status { get; }
+    
+    public bool IsSuccess => Status == PublishingStatus.Completed;
+    
+    public string Reason { get; }
 }
 
 public enum PublishingStatus
@@ -43,7 +47,7 @@ public enum PublishingStatus
 /// <summary>
 /// INTERNAL API - messaging protocol used to communicate with outbound reliable delivery actors.
 /// </summary>
-internal static class PublishingProtocol{
+public static class PublishingProtocol{
     
     /// <summary>
     /// Message was successfully published and fully received.
@@ -53,6 +57,7 @@ internal static class PublishingProtocol{
         public static readonly PublishSuccess Instance = new();
         private PublishSuccess(){}
         public PublishingStatus Status => PublishingStatus.Completed;
+        public string Reason => string.Empty;
     }
     
     public sealed class PublishFailure(string reason) : IPublishControlMessage
@@ -74,5 +79,6 @@ internal static class PublishingProtocol{
 
         public NonZeroUInt16 PacketId { get; }
         public PublishingStatus Status => PublishingStatus.Failed;
+        public string Reason => "Publish operation was cancelled.";
     }
 }

@@ -4,7 +4,7 @@
 // </copyright>
 // -----------------------------------------------------------------------
 
-namespace TurboMqtt.Core.Protocol;
+namespace TurboMqtt.Core.Utility;
 
 /// <summary>
 /// A sortable deadline structure used to indicate when requests are due.

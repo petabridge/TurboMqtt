@@ -45,3 +45,18 @@ public enum PubRelReasonCode : byte
     Success = 0x00,
     PacketIdentifierNotFound = 0x92
 }
+
+/// <summary>
+/// INTERNAL API
+/// </summary>
+internal static class PubRelHelpers
+{
+    public static PubCompPacket ToPubComp(this PubRelPacket packet)
+    {
+        return new PubCompPacket
+        {
+            PacketId = packet.PacketId,
+            ReasonCode = PubCompReasonCode.Success
+        };
+    }
+} 

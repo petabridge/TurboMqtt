@@ -8,10 +8,11 @@ using System.Threading.Channels;
 using Akka.Actor;
 using Akka.Event;
 using TurboMqtt.Core.PacketTypes;
-using static TurboMqtt.Core.Protocol.Publish.PublishingProtocol;
-using static TurboMqtt.Core.Protocol.Publish.PublishProtocolDefaults;
+using TurboMqtt.Core.Utility;
+using static TurboMqtt.Core.Protocol.Pub.PublishingProtocol;
+using static TurboMqtt.Core.Protocol.Pub.PublishProtocolDefaults;
 
-namespace TurboMqtt.Core.Protocol.Publish;
+namespace TurboMqtt.Core.Protocol.Pub;
 
 /// <summary>
 /// Actor is responsible for handling QoS 1 requirements for outbound <see cref="PublishPacket"/>s.
@@ -64,8 +65,17 @@ internal sealed class AtLeastOncePublishRetryActor : UntypedActor, IWithTimers
             // Acknowledgement from the server
             case PubAckPacket ack:
             {
+                _log.Debug("Received PubAck with id [{0}], reason [{1}] from broker", ack.PacketId, ack.ReasonCode);
+                
                 if (_pendingPackets.Remove(ack.PacketId, out var pending))
                 {
+                    // check the return code
+                    if (ack.ReasonCode != MqttPubAckReasonCode.Success)
+                    {
+                        _log.Warning("Received PubAck with non-success return code [{0}]", ack.ReasonCode);
+                        pending.Sender.Tell(new PublishFailure(ack.ReasonString));
+                        return;
+                    }
                     pending.Sender.Tell(PublishSuccess.Instance);
                 }
                 else
@@ -78,7 +88,7 @@ internal sealed class AtLeastOncePublishRetryActor : UntypedActor, IWithTimers
             }
 
             // Timeout for a packet
-            case CheckPublishTimeout _:
+            case CheckTimeout _:
             {
                 foreach (var (packetId, pending) in _pendingPackets)
                 {
@@ -127,7 +137,7 @@ internal sealed class AtLeastOncePublishRetryActor : UntypedActor, IWithTimers
 
     protected override void PreStart()
     {
-        Timers.StartPeriodicTimer(PublishTimerKey, CheckPublishTimeout.Instance, TimeSpan.FromSeconds(1));
+        Timers.StartPeriodicTimer(PublishTimerKey, CheckTimeout.Instance, TimeSpan.FromSeconds(1));
     }
 
     /// <summary>

@@ -6,6 +6,7 @@
 
 using System.Buffers;
 using System.Threading.Channels;
+using Akka.Event;
 
 namespace TurboMqtt.Core.IO;
 
@@ -21,6 +22,11 @@ namespace TurboMqtt.Core.IO;
 /// </remarks>
 internal interface IMqttTransport
 {
+    /// <summary>
+    /// The logger used to log messages from the transport.
+    /// </summary>
+    public ILoggingAdapter Log { get; }
+    
     /// <summary>
     /// Reflects the current status of the connection.
     /// </summary>
@@ -43,7 +49,7 @@ internal interface IMqttTransport
     ///
     /// Also, this method is idempotent - it can be called multiple times without any side effects after the first call.
     /// </remarks>
-    public Task CloseAsync();
+    public Task CloseAsync(CancellationToken ct = default);
 
     /// <summary>
     /// If this is a client, this method will be used to establish a connection to the server.
@@ -53,7 +59,7 @@ internal interface IMqttTransport
     /// <remarks>
     /// The connection information is passed into the implementation's constructor, so no need to specify here.
     /// </remarks>
-    public Task ConnectAsync();
+    public Task ConnectAsync(CancellationToken ct = default);
     
     /// <summary>
     /// Maximum packet size that can be sent or received over the wire.
@@ -78,6 +84,7 @@ internal interface IMqttTransport
 
 public enum ConnectionStatus
 {
+    NotStarted,
     Connecting,
     Connected,
     Disconnected,

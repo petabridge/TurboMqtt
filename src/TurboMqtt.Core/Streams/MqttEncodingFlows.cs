@@ -80,6 +80,8 @@ internal sealed class Mqtt311EncoderFlow : GraphStage<FlowShape<IEnumerable<(Mqt
         private readonly Mqtt311EncoderFlow _flow;
         private readonly Decider _decider;
         private readonly MemoryPool<byte> _memoryPool;
+        
+        protected override object LogSource => Akka.Event.LogSource.Create("Mqtt311EncoderFlow");
 
         public Logic(Mqtt311EncoderFlow flow, Attributes inheritedAttributes) : base(flow.Shape)
         {

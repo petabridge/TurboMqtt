@@ -34,4 +34,9 @@ public readonly struct NonZeroUInt16
 
     public static implicit operator ushort(NonZeroUInt16 value) => value.Value;
     public static implicit operator NonZeroUInt16(ushort value) => new(value);
+
+    public override string ToString()
+    {
+        return Value.ToString();
+    }
 }

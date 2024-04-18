@@ -1,12 +1,37 @@
 ﻿// -----------------------------------------------------------------------
-// <copyright file="MqttClientOptions.cs" company="Petabridge, LLC">
+// <copyright file="MqttClientConnectOptions.cs" company="Petabridge, LLC">
 //      Copyright (C) 2024 - 2024 Petabridge, LLC <https://petabridge.com>
 // </copyright>
 // -----------------------------------------------------------------------
 
+using System.Net;
+using System.Net.Sockets;
 using TurboMqtt.Core.Protocol;
 
-namespace TurboMqtt.Core.Config;
+namespace TurboMqtt.Core.Client;
+
+/// <summary>
+/// Used to configure the TCP connection for the MQTT client.
+/// </summary>
+public sealed record MqttClientTcpOptions
+{
+    /// <summary>
+    /// Would love to just do IPV6, but that still meets resistance everywhere
+    /// </summary>
+    public AddressFamily AddressFamily { get; set; } = AddressFamily.Unspecified;
+    
+    /// <summary>
+    /// Will get set to 2x the maximum frame size automatically
+    /// </summary>
+    public uint BufferSize { get; set; }
+    
+    public EndPoint? RemoteEndpoint { get; set; }
+    
+    /// <summary>
+    /// Doesn't need to be set - will automatically bind to an appropriate address determined by the OS if not set.
+    /// </summary>
+    public EndPoint? LocalEndpoint { get; set; }
+}
 
 /// <summary>
 /// Last Will and Testament (LWT) message that will be published by the broker on behalf of the client
@@ -46,9 +71,9 @@ public sealed record LastWillAndTestament
 /// <summary>
 /// All of the MQTT protocol-specific options that can be set for a given client.
 /// </summary>
-public sealed record MqttClientOptions
+public sealed record MqttClientConnectOptions
 {
-    public MqttClientOptions(string clientId, MqttProtocolVersion protocolVersion)
+    public MqttClientConnectOptions(string clientId, MqttProtocolVersion protocolVersion)
     {
         // validate the client ID
         var (isValid, errorMessage) = MqttClientIdValidator.ValidateClientId(clientId);
@@ -69,4 +94,34 @@ public sealed record MqttClientOptions
     public LastWillAndTestament? LastWill { get; init; }
     public bool CleanSession { get; init; } = true;
     public ushort KeepAliveSeconds { get; init; } = 60;
+
+    public uint MaximumPacketSize { get; set; } = 1024 * 8;
+    
+    /// <summary>
+    /// Used for de-duplication across all clients.
+    /// </summary>
+    /// <remarks>
+    /// Defaults to 5000 retained packet IDs
+    /// </remarks>
+    public int MaxRetainedPacketIds { get; init; } = 5000;
+    
+    /// <summary>
+    /// Maximum amount of time a packet ID can be retained for before it is considered stale and can be reused.
+    /// </summary>
+    /// <remarks>
+    /// Defaults to 5 seconds.
+    /// </remarks>
+    public TimeSpan MaxPacketIdRetentionTime { get; init; } = TimeSpan.FromSeconds(5);
+    
+    /// <summary>
+    /// Maximum number of times a message can be retried before it is considered a failure.
+    /// </summary>
+    public int MaxPublishRetries { get; init; } = 3;
+    
+    /// <summary>
+    /// The interval at which we should retry publishing a message if it fails.
+    /// </summary>
+    public TimeSpan PublishRetryInterval { get; init; } = TimeSpan.FromSeconds(5);
+
+    public ushort ReceiveMaximum { get; set; }
 }

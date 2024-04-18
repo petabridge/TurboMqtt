@@ -4,17 +4,17 @@
 // </copyright>
 // -----------------------------------------------------------------------
 
-namespace TurboMqtt.Core.Protocol.Publish;
+namespace TurboMqtt.Core.Protocol.Pub;
 
 /// <summary>
 /// INTERNAL API
 /// </summary>
 internal static class PublishProtocolDefaults
 {
-    public sealed class CheckPublishTimeout
+    public sealed class CheckTimeout
     {
-        public static CheckPublishTimeout Instance { get; } = new();
-        private CheckPublishTimeout() { }
+        public static CheckTimeout Instance { get; } = new();
+        private CheckTimeout() { }
     }
     
     /// <summary>

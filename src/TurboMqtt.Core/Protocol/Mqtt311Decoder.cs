@@ -162,9 +162,9 @@ public class Mqtt311Decoder
         return rValue;
     }
 
-    public virtual UnsubscribeAckPacket DecodeUnsubAck(ref ReadOnlyMemory<byte> bufferForMsg, int packetSize, int headerLength)
+    public virtual UnsubAckPacket DecodeUnsubAck(ref ReadOnlyMemory<byte> bufferForMsg, int packetSize, int headerLength)
     {
-        var packet = new UnsubscribeAckPacket();
+        var packet = new UnsubAckPacket();
         bufferForMsg = bufferForMsg.Slice(headerLength); // advance past the fixed + size header
         DecodePacketId(ref bufferForMsg, packet, ref packetSize);
         return packet;
