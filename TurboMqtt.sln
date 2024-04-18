@@ -17,6 +17,8 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "build", "build", "{B3AABB6F
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TurboMqtt.Core.Benchmarks", "benchmarks\TurboMqtt.Core.Benchmarks\TurboMqtt.Core.Benchmarks.csproj", "{7F0DD423-98D0-4BB0-B9AA-1EA9D42901F0}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "samples", "samples", "{294A1BA9-C55D-4F08-8EEF-BC6B467892CB}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
