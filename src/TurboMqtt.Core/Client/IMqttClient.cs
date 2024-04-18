@@ -161,7 +161,7 @@ public sealed class MqttClient : IMqttClient
     {
         // should trigger a graceful stop of the client and the transport
         await _clientOwner.GracefulStop(TimeSpan.FromSeconds(3));
-        await _transport.WaitForTermination();
+        await WaitForTermination();
     }
 
     public async Task<IAckResponse> ConnectAsync(CancellationToken cancellationToken = default)
@@ -259,7 +259,7 @@ public sealed class MqttClient : IMqttClient
         // the broker SHOULD disconnect from us
         try
         {
-            await (_transport.WaitForTermination().WaitAsync(TimeSpan.FromSeconds(5), cancellationToken));
+            await WaitForTermination().WaitAsync(TimeSpan.FromSeconds(5), cancellationToken);
         }
         catch
         {
