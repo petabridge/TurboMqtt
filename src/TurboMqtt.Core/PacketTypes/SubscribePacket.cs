@@ -11,6 +11,11 @@ public sealed class SubscribePacket : MqttPacketWithId
     public override MqttPacketType PacketType => MqttPacketType.Subscribe;
 
     /// <summary>
+    /// QoS bit must always be set to 1 for Subscribe packets.
+    /// </summary>
+    public override QualityOfService QualityOfService => QualityOfService.AtLeastOnce;
+
+    /// <summary>
     /// The unique identity of this subscription for this client.
     /// </summary>
     /// <remarks>

@@ -13,6 +13,11 @@ namespace TurboMqtt.Core.PacketTypes;
 public sealed class PubRelPacket : MqttPacketWithId
 {
     public override MqttPacketType PacketType => MqttPacketType.PubRel;
+    
+    /// <summary>
+    /// Required QoS level for PUBREL.
+    /// </summary>
+    public override QualityOfService QualityOfService => QualityOfService.AtLeastOnce;
 
     // MQTT 5.0 - Optional Reason Code and Properties
     /// <summary>
