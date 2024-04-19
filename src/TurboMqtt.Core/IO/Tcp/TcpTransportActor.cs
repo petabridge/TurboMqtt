@@ -196,7 +196,7 @@ internal sealed class TcpTransportActor : UntypedActor
                 throw new ArgumentException("No IP addresses provided to connect to.", nameof(addresses));
 
             Debug.Assert(_tcpClient != null, nameof(_tcpClient) + " != null");
-            await _tcpClient.ConnectAsync(addresses, port, ct);
+            await _tcpClient.ConnectAsync(addresses, port, ct).ConfigureAwait(false);
             connectResult = new ConnectResult(ConnectionStatus.Connected, "Connected.");
         }
         catch (Exception ex)
@@ -226,14 +226,14 @@ internal sealed class TcpTransportActor : UntypedActor
                 // need to resolve DNS to an IP address
                 async Task ResolveAndConnect(CancellationToken ct)
                 {
-                    var resolved = await Dns.GetHostAddressesAsync(TcpOptions.Host, ct);
+                    var resolved = await Dns.GetHostAddressesAsync(TcpOptions.Host, ct).ConfigureAwait(false);
 
                     if (_log.IsDebugEnabled)
                         _log.Debug("Attempting to connect to [{0}:{1}] - resolved to [{2}]", TcpOptions.Host,
                             TcpOptions.Port,
                             string.Join(", ", resolved.Select(c => c.ToString())));
 
-                    await DoConnectAsync(resolved, TcpOptions.Port, sender, ct);
+                    await DoConnectAsync(resolved, TcpOptions.Port, sender, ct).ConfigureAwait(false);
                 }
 
 #pragma warning disable CS4014 // Because this call is not awaited, execution of the current method continues before the call is completed
@@ -295,7 +295,7 @@ internal sealed class TcpTransportActor : UntypedActor
         {
             try
             {
-                while (await _writesToTransport.Reader.WaitToReadAsync(ct))
+                while (await _writesToTransport.Reader.WaitToReadAsync(ct).ConfigureAwait(false))
                     while (_writesToTransport.Reader.TryRead(out var item))
                     {
                         var (buffer, readableBytes) = item;
@@ -306,7 +306,7 @@ internal sealed class TcpTransportActor : UntypedActor
                                 continue;
                             }
 
-                            await _tcpStream!.WriteAsync(buffer.Memory.Slice(0, readableBytes), ct);
+                            await _tcpStream!.WriteAsync(buffer.Memory.Slice(0, readableBytes), ct).ConfigureAwait(false);
                         }
                         finally
                         {
@@ -333,7 +333,7 @@ internal sealed class TcpTransportActor : UntypedActor
         while (!ct.IsCancellationRequested)
         {
             // read from the socket
-            var bytesRead = await _tcpStream!.ReadAsync(_readBuffer, ct);
+            var bytesRead = await _tcpStream!.ReadAsync(_readBuffer, ct).ConfigureAwait(false);
             if (bytesRead == 0)
             {
                 // we are done reading
