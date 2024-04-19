@@ -15,7 +15,7 @@ on:
 jobs:
   aot-compat:
     permissions: write-all
-    name: AOT-publish-${{matrix.os}}
+    name: AOT-publish-${{matrix.os}}-$${{ matrix.version }}
     runs-on: ${{matrix.os}}
 
     strategy:
