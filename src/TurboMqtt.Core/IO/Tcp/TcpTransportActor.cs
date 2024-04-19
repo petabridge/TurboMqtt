@@ -10,6 +10,7 @@ using System.Net.Sockets;
 using System.Threading.Channels;
 using Akka.Actor;
 using Akka.Event;
+using Akka.Streams.Dsl;
 using TurboMqtt.Core.Client;
 using TurboMqtt.Core.Protocol;
 using Debug = System.Diagnostics.Debug;
@@ -33,16 +34,13 @@ internal sealed class TcpTransportActor : UntypedActor, IWithStash
     {
         public ConnectionState(ChannelWriter<(IMemoryOwner<byte> buffer, int readableBytes)> writer,
             ChannelReader<(IMemoryOwner<byte> buffer, int readableBytes)> reader,
-            Task<ConnectionTerminatedReason> whenTerminated, MqttProtocolVersion protocolVersion, int maxFrameSize)
+            Task<ConnectionTerminatedReason> whenTerminated, int maxFrameSize)
         {
             Writer = writer;
             Reader = reader;
             WhenTerminated = whenTerminated;
-            ProtocolVersion = protocolVersion;
             MaxFrameSize = maxFrameSize;
         }
-
-        public MqttProtocolVersion ProtocolVersion { get; }
 
         public ConnectionStatus Status { get; set; } = ConnectionStatus.NotStarted;
 
@@ -123,15 +121,14 @@ internal sealed class TcpTransportActor : UntypedActor, IWithStash
     /// </summary>
     private readonly Memory<byte> _readBuffer;
 
-    public TcpTransportActor(MqttClientTcpOptions tcpOptions, int maxFrameSize,
-        MqttProtocolVersion protocolVersion)
+    public TcpTransportActor(MqttClientTcpOptions tcpOptions)
     {
         TcpOptions = tcpOptions;
-        MaxFrameSize = maxFrameSize;
+        MaxFrameSize = tcpOptions.MaxFrameSize;
 
         State = new ConnectionState(_writesToTransport.Writer, _readsFromTransport.Reader, _whenTerminated.Task,
-            protocolVersion, maxFrameSize);
-        _readBuffer = new byte[maxFrameSize];
+             MaxFrameSize);
+        _readBuffer = new byte[MaxFrameSize];
     }
 
     /*
@@ -153,7 +150,7 @@ internal sealed class TcpTransportActor : UntypedActor, IWithStash
                 // return the transport to the client
                 var tcpTransport = new TcpTransport(_log, State, Self);
                 Sender.Tell(tcpTransport);
-                _log.Debug("Created new TCP transport for client connecting to [{0}]", TcpOptions.RemoteEndpoint);
+                _log.Debug("Created new TCP transport for client connecting to [{0}:{1}]", TcpOptions.Host, TcpOptions.Port);
                 Stash.UnstashAll();
                 Become(TransportCreated);
                 break;
@@ -171,13 +168,24 @@ internal sealed class TcpTransportActor : UntypedActor, IWithStash
 
     private void CreateTcpClient()
     {
-        _tcpClient = new TcpClient(TcpOptions.AddressFamily)
-        {
-            ReceiveBufferSize = (int)TcpOptions.BufferSize,
-            SendBufferSize = (int)TcpOptions.BufferSize,
-            NoDelay = true,
-            LingerState = new LingerOption(true, 2) // give us a little time to flush the socket
-        };
+        if(TcpOptions.AddressFamily == AddressFamily.Unspecified)
+            _tcpClient = new TcpClient()
+            {
+                ReceiveBufferSize = TcpOptions.MaxFrameSize*2,
+                SendBufferSize = TcpOptions.MaxFrameSize*2,
+                NoDelay = true,
+                LingerState = new LingerOption(true, 2) // give us a little time to flush the socket
+            };
+        else
+            _tcpClient = new TcpClient(TcpOptions.AddressFamily)
+            {
+                ReceiveBufferSize = TcpOptions.MaxFrameSize*2,
+                SendBufferSize = TcpOptions.MaxFrameSize*2,
+                NoDelay = true,
+                LingerState = new LingerOption(true, 2) // give us a little time to flush the socket
+            };
+        
+        
     }
 
     private async Task DoConnectAsync(IPAddress[] addresses, int port, IActorRef destination,
@@ -195,7 +203,7 @@ internal sealed class TcpTransportActor : UntypedActor, IWithStash
         }
         catch (Exception ex)
         {
-            _log.Error(ex, "Failed to connect to [{0}]", TcpOptions.RemoteEndpoint);
+            _log.Error(ex, "Failed to connect to [{0}:{1}]", TcpOptions.Host, TcpOptions.Port);
             connectResult = new ConnectResult(ConnectionStatus.Failed, ex.Message);
         }
 
@@ -215,37 +223,24 @@ internal sealed class TcpTransportActor : UntypedActor, IWithStash
                 if (State.Status == ConnectionStatus.Connected)
                 {
                     _log.Warning(
-                        "Attempted to connect to [{0}] when already connected - sending back positive ACK but you probably have bugs in your code",
-                        TcpOptions.RemoteEndpoint);
+                        "Attempted to connect to [{0}:{1}] when already connected - sending back positive ACK but you probably have bugs in your code",
+                        TcpOptions.Host, TcpOptions.Port);
                     Sender.Tell(new ConnectResult(ConnectionStatus.Connected, "Already connected."));
                     break;
                 }
 
                 var sender = Sender;
 
-
-                // check to see what type of endpoint we're dealing with
-                if (TcpOptions.RemoteEndpoint is DnsEndPoint dns)
+                // need to resolve DNS to an IP address
+                async Task ResolveAndConnect(CancellationToken ct)
                 {
-                    // need to resolve DNS to an IP address
-                    async Task ResolveAndConnect(CancellationToken ct)
-                    {
-                        var resolved = await Dns.GetHostAddressesAsync(dns.Host, ct);
-                        await DoConnectAsync(resolved, dns.Port, sender, ct);
-                    }
+                    var resolved = await Dns.GetHostAddressesAsync(TcpOptions.Host, ct);
+                    await DoConnectAsync(resolved, TcpOptions.Port, sender, ct);
+                }
 
 #pragma warning disable CS4014 // Because this call is not awaited, execution of the current method continues before the call is completed
-                    ResolveAndConnect(connect.Cancel);
+                ResolveAndConnect(connect.Cancel);
 #pragma warning restore CS4014 // Because this call is not awaited, execution of the current method continues before the call is completed
-                }
-                else
-                {
-                    // we have an IP address already
-                    var ip = (IPEndPoint)TcpOptions.RemoteEndpoint;
-#pragma warning disable CS4014 // Because this call is not awaited, execution of the current method continues before the call is completed
-                    DoConnectAsync([ip.Address], ip.Port, sender, connect.Cancel);
-#pragma warning restore CS4014 // Because this call is not awaited, execution of the current method continues before the call is completed
-                }
 
                 // set status to connecting
                 State.Status = ConnectionStatus.Connecting;
@@ -253,14 +248,14 @@ internal sealed class TcpTransportActor : UntypedActor, IWithStash
             }
             case DoConnect _ when State.Status == ConnectionStatus.Connecting:
             {
-                _log.Warning("Already attempting to connect to [{0}]",
-                    TcpOptions.RemoteEndpoint);
+                _log.Warning("Already attempting to connect to [{0}:{1}]",
+                    TcpOptions.Host, TcpOptions.Port);
                 Sender.Tell(new ConnectResult(ConnectionStatus.Connecting, "Already connecting."));
                 break;
             }
             case ConnectResult { Status: ConnectionStatus.Connected }:
             {
-                _log.Info("Successfully connected to [{0}]", TcpOptions.RemoteEndpoint);
+                _log.Info("Successfully connected to [{0}:{1}]", TcpOptions.Host, TcpOptions.Port);
                 State.Status = ConnectionStatus.Connected;
                 _reconnectAttempts = 0; // reset the reconnect attempts
                 _tcpStream = _tcpClient!.GetStream();
@@ -270,7 +265,7 @@ internal sealed class TcpTransportActor : UntypedActor, IWithStash
             }
             case ConnectResult { Status: ConnectionStatus.Failed }:
             {
-                _log.Error("Failed to connect to [{0}]: {1}", TcpOptions.RemoteEndpoint, message);
+                _log.Error("Failed to connect to [{0}:{1}]: {2}", TcpOptions.Host, TcpOptions.Port, message);
                 State.Status = ConnectionStatus.Failed;
                 DoReconnect();
                 break;
@@ -361,7 +356,7 @@ internal sealed class TcpTransportActor : UntypedActor, IWithStash
 
             case ConnectionUnexpectedlyClosed closed:
             {
-                _log.Warning("Connection to [{0}] was unexpectedly closed: {1}", TcpOptions.RemoteEndpoint,
+                _log.Warning("Connection to [{0}:{1}] was unexpectedly closed: {1}", TcpOptions.Host, TcpOptions.Port,
                     closed.ReasonMessage);
                 DisposeSocket(ConnectionStatus.Aborted); // got aborted by broker
                 DoReconnect();
@@ -424,7 +419,7 @@ internal sealed class TcpTransportActor : UntypedActor, IWithStash
     {
         if (_reconnectAttempts >= TcpOptions.MaxReconnectAttempts)
         {
-            _log.Warning("Failed to reconnect to [{0}] after {1} attempts.", TcpOptions.RemoteEndpoint,
+            _log.Warning("Failed to reconnect to [{0}:{1}] after {1} attempts.", TcpOptions.Host, TcpOptions.Port,
                 _reconnectAttempts);
             FullShutdown(ConnectionTerminatedReason.CouldNotConnect);
             Context.Stop(Self);
@@ -432,7 +427,7 @@ internal sealed class TcpTransportActor : UntypedActor, IWithStash
         }
 
         _reconnectAttempts++;
-        _log.Info("Attempting to reconnect to [{0}] - attempt {1}", TcpOptions.RemoteEndpoint, _reconnectAttempts);
+        _log.Info("Attempting to reconnect to [{0}] - attempt {1}", TcpOptions.Host, TcpOptions.Port, _reconnectAttempts);
         CreateTcpClient();
         Become(TransportCreated);
         State.ShutDownCts = new CancellationTokenSource(); // need a fresh CTS

@@ -14,9 +14,10 @@ namespace TurboMqtt.Core.Client;
 /// </summary>
 public sealed record MqttClientTcpOptions
 {
-    public MqttClientTcpOptions(EndPoint remoteEndpoint)
+    public MqttClientTcpOptions(string host, int port)
     {
-        RemoteEndpoint = remoteEndpoint;
+        Host = host;
+        Port = port;
     }
 
     /// <summary>
@@ -25,11 +26,13 @@ public sealed record MqttClientTcpOptions
     public AddressFamily AddressFamily { get; set; } = AddressFamily.Unspecified;
     
     /// <summary>
-    /// Needs to be at least 2x the size of the largest possible MQTT packet.
+    /// Frames are limited to this size in bytes. A frame can contain multiple packets.
     /// </summary>
-    public uint BufferSize { get; set; } 
+    public int MaxFrameSize { get; set; } = 128 * 1024; // 128kb
     
-    public EndPoint RemoteEndpoint { get; }
+    public string Host { get; }
+    
+    public int Port { get; }
     
     /// <summary>
     /// How long should we wait before attempting to reconnect the client?

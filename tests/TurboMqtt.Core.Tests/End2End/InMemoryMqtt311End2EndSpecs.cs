@@ -29,7 +29,7 @@ public class InMemoryMqtt311End2EndSpecs : TestKit
     public MqttClientConnectOptions DefaultConnectOptions =>
         new MqttClientConnectOptions("test-client", MqttProtocolVersion.V3_1_1)
         {
-            Username = "test",
+            UserName = "test",
             Password = "test",
             //PublishRetryInterval = TimeSpan.FromSeconds(1),
         };

@@ -64,7 +64,7 @@ public sealed record MqttClientConnectOptions
     public string ClientId { get; }
     public MqttProtocolVersion ProtocolVersion { get; }
 
-    public string? Username { get; init; }
+    public string? UserName { get; init; }
     public string? Password { get; init; }
     public LastWillAndTestament? LastWill { get; init; }
     public bool CleanSession { get; init; } = true;

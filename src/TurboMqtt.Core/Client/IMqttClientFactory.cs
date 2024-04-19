@@ -5,7 +5,6 @@
 // -----------------------------------------------------------------------
 
 using Akka.Actor;
-using Akka.Event;
 using TurboMqtt.Core.IO;
 using TurboMqtt.Core.PacketTypes;
 using TurboMqtt.Core.Protocol;
@@ -52,11 +51,8 @@ public sealed class MqttClientFactory : IMqttClientFactory, IInternalMqttClientF
     public async Task<IMqttClient> CreateTcpClient(MqttClientConnectOptions options, MqttClientTcpOptions tcpOptions)
     {
         AssertMqtt311(options);
-        var realBufferSize = Math.Max(options.MaximumPacketSize * 2, tcpOptions.BufferSize);
-        tcpOptions = tcpOptions with { BufferSize = realBufferSize };
         var tcpTransportActor =
-            await _mqttClientManager.Ask<IActorRef>(new TcpConnectionManager.CreateTcpTransport(tcpOptions,
-                    (int)options.MaximumPacketSize, options.ProtocolVersion))
+            await _mqttClientManager.Ask<IActorRef>(new TcpConnectionManager.CreateTcpTransport(tcpOptions, options.ProtocolVersion))
                 .ConfigureAwait(false);
 
         // get the TCP transport

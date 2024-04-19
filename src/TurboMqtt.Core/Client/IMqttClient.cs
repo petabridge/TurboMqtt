@@ -175,7 +175,7 @@ public sealed class MqttClient : IMqttClient
         var connectFlags = new ConnectFlags
         {
             CleanSession = _options.CleanSession,
-            UsernameFlag = !string.IsNullOrEmpty(_options.Username),
+            UsernameFlag = !string.IsNullOrEmpty(_options.UserName),
             PasswordFlag = !string.IsNullOrEmpty(_options.Password),
             WillFlag = _options.LastWill != null,
             WillQoS = _options.LastWill?.QosLevel ?? QualityOfService.AtMostOnce,
@@ -188,7 +188,7 @@ public sealed class MqttClient : IMqttClient
         {
             ClientId = _options.ClientId,
             KeepAliveSeconds = _options.KeepAliveSeconds,
-            Username = _options.Username,
+            Username = _options.UserName,
             Password = _options.Password,
             ConnectFlags = connectFlags,
             MaximumPacketSize = _options.MaximumPacketSize,

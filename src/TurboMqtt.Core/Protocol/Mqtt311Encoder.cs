@@ -156,7 +156,7 @@ public static class Mqtt311Encoder
 
         if (packet.Flags.UsernameFlag)
         {
-            Debug.Assert(packet.Username != null, "packet.Username != null");
+            Debug.Assert(packet.Username != null, "packet.UserName != null");
             bytesWritten +=EncodeUtf8String(ref span, packet.Username);
         }
         
