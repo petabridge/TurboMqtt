@@ -20,12 +20,12 @@ namespace TurboMqtt.Core.Streams;
 internal static class MqttClientStreams
 {
     public static Sink<MqttPacket, NotUsed> Mqtt311OutboundPacketSink(IMqttTransport transport,
-        MemoryPool<byte> memoryPool, int maxFrameSize)
+        MemoryPool<byte> memoryPool, int maxFrameSize, int maxPacketSize)
     {
         var finalSink = Sink.FromWriter(transport.Writer, true);
         var g = Flow.Create<MqttPacket>()
             //.Via(PacketIdEncodingFlows.PacketIdEncoding())
-            .Via(MqttEncodingFlows.Mqtt311Encoding(memoryPool, maxFrameSize))
+            .Via(MqttEncodingFlows.Mqtt311Encoding(memoryPool, maxFrameSize, maxPacketSize))
             .To(finalSink);
 
         return g;

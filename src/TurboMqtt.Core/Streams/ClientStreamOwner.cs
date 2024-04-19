@@ -49,14 +49,16 @@ internal sealed class ClientStreamOwner : UntypedActor
             case CreateClient createClient when _client is null:
             {
                 var clientConnectOptions = createClient.ConnectOptions;
-                
+
                 // outbound channel for packets
                 _outboundChannel =
-                    Channel.CreateUnbounded<MqttPacket>(new UnboundedChannelOptions() { SingleReader = true, SingleWriter = false});
+                    Channel.CreateUnbounded<MqttPacket>(new UnboundedChannelOptions()
+                        { SingleReader = true, SingleWriter = false });
                 var outboundPackets = _outboundChannel.Writer;
                 var outboundPacketsReader = _outboundChannel.Reader;
                 _inboundChannel =
-                    Channel.CreateUnbounded<MqttMessage>(new UnboundedChannelOptions() { SingleWriter = true, SingleReader = true});
+                    Channel.CreateUnbounded<MqttMessage>(new UnboundedChannelOptions()
+                        { SingleWriter = true, SingleReader = true });
 
                 // start the actors
                 _exactlyOnceActor =
@@ -79,34 +81,35 @@ internal sealed class ClientStreamOwner : UntypedActor
                 _heartBeatActor = Context.ActorOf(Props.Create(() => new HeartBeatActor(outboundPackets, heartBeat)),
                     "heartbeat");
                 Context.Watch(_heartBeatActor);
-                
+
                 // prepare the streams
                 var requiredActors = new MqttRequiredActors(_exactlyOnceActor, _atLeastOnceActor, _clientAckActor,
                     _heartBeatActor);
-                
-                var (inboundStream, outboundStream) = ConfigureMqttStreams(clientConnectOptions, createClient, outboundPackets, requiredActors);
+
+                var (inboundStream, outboundStream) = ConfigureMqttStreams(clientConnectOptions, createClient,
+                    outboundPackets, requiredActors, createClient.Transport.MaxFrameSize);
 
                 // begin outbound stream
                 ChannelSource.FromReader(outboundPacketsReader)
                     .To(outboundStream)
                     .Run(_materializer);
-                
+
                 // begin inbound stream
                 inboundStream
                     .To(ChannelSink.FromWriter(_inboundChannel.Writer, true))
                     .Run(_materializer);
-                
-                _client = new MqttClient(createClient.Transport, 
-                    Self, 
+
+                _client = new MqttClient(createClient.Transport,
+                    Self,
                     requiredActors,
-                    _inboundChannel.Reader, 
+                    _inboundChannel.Reader,
                     outboundPackets, _log, clientConnectOptions);
-                
+
                 // client is now fully constructed
                 Sender.Tell(_client);
                 break;
             }
-            
+
             case CreateClient:
                 // Just resend the existing client
                 Sender.Tell(_client);
@@ -114,7 +117,9 @@ internal sealed class ClientStreamOwner : UntypedActor
 
             case Terminated t:
             {
-                _log.Error("One of the required actors [{0}] has terminated. This is an unexpected and fatal error. Shutting down the client.", t.ActorRef);
+                _log.Error(
+                    "One of the required actors [{0}] has terminated. This is an unexpected and fatal error. Shutting down the client.",
+                    t.ActorRef);
                 Context.Stop(Self);
                 break;
             }
@@ -124,25 +129,28 @@ internal sealed class ClientStreamOwner : UntypedActor
         }
     }
 
-    private static (Source<MqttMessage, NotUsed> inbound, Sink<MqttPacket, NotUsed> outbound) ConfigureMqttStreams(MqttClientConnectOptions clientConnectOptions, CreateClient createClient,
-        ChannelWriter<MqttPacket> outboundPackets, MqttRequiredActors requiredActors)
+    private static (Source<MqttMessage, NotUsed> inbound, Sink<MqttPacket, NotUsed> outbound) ConfigureMqttStreams(
+        MqttClientConnectOptions clientConnectOptions, CreateClient createClient,
+        ChannelWriter<MqttPacket> outboundPackets, MqttRequiredActors requiredActors, int maxFrameSize)
     {
         switch (clientConnectOptions.ProtocolVersion)
         {
             case MqttProtocolVersion.V3_1_1:
             {
-                var inboundMessages = MqttClientStreams.Mqtt311InboundMessageSource(createClient.Transport, outboundPackets,
+                var inboundMessages = MqttClientStreams.Mqtt311InboundMessageSource(createClient.Transport,
+                    outboundPackets,
                     requiredActors,
                     clientConnectOptions.MaxRetainedPacketIds, clientConnectOptions.MaxPacketIdRetentionTime);
-                        
-                var outboundMessages = MqttClientStreams.Mqtt311OutboundPacketSink(createClient.Transport, MemoryPool<byte>.Shared,
-                    (int)clientConnectOptions.MaximumPacketSize);
-                
+
+                var outboundMessages = MqttClientStreams.Mqtt311OutboundPacketSink(createClient.Transport,
+                    MemoryPool<byte>.Shared,
+                    maxFrameSize, (int)clientConnectOptions.MaximumPacketSize);
+
                 return (inboundMessages, outboundMessages);
             }
-                        
+
             case MqttProtocolVersion.V5_0:
-                default:
+            default:
                 throw new NotSupportedException();
         }
     }

@@ -24,7 +24,7 @@ public class MqttDecodingFlowSpecs : TestKit
             ClientId = "test", ConnectFlags = new ConnectFlags { CleanSession = true }, ProtocolName = "MQTT"
         };
         
-        var encodingFlow = MqttEncodingFlows.Mqtt311Encoding(MemoryPool<byte>.Shared, 1024);
+        var encodingFlow = MqttEncodingFlows.Mqtt311Encoding(MemoryPool<byte>.Shared, 1024, TODO);
         var decodingFlow = MqttDecodingFlows.Mqtt311Decoding();
 
         var processedPackets = await Source
@@ -55,7 +55,7 @@ public class MqttDecodingFlowSpecs : TestKit
             Payload = new byte[] { 0x01, 0x02, 0x03 }
         };
 
-        var encodingFlow = MqttEncodingFlows.Mqtt311Encoding(MemoryPool<byte>.Shared, 1024);
+        var encodingFlow = MqttEncodingFlows.Mqtt311Encoding(MemoryPool<byte>.Shared, 1024, TODO);
         var decodingFlow = MqttDecodingFlows.Mqtt311Decoding();
 
         var decodedPackets = await Source

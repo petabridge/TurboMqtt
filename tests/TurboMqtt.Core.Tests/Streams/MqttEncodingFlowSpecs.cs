@@ -23,7 +23,7 @@ public class MqttEncodingFlowSpecs : TestKit
         {
             ClientId = "test", ConnectFlags = new ConnectFlags { CleanSession = true }, ProtocolName = "MQTT"
         };
-        var flow = MqttEncodingFlows.Mqtt311Encoding(MemoryPool<byte>.Shared, 1024);
+        var flow = MqttEncodingFlows.Mqtt311Encoding(MemoryPool<byte>.Shared, 1024, TODO);
 
         var bytes = await Source
             .Single<MqttPacket>(connectPacket)
@@ -77,7 +77,7 @@ public class MqttEncodingFlowSpecs : TestKit
             .Select(c => c + MqttPacketSizeEstimator.GetPacketLengthHeaderSize(c) + 1).Sum();
 
         // set a ridiculous frame size to force the packets to be split up
-        var flow = MqttEncodingFlows.Mqtt311Encoding(MemoryPool<byte>.Shared, 1024);
+        var flow = MqttEncodingFlows.Mqtt311Encoding(MemoryPool<byte>.Shared, 1024, TODO);
 
         var bytes = await Source
             .From(packets)

@@ -25,15 +25,21 @@ public static class MqttEncodingFlows
     /// </summary>
     /// <param name="memoryPool">Shared memory pool - buffers will get released by the <see cref="IMqttTransport"/> upon flush.</param>
     /// <param name="maxFrameSize">The maximum frame size.</param>
+    /// <param name="maxPacketSize">The maximum packet size allowed on this MQTT connection</param>
     /// <returns>An Akka.Streams graph - still needs to be connected to a source and a sink in order to run.</returns>
     public static IGraph<FlowShape<MqttPacket, (IMemoryOwner<byte> buffer, int readableBytes)>, NotUsed>
-        Mqtt311Encoding(MemoryPool<byte> memoryPool, int maxFrameSize)
+        Mqtt311Encoding(MemoryPool<byte> memoryPool, int maxFrameSize, int maxPacketSize)
     {
         var g = (Flow.Create<MqttPacket>()
             .Select(c => (c, MqttPacketSizeEstimator.EstimateMqtt3PacketSize(c)))
             .Via(new PacketSizeFilter(
-                maxFrameSize)) // drops any packets bigger than the maximum frame size with a warning (accounts for header too)
-            .GroupedWeightedWithin(maxFrameSize, int.MaxValue, TimeSpan.FromMicroseconds(20), p => p.Item2)
+                maxPacketSize)) // drops any packets bigger than the maximum frame size with a warning (accounts for header too)
+            .BatchWeighted(maxFrameSize, tuple => tuple.Item2, tuple => new List<(MqttPacket packet, int readableBytes)>(){ tuple },
+                (list, tuple) =>
+                {
+                    list.Add(tuple);
+                    return list;
+                }) // group packets into a single frame
             .Via(new Mqtt311EncoderFlow(memoryPool)));
 
         return g;
@@ -46,7 +52,7 @@ public static class MqttEncodingFlows
 /// <remarks>
 /// The stages above this one guarantee that the total size of the packets will not exceed the maximum frame size.
 /// </remarks>
-internal sealed class Mqtt311EncoderFlow : GraphStage<FlowShape<IEnumerable<(MqttPacket packet, int predictedSize)>, (
+internal sealed class Mqtt311EncoderFlow : GraphStage<FlowShape<List<(MqttPacket packet, int predictedSize)>, (
     IMemoryOwner<byte> buffer, int readableBytes)>>
 {
     private readonly MemoryPool<byte> _memoryPool;
@@ -54,20 +60,20 @@ internal sealed class Mqtt311EncoderFlow : GraphStage<FlowShape<IEnumerable<(Mqt
     public Mqtt311EncoderFlow(MemoryPool<byte> memoryPool)
     {
         _memoryPool = memoryPool;
-        In = new Inlet<IEnumerable<(MqttPacket packet, int predictedSize)>>("Mqtt311EncoderFlow.In");
+        In = new Inlet<List<(MqttPacket packet, int predictedSize)>>("Mqtt311EncoderFlow.In");
         Out = new Outlet<(IMemoryOwner<byte> buffer, int readableBytes)>("Mqtt311EncoderFlow.Out");
         Shape =
-            new FlowShape<IEnumerable<(MqttPacket packet, int predictedSize)>, (IMemoryOwner<byte> buffer, int
+            new FlowShape<List<(MqttPacket packet, int predictedSize)>, (IMemoryOwner<byte> buffer, int
                 readableBytes)>(In, Out);
     }
 
-    public Inlet<IEnumerable<(MqttPacket packet, int predictedSize)>> In { get; }
+    public Inlet<List<(MqttPacket packet, int predictedSize)>> In { get; }
     public Outlet<(IMemoryOwner<byte> buffer, int readableBytes)> Out { get; }
 
     protected override Attributes InitialAttributes => DefaultAttributes.Select;
 
     public override
-        FlowShape<IEnumerable<(MqttPacket packet, int predictedSize)>, (IMemoryOwner<byte> buffer, int readableBytes)>
+        FlowShape<List<(MqttPacket packet, int predictedSize)>, (IMemoryOwner<byte> buffer, int readableBytes)>
         Shape { get; }
 
     protected override GraphStageLogic CreateLogic(Attributes inheritedAttributes)
