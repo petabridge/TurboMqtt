@@ -33,12 +33,13 @@ internal sealed class TcpTransportActor : UntypedActor
     {
         public ConnectionState(ChannelWriter<(IMemoryOwner<byte> buffer, int readableBytes)> writer,
             ChannelReader<(IMemoryOwner<byte> buffer, int readableBytes)> reader,
-            Task<ConnectionTerminatedReason> whenTerminated, int maxFrameSize)
+            Task<ConnectionTerminatedReason> whenTerminated, int maxFrameSize, Task<bool> waitForPendingWrites)
         {
             Writer = writer;
             Reader = reader;
             WhenTerminated = whenTerminated;
             MaxFrameSize = maxFrameSize;
+            WaitForPendingWrites = waitForPendingWrites;
         }
 
         public ConnectionStatus Status { get; set; } = ConnectionStatus.NotStarted;
@@ -48,6 +49,8 @@ internal sealed class TcpTransportActor : UntypedActor
         public int MaxFrameSize { get; }
 
         public Task<ConnectionTerminatedReason> WhenTerminated { get; }
+        
+        public Task<bool> WaitForPendingWrites {get;}
 
         public ChannelWriter<(IMemoryOwner<byte> buffer, int readableBytes)> Writer { get; }
 
@@ -110,6 +113,7 @@ internal sealed class TcpTransportActor : UntypedActor
         Channel.CreateUnbounded<(IMemoryOwner<byte> buffer, int readableBytes)>();
 
     private readonly TaskCompletionSource<ConnectionTerminatedReason> _whenTerminated = new();
+    private readonly TaskCompletionSource<bool> _waitForPendingWrites = new();
     private readonly ILoggingAdapter _log = Context.GetLogger();
     
     private readonly Pipe _pipe = new();
@@ -120,7 +124,7 @@ internal sealed class TcpTransportActor : UntypedActor
         MaxFrameSize = tcpOptions.MaxFrameSize;
 
         State = new ConnectionState(_writesToTransport.Writer, _readsFromTransport.Reader, _whenTerminated.Task,
-            MaxFrameSize);
+            MaxFrameSize, _waitForPendingWrites.Task);
     }
 
     /*
@@ -282,7 +286,7 @@ internal sealed class TcpTransportActor : UntypedActor
 
     private async Task DoWriteToSocketAsync(CancellationToken ct)
     {
-        while (!ct.IsCancellationRequested)
+        while (!_writesToTransport.Reader.Completion.IsCompleted)
         {
             try
             {
@@ -301,7 +305,7 @@ internal sealed class TcpTransportActor : UntypedActor
                             {
                                 _log.Warning("Failed to write to socket - no bytes written.");
                                 _closureSelf.Tell(ReadFinished.Instance);
-                                return;
+                                goto WritesFinished;
                             }
 
                             readableBytes -= sent;
@@ -320,7 +324,7 @@ internal sealed class TcpTransportActor : UntypedActor
                 // we're being shut down
                 _log.Debug("Shutting down write to socket.");
                 _closureSelf.Tell(ReadFinished.Instance);
-                return;
+                goto WritesFinished;
             }
             catch (Exception ex)
             {
@@ -330,9 +334,12 @@ internal sealed class TcpTransportActor : UntypedActor
                 // socket was closed
                 // abort ongoing reads and writes, but don't shutdown the transport
                 await State.ShutDownCts.CancelAsync();
-                return;
+                goto WritesFinished;
             }
         }
+        
+        WritesFinished:
+            _waitForPendingWrites.TrySetResult(true);
     }
 
     private async Task DoWriteToPipeAsync(CancellationToken ct)
@@ -422,19 +429,34 @@ internal sealed class TcpTransportActor : UntypedActor
         switch (message)
         {
             case DoClose:
+            case ReadFinished: // graceful close cases
             {
-                // we are done
-                Context.Stop(Self); // will perform a full shutdown
+                _ = CleanUpGracefully(); // idempotent
                 break;
             }
             case ConnectionUnexpectedlyClosed closed:
             {
+                // we got aborted
                 _log.Warning("Connection to [{0}:{1}] was unexpectedly closed: {2}", TcpOptions.Host, TcpOptions.Port,
                     closed.ReasonMessage);
                 Context.Stop(Self);
                 break;
             }
         }
+    }
+
+    private async Task CleanUpGracefully()
+    {
+        // no more writes to transport
+        _writesToTransport.Writer.TryComplete();
+        
+        // wait for any pending writes to finish
+        await _waitForPendingWrites.Task;
+        
+        // shut down reads from the transport
+        _readsFromTransport.Writer.TryComplete();
+        
+        _closureSelf.Tell(PoisonPill.Instance);
     }
 
     private void DisposeSocket(ConnectionStatus newStatus)
@@ -470,6 +492,11 @@ internal sealed class TcpTransportActor : UntypedActor
     /// </summary>
     private void FullShutdown(ConnectionTerminatedReason reason = ConnectionTerminatedReason.Normal)
     {
+        
+        // mark the channels as complete (should have already been done by the time we get here, but doesn't hurt)
+        _writesToTransport.Writer.TryComplete();
+        _readsFromTransport.Writer.TryComplete();
+        
         var newStatus = reason switch
         {
             ConnectionTerminatedReason.Error => ConnectionStatus.Failed,
@@ -482,12 +509,7 @@ internal sealed class TcpTransportActor : UntypedActor
         
         // let upstairs know we're done
         _whenTerminated.TrySetResult(reason);
-
-        // mark the channels as complete
-        _writesToTransport.Writer.Complete();
-        _readsFromTransport.Writer.Complete();
-
-        
+        _waitForPendingWrites.TrySetResult(true);
     }
 
     protected override void PostStop()

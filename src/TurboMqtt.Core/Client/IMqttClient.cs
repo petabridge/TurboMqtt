@@ -253,9 +253,8 @@ public sealed class MqttClient : IMqttClient
         var disconnectPacket = new DisconnectPacket();
         await _packetWriter.WriteAsync(disconnectPacket, cancellationToken);
         
-        // TODO: implement this
-        // when we get the close signal we should drain the connection
-        // and stop allowing additional writes into the channel.
+        // begin the shutdown of the transport - internally, the transport should guarantee
+        // that all pending writes are flushed before the connection is closed
         await _transport.CloseAsync(cancellationToken);
 
         // the broker SHOULD disconnect from us

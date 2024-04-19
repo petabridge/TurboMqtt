@@ -41,6 +41,11 @@ internal interface IMqttTransport
     public Task<ConnectionTerminatedReason> WhenTerminated { get; }
     
     /// <summary>
+    /// Waits for all pending writes to complete.
+    /// </summary>
+    public Task<bool> WaitForPendingWrites { get;}
+    
+    /// <summary>
     /// Closes the transport connection.
     /// </summary>
     /// <remarks>

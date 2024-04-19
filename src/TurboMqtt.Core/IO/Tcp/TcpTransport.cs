@@ -33,6 +33,8 @@ internal sealed class TcpTransport : IMqttTransport
     private readonly IActorRef _connectionActor;
 
     public Task<ConnectionTerminatedReason> WhenTerminated => State.WhenTerminated;
+    
+    public Task<bool> WaitForPendingWrites => State.WaitForPendingWrites;
 
     public Task CloseAsync(CancellationToken ct = default)
     {
