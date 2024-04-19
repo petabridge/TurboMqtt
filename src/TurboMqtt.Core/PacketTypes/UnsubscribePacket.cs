@@ -12,6 +12,8 @@ namespace TurboMqtt.Core.PacketTypes;
 public sealed class UnsubscribePacket : MqttPacketWithId
 {
     public override MqttPacketType PacketType => MqttPacketType.Unsubscribe;
+    
+    public override QualityOfService QualityOfService => QualityOfService.AtLeastOnce;
 
     /// <summary>
     /// The set of topics we're unsubscribing from.

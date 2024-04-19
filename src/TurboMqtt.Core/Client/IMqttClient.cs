@@ -98,11 +98,9 @@ public interface IMqttClient : IAsyncDisposable
     Task<IAckResponse> SubscribeAsync(TopicSubscription[] topics, CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Receives a stream of messages from the MQTT broker.
+    /// A channel reader that can be used to read messages received from the MQTT broker.
     /// </summary>
-    /// <param name="cancellationToken">A cancellation token to terminate the stream.</param>
-    /// <returns></returns>
-    IAsyncEnumerable<MqttMessage> ReceiveMessagesAsync(CancellationToken cancellationToken = default);
+    ChannelReader<MqttMessage> ReceivedMessages { get; }
 
     /// <summary>
     /// Unsubscribes from a topic on the MQTT broker.
@@ -136,7 +134,6 @@ public sealed class MqttClient : IMqttClient
     private readonly IMqttTransport _transport;
     private readonly IActorRef _clientOwner;
     private readonly MqttRequiredActors _requiredActors;
-    private readonly ChannelReader<MqttMessage> _messageReader;
     private readonly ChannelWriter<MqttPacket> _packetWriter;
     private readonly ILoggingAdapter _log;
     private readonly UShortCounter _packetIdCounter = new();
@@ -148,7 +145,7 @@ public sealed class MqttClient : IMqttClient
         _transport = transport;
         _clientOwner = clientOwner;
         _requiredActors = requiredActors;
-        _messageReader = messageReader;
+        ReceivedMessages = messageReader;
         _packetWriter = packetWriter;
         _log = log;
         _options = options;
@@ -175,7 +172,7 @@ public sealed class MqttClient : IMqttClient
         var connectFlags = new ConnectFlags
         {
             CleanSession = _options.CleanSession,
-            UsernameFlag = !string.IsNullOrEmpty(_options.Username),
+            UsernameFlag = !string.IsNullOrEmpty(_options.UserName),
             PasswordFlag = !string.IsNullOrEmpty(_options.Password),
             WillFlag = _options.LastWill != null,
             WillQoS = _options.LastWill?.QosLevel ?? QualityOfService.AtMostOnce,
@@ -188,7 +185,7 @@ public sealed class MqttClient : IMqttClient
         {
             ClientId = _options.ClientId,
             KeepAliveSeconds = _options.KeepAliveSeconds,
-            Username = _options.Username,
+            Username = _options.UserName,
             Password = _options.Password,
             ConnectFlags = connectFlags,
             MaximumPacketSize = _options.MaximumPacketSize,
@@ -386,6 +383,9 @@ public sealed class MqttClient : IMqttClient
             PacketId = _packetIdCounter.GetNextValue(),
             Topics = topics
         };
+        
+        // Violates MQTT spec - we should never have a packet ID of 0 on Subscribe or Unsubscribe
+        System.Diagnostics.Debug.Assert(subscribePacket.PacketId != 0, "PacketId should not be 0");
 
         var askTask = _requiredActors.ClientAck.Ask<IAckResponse>(subscribePacket, cancellationToken);
 
@@ -411,10 +411,7 @@ public sealed class MqttClient : IMqttClient
         }
     }
 
-    public IAsyncEnumerable<MqttMessage> ReceiveMessagesAsync(CancellationToken cancellationToken = default)
-    {
-        return _messageReader.ReadAllAsync(cancellationToken);
-    }
+    public ChannelReader<MqttMessage> ReceivedMessages { get; }
 
     public Task<IAckResponse> UnsubscribeAsync(string topic, CancellationToken cancellationToken = default)
     {
@@ -426,16 +423,19 @@ public sealed class MqttClient : IMqttClient
         if (_transport.Status != ConnectionStatus.Connected)
             return new AckProtocol.UnsubscribeFailure("Not connected to broker.");
 
-        var subscribePacket = new UnsubscribePacket()
+        var unsubscribePacket = new UnsubscribePacket()
         {
             PacketId = _packetIdCounter.GetNextValue(),
             Topics = topics
         };
+        
+        // Violates MQTT spec - we should never have a packet ID of 0 on Subscribe or Unsubscribe
+        System.Diagnostics.Debug.Assert(unsubscribePacket.PacketId != 0, "PacketId should not be 0");
 
-        var askTask = _requiredActors.ClientAck.Ask<IAckResponse>(subscribePacket, cancellationToken);
+        var askTask = _requiredActors.ClientAck.Ask<IAckResponse>(unsubscribePacket, cancellationToken);
 
         // flush the packet to the wire
-        await _packetWriter.WriteAsync(subscribePacket, cancellationToken);
+        await _packetWriter.WriteAsync(unsubscribePacket, cancellationToken);
 
         // wait for the response
         try

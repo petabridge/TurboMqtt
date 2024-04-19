@@ -75,7 +75,7 @@ public sealed class ConnectPacket(MqttProtocolVersion protocolVersion) : MqttPac
 
     public override string ToString()
     {
-        return $"ConnectPacket(ClientId={ClientId}, KeepAliveSeconds={KeepAliveSeconds}, Flags={Flags}, Will={Will}, Username={Username}, Password={Password})";
+        return $"ConnectPacket(ClientId={ClientId}, KeepAliveSeconds={KeepAliveSeconds}, Flags={Flags}, Will={Will}, UserName={Username}, Password={Password})";
     
     }
 }
