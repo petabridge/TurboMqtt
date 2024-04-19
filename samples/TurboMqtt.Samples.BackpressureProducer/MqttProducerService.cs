@@ -36,7 +36,7 @@ public sealed class MqttProducerService : BackgroundService
         try
         {
             var config = _config.Value;
-        
+
             var tcpClientOptions = new MqttClientTcpOptions(config.Host, config.Port);
             var clientConnectOptions = new MqttClientConnectOptions(config.ClientId, MqttProtocolVersion.V3_1_1)
             {
@@ -48,30 +48,34 @@ public sealed class MqttProducerService : BackgroundService
             using var connectCts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
             var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(connectCts.Token, stoppingToken);
             var connectResult = await client.ConnectAsync(linkedCts.Token);
-            if(!connectResult.IsSuccess)
+            if (!connectResult.IsSuccess)
             {
-                _logger.LogError("Failed to connect to MQTT broker at {0}:{1} - {2}", config.Host, config.Port, connectResult.Reason);
+                _logger.LogError("Failed to connect to MQTT broker at {0}:{1} - {2}", config.Host, config.Port,
+                    connectResult.Reason);
                 return;
             }
-        
+
             _logger.LogInformation("Connected to MQTT broker at {0}:{1}", config.Host, config.Port);
-            foreach(var i in Enumerable.Range(0, config.MessageCount))
+            foreach (var i in Enumerable.Range(0, config.MessageCount))
             {
                 var msg = new MqttMessage(config.Topic, $"msg-{i}");
-            
+
                 await client.PublishAsync(msg, stoppingToken);
                 //if(i % 1000 == 0)
                 {
                     _logger.LogInformation("Published {0} messages", i);
                 }
             }
-        
+
             _logger.LogInformation("Shutting down MQTT consumer service");
             await client.DisconnectAsync(stoppingToken);
         }
-        catch(Exception ex)
+        catch (Exception ex)
         {
             _logger.LogError(ex, "Error occurred in MQTT producer service");
+        }
+        finally
+        {
             _ = _lifetime.StopAsync(default);
         }
     }
