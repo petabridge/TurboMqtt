@@ -20,7 +20,7 @@ namespace TurboMqtt.Core.IO;
 /// <summary>
 /// Actor responsible for managing the TCP transport layer for MQTT.
 /// </summary>
-internal sealed class TcpTransportActor : UntypedActor, IWithStash
+internal sealed class TcpTransportActor : UntypedActor
 {
     #region Internal Types
 
@@ -127,7 +127,7 @@ internal sealed class TcpTransportActor : UntypedActor, IWithStash
         MaxFrameSize = tcpOptions.MaxFrameSize;
 
         State = new ConnectionState(_writesToTransport.Writer, _readsFromTransport.Reader, _whenTerminated.Task,
-             MaxFrameSize);
+            MaxFrameSize);
         _readBuffer = new byte[MaxFrameSize];
     }
 
@@ -150,8 +150,8 @@ internal sealed class TcpTransportActor : UntypedActor, IWithStash
                 // return the transport to the client
                 var tcpTransport = new TcpTransport(_log, State, Self);
                 Sender.Tell(tcpTransport);
-                _log.Debug("Created new TCP transport for client connecting to [{0}:{1}]", TcpOptions.Host, TcpOptions.Port);
-                Stash.UnstashAll();
+                _log.Debug("Created new TCP transport for client connecting to [{0}:{1}]", TcpOptions.Host,
+                    TcpOptions.Port);
                 Become(TransportCreated);
                 break;
             }
@@ -161,31 +161,29 @@ internal sealed class TcpTransportActor : UntypedActor, IWithStash
                 break;
             }
             default:
-                Stash.Stash(); // stash all other messages
+                Unhandled(message);
                 break;
         }
     }
 
     private void CreateTcpClient()
     {
-        if(TcpOptions.AddressFamily == AddressFamily.Unspecified)
+        if (TcpOptions.AddressFamily == AddressFamily.Unspecified)
             _tcpClient = new TcpClient()
             {
-                ReceiveBufferSize = TcpOptions.MaxFrameSize*2,
-                SendBufferSize = TcpOptions.MaxFrameSize*2,
+                ReceiveBufferSize = TcpOptions.MaxFrameSize * 2,
+                SendBufferSize = TcpOptions.MaxFrameSize * 2,
                 NoDelay = true,
                 LingerState = new LingerOption(true, 2) // give us a little time to flush the socket
             };
         else
             _tcpClient = new TcpClient(TcpOptions.AddressFamily)
             {
-                ReceiveBufferSize = TcpOptions.MaxFrameSize*2,
-                SendBufferSize = TcpOptions.MaxFrameSize*2,
+                ReceiveBufferSize = TcpOptions.MaxFrameSize * 2,
+                SendBufferSize = TcpOptions.MaxFrameSize * 2,
                 NoDelay = true,
                 LingerState = new LingerOption(true, 2) // give us a little time to flush the socket
             };
-        
-        
     }
 
     private async Task DoConnectAsync(IPAddress[] addresses, int port, IActorRef destination,
@@ -218,16 +216,9 @@ internal sealed class TcpTransportActor : UntypedActor, IWithStash
     {
         switch (message)
         {
-            case DoConnect connect when State.Status == ConnectionStatus.NotStarted:
+            case DoConnect connect when State.Status != ConnectionStatus.Connected || State.Status != ConnectionStatus.Connecting:
             {
-                if (State.Status == ConnectionStatus.Connected)
-                {
-                    _log.Warning(
-                        "Attempted to connect to [{0}:{1}] when already connected - sending back positive ACK but you probably have bugs in your code",
-                        TcpOptions.Host, TcpOptions.Port);
-                    Sender.Tell(new ConnectResult(ConnectionStatus.Connected, "Already connected."));
-                    break;
-                }
+                _log.Info("Attempting to connect to [{0}:{1}]", TcpOptions.Host, TcpOptions.Port);
 
                 var sender = Sender;
 
@@ -235,22 +226,33 @@ internal sealed class TcpTransportActor : UntypedActor, IWithStash
                 async Task ResolveAndConnect(CancellationToken ct)
                 {
                     var resolved = await Dns.GetHostAddressesAsync(TcpOptions.Host, ct);
+                    
+                    if (_log.IsDebugEnabled)
+                        _log.Debug("Attempting to connect to [{0}:{1}] - resolved to [{2}]", TcpOptions.Host,
+                            TcpOptions.Port,
+                            string.Join(", ", resolved.Select(c => c.ToString())));
+                    
                     await DoConnectAsync(resolved, TcpOptions.Port, sender, ct);
                 }
 
 #pragma warning disable CS4014 // Because this call is not awaited, execution of the current method continues before the call is completed
                 ResolveAndConnect(connect.Cancel);
 #pragma warning restore CS4014 // Because this call is not awaited, execution of the current method continues before the call is completed
-
+                
                 // set status to connecting
                 State.Status = ConnectionStatus.Connecting;
                 break;
             }
-            case DoConnect _ when State.Status == ConnectionStatus.Connecting:
+            case DoConnect:
             {
-                _log.Warning("Already attempting to connect to [{0}:{1}]",
-                    TcpOptions.Host, TcpOptions.Port);
-                Sender.Tell(new ConnectResult(ConnectionStatus.Connecting, "Already connecting."));
+                var warningMsg = State.Status == ConnectionStatus.Connecting
+                    ? "Already attempting to connect to [{0}:{1}]"
+                    : "Already connected to [{0}:{1}]";
+                
+                var formatted = string.Format(warningMsg, TcpOptions.Host, TcpOptions.Port);
+                
+                _log.Warning(formatted);
+                Sender.Tell(new ConnectResult(ConnectionStatus.Connecting, formatted));
                 break;
             }
             case ConnectResult { Status: ConnectionStatus.Connected }:
@@ -271,7 +273,7 @@ internal sealed class TcpTransportActor : UntypedActor, IWithStash
                 break;
             }
             default:
-                Stash.Stash();
+                Unhandled(message);
                 break;
         }
     }
@@ -279,7 +281,6 @@ internal sealed class TcpTransportActor : UntypedActor, IWithStash
     private void BecomeRunning()
     {
         Become(Running);
-        Stash.UnstashAll();
 
 #pragma warning disable CS4014 // Because this call is not awaited, execution of the current method continues before the call is completed
         DoReadFromSocketAsync(State.ShutDownCts.Token);
@@ -353,10 +354,9 @@ internal sealed class TcpTransportActor : UntypedActor, IWithStash
                 Context.Stop(Self); // will perform a full shutdown
                 break;
             }
-
             case ConnectionUnexpectedlyClosed closed:
             {
-                _log.Warning("Connection to [{0}:{1}] was unexpectedly closed: {1}", TcpOptions.Host, TcpOptions.Port,
+                _log.Warning("Connection to [{0}:{1}] was unexpectedly closed: {2}", TcpOptions.Host, TcpOptions.Port,
                     closed.ReasonMessage);
                 DisposeSocket(ConnectionStatus.Aborted); // got aborted by broker
                 DoReconnect();
@@ -427,12 +427,13 @@ internal sealed class TcpTransportActor : UntypedActor, IWithStash
         }
 
         _reconnectAttempts++;
-        _log.Info("Attempting to reconnect to [{0}] - attempt {1}", TcpOptions.Host, TcpOptions.Port, _reconnectAttempts);
+        _log.Info("Attempting to reconnect to [{0}:{1}] - attempt {2}", TcpOptions.Host, TcpOptions.Port,
+            _reconnectAttempts);
         CreateTcpClient();
         Become(TransportCreated);
         State.ShutDownCts = new CancellationTokenSource(); // need a fresh CTS
         CancellationTokenSource cts = new(TcpOptions.ReconnectInterval);
-        Self.Tell(new DoConnect(cts.Token));
+        _closureSelf.Tell(new DoConnect(cts.Token));
     }
 
 
@@ -440,7 +441,4 @@ internal sealed class TcpTransportActor : UntypedActor, IWithStash
     {
         FullShutdown();
     }
-
-    // These will both get assigned automatically by Akka.NET
-    public IStash Stash { get; set; } = null!;
 }

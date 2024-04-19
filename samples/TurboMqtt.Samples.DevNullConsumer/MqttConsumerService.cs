@@ -58,11 +58,15 @@ public sealed class MqttConsumerService : BackgroundService
         _logger.LogInformation("Subscribed to topic {0}", config.Topic);
 
         var received = 0;
-        await foreach(var message in client.ReceiveMessagesAsync(stoppingToken))
+        var receivedMessage = client.ReceivedMessages;
+        while(await receivedMessage.WaitToReadAsync(stoppingToken))
         {
-            if (++received % 10_000 == 0)
+            while(receivedMessage.TryRead(out _))
             {
-                _logger.LogInformation("Received {0} messages", received);
+                if (++received % 1000 == 0)
+                {
+                    _logger.LogInformation("Received {0} messages", received);
+                }
             }
         }
         

@@ -98,11 +98,9 @@ public interface IMqttClient : IAsyncDisposable
     Task<IAckResponse> SubscribeAsync(TopicSubscription[] topics, CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Receives a stream of messages from the MQTT broker.
+    /// A channel reader that can be used to read messages received from the MQTT broker.
     /// </summary>
-    /// <param name="cancellationToken">A cancellation token to terminate the stream.</param>
-    /// <returns></returns>
-    IAsyncEnumerable<MqttMessage> ReceiveMessagesAsync(CancellationToken cancellationToken = default);
+    ChannelReader<MqttMessage> ReceivedMessages { get; }
 
     /// <summary>
     /// Unsubscribes from a topic on the MQTT broker.
@@ -136,7 +134,6 @@ public sealed class MqttClient : IMqttClient
     private readonly IMqttTransport _transport;
     private readonly IActorRef _clientOwner;
     private readonly MqttRequiredActors _requiredActors;
-    private readonly ChannelReader<MqttMessage> _messageReader;
     private readonly ChannelWriter<MqttPacket> _packetWriter;
     private readonly ILoggingAdapter _log;
     private readonly UShortCounter _packetIdCounter = new();
@@ -148,7 +145,7 @@ public sealed class MqttClient : IMqttClient
         _transport = transport;
         _clientOwner = clientOwner;
         _requiredActors = requiredActors;
-        _messageReader = messageReader;
+        ReceivedMessages = messageReader;
         _packetWriter = packetWriter;
         _log = log;
         _options = options;
@@ -411,10 +408,7 @@ public sealed class MqttClient : IMqttClient
         }
     }
 
-    public IAsyncEnumerable<MqttMessage> ReceiveMessagesAsync(CancellationToken cancellationToken = default)
-    {
-        return _messageReader.ReadAllAsync(cancellationToken);
-    }
+    public ChannelReader<MqttMessage> ReceivedMessages { get; }
 
     public Task<IAckResponse> UnsubscribeAsync(string topic, CancellationToken cancellationToken = default)
     {
