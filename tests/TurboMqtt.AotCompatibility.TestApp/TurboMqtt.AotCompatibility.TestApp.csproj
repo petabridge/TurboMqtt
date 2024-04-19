@@ -5,6 +5,10 @@
         <TargetFramework>net8.0</TargetFramework>
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
+        <PublishAot>true</PublishAot>
+        <TrimmerSingleWarn>false</TrimmerSingleWarn>
+        <SelfContained>true</SelfContained>
+        <IsPackable>false</IsPackable>
     </PropertyGroup>
 
     <ItemGroup>
