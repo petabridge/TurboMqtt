@@ -38,7 +38,7 @@ internal interface IMqttTransport
     /// <remarks>
     /// Does not cause the connection to terminate - just waits for it to finish.
     /// </remarks>
-    public Task<ConnectionTerminatedReason> WaitForTermination();
+    public Task<ConnectionTerminatedReason> WhenTerminated { get; }
     
     /// <summary>
     /// Closes the transport connection.

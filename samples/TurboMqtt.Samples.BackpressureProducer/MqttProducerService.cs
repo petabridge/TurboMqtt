@@ -78,5 +78,7 @@ public sealed class MqttProducerService : BackgroundService
         {
             _ = _lifetime.StopAsync(default);
         }
+        
+        Environment.Exit(0);
     }
 }

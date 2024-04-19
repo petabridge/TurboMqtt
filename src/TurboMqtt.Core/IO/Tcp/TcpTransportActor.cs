@@ -73,12 +73,12 @@ internal sealed class TcpTransportActor : UntypedActor
 
     public sealed record ConnectResult(ConnectionStatus Status, string ReasonMessage);
 
-    public sealed record DoClose(CancellationToken Cancel);
+    public sealed record DoClose(CancellationToken Cancel) : IDeadLetterSuppression;
 
     /// <summary>
     /// We are done reading from the socket.
     /// </summary>
-    public sealed class ReadFinished
+    public sealed class ReadFinished : IDeadLetterSuppression
     {
         private ReadFinished()
         {
@@ -287,31 +287,40 @@ internal sealed class TcpTransportActor : UntypedActor
             try
             {
                 while (await _writesToTransport.Reader.WaitToReadAsync(ct).ConfigureAwait(false))
-                    while (_writesToTransport.Reader.TryRead(out var item))
+                while (_writesToTransport.Reader.TryRead(out var item))
+                {
+                    var (buffer, readableBytes) = item;
+                    try
                     {
-                        var (buffer, readableBytes) = item;
-                        try
+                        var workingBuffer = buffer.Memory;
+                        while (readableBytes > 0)
                         {
-                            var workingBuffer = buffer.Memory;
-                            while(readableBytes > 0)
+                            var sent = await _tcpClient!.SendAsync(workingBuffer.Slice(0, readableBytes), ct)
+                                .ConfigureAwait(false);
+                            if (sent == 0)
                             {
-                                var sent = await _tcpClient!.SendAsync(workingBuffer.Slice(0, readableBytes), ct).ConfigureAwait(false);
-                                if (sent == 0)
-                                {
-                                    _log.Warning("Failed to write to socket - no bytes written.");
-                                    break;
-                                }
-                                
-                                readableBytes -= sent;
-                                workingBuffer = workingBuffer.Slice(sent);
+                                _log.Warning("Failed to write to socket - no bytes written.");
+                                _closureSelf.Tell(ReadFinished.Instance);
+                                return;
                             }
-                        }
-                        finally
-                        {
-                            // free the pooled buffer
-                            buffer.Dispose();
+
+                            readableBytes -= sent;
+                            workingBuffer = workingBuffer.Slice(sent);
                         }
                     }
+                    finally
+                    {
+                        // free the pooled buffer
+                        buffer.Dispose();
+                    }
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                // we're being shut down
+                _log.Debug("Shutting down write to socket.");
+                _closureSelf.Tell(ReadFinished.Instance);
+                return;
             }
             catch (Exception ex)
             {
@@ -350,6 +359,7 @@ internal sealed class TcpTransportActor : UntypedActor
             catch (OperationCanceledException)
             {
                 // no need to log here
+                _closureSelf.Tell(ReadFinished.Instance);
             }
             catch (Exception ex)
             {
@@ -469,12 +479,15 @@ internal sealed class TcpTransportActor : UntypedActor
         };
 
         DisposeSocket(newStatus);
+        
+        // let upstairs know we're done
+        _whenTerminated.TrySetResult(reason);
 
         // mark the channels as complete
         _writesToTransport.Writer.Complete();
         _readsFromTransport.Writer.Complete();
 
-        _whenTerminated.TrySetResult(reason);
+        
     }
 
     protected override void PostStop()

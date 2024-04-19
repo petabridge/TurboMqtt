@@ -88,5 +88,7 @@ public sealed class MqttConsumerService : BackgroundService
             // shut the process down
             _ = _lifetime.StopAsync(default);
         }
+        
+        Environment.Exit(0);
     }
 }

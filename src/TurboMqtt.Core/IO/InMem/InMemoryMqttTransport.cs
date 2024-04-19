@@ -43,10 +43,7 @@ internal sealed class InMemoryMqttTransport : IMqttTransport
     public ILoggingAdapter Log { get; }
     public ConnectionStatus Status { get; private set; } = ConnectionStatus.NotStarted;
 
-    public Task<ConnectionTerminatedReason> WaitForTermination()
-    {
-        return _terminationSource.Task;
-    }
+    public Task<ConnectionTerminatedReason> WhenTerminated => _terminationSource.Task;
 
     public Task CloseAsync(CancellationToken ct = default)
     {
