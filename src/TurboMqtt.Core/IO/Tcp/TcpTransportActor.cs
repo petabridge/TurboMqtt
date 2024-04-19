@@ -49,8 +49,8 @@ internal sealed class TcpTransportActor : UntypedActor
         public int MaxFrameSize { get; }
 
         public Task<ConnectionTerminatedReason> WhenTerminated { get; }
-        
-        public Task<bool> WaitForPendingWrites {get;}
+
+        public Task<bool> WaitForPendingWrites { get; }
 
         public ChannelWriter<(IMemoryOwner<byte> buffer, int readableBytes)> Writer { get; }
 
@@ -115,8 +115,8 @@ internal sealed class TcpTransportActor : UntypedActor
     private readonly TaskCompletionSource<ConnectionTerminatedReason> _whenTerminated = new();
     private readonly TaskCompletionSource<bool> _waitForPendingWrites = new();
     private readonly ILoggingAdapter _log = Context.GetLogger();
-    
-    private readonly Pipe _pipe = new();
+
+    private readonly Pipe _pipe;
 
     public TcpTransportActor(MqttClientTcpOptions tcpOptions)
     {
@@ -125,6 +125,9 @@ internal sealed class TcpTransportActor : UntypedActor
 
         State = new ConnectionState(_writesToTransport.Writer, _readsFromTransport.Reader, _whenTerminated.Task,
             MaxFrameSize, _waitForPendingWrites.Task);
+
+        _pipe = new Pipe(new PipeOptions(pauseWriterThreshold: MaxFrameSize, resumeWriterThreshold: MaxFrameSize / 2,
+            useSynchronizationContext: false));
     }
 
     /*
@@ -337,15 +340,15 @@ internal sealed class TcpTransportActor : UntypedActor
                 goto WritesFinished;
             }
         }
-        
+
         WritesFinished:
-            _waitForPendingWrites.TrySetResult(true);
+        _waitForPendingWrites.TrySetResult(true);
     }
 
     private async Task DoWriteToPipeAsync(CancellationToken ct)
     {
         const int MinBufferSize = 512;
-        
+
         while (!ct.IsCancellationRequested)
         {
             var memory = _pipe.Writer.GetMemory(MinBufferSize);
@@ -378,7 +381,7 @@ internal sealed class TcpTransportActor : UntypedActor
                 await State.ShutDownCts.CancelAsync();
                 return;
             }
-            
+
             // make data available to PipeReader
             var result = await _pipe.Writer.FlushAsync(ct);
             if (result.IsCompleted)
@@ -387,10 +390,10 @@ internal sealed class TcpTransportActor : UntypedActor
                 return;
             }
         }
-        
+
         await _pipe.Writer.CompleteAsync();
     }
-    
+
     private async Task ReadFromPipeAsync(CancellationToken ct)
     {
         while (!ct.IsCancellationRequested)
@@ -449,13 +452,13 @@ internal sealed class TcpTransportActor : UntypedActor
     {
         // no more writes to transport
         _writesToTransport.Writer.TryComplete();
-        
+
         // wait for any pending writes to finish
         await _waitForPendingWrites.Task;
-        
+
         // shut down reads from the transport
         _readsFromTransport.Writer.TryComplete();
-        
+
         _closureSelf.Tell(PoisonPill.Instance);
     }
 
@@ -492,11 +495,10 @@ internal sealed class TcpTransportActor : UntypedActor
     /// </summary>
     private void FullShutdown(ConnectionTerminatedReason reason = ConnectionTerminatedReason.Normal)
     {
-        
         // mark the channels as complete (should have already been done by the time we get here, but doesn't hurt)
         _writesToTransport.Writer.TryComplete();
         _readsFromTransport.Writer.TryComplete();
-        
+
         var newStatus = reason switch
         {
             ConnectionTerminatedReason.Error => ConnectionStatus.Failed,
@@ -506,7 +508,7 @@ internal sealed class TcpTransportActor : UntypedActor
         };
 
         DisposeSocket(newStatus);
-        
+
         // let upstairs know we're done
         _whenTerminated.TrySetResult(reason);
         _waitForPendingWrites.TrySetResult(true);
