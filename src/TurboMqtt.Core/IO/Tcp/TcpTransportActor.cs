@@ -216,7 +216,8 @@ internal sealed class TcpTransportActor : UntypedActor
     {
         switch (message)
         {
-            case DoConnect connect when State.Status != ConnectionStatus.Connected || State.Status != ConnectionStatus.Connecting:
+            case DoConnect connect when State.Status != ConnectionStatus.Connected ||
+                                        State.Status != ConnectionStatus.Connecting:
             {
                 _log.Info("Attempting to connect to [{0}:{1}]", TcpOptions.Host, TcpOptions.Port);
 
@@ -226,19 +227,19 @@ internal sealed class TcpTransportActor : UntypedActor
                 async Task ResolveAndConnect(CancellationToken ct)
                 {
                     var resolved = await Dns.GetHostAddressesAsync(TcpOptions.Host, ct);
-                    
+
                     if (_log.IsDebugEnabled)
                         _log.Debug("Attempting to connect to [{0}:{1}] - resolved to [{2}]", TcpOptions.Host,
                             TcpOptions.Port,
                             string.Join(", ", resolved.Select(c => c.ToString())));
-                    
+
                     await DoConnectAsync(resolved, TcpOptions.Port, sender, ct);
                 }
 
 #pragma warning disable CS4014 // Because this call is not awaited, execution of the current method continues before the call is completed
                 ResolveAndConnect(connect.Cancel);
 #pragma warning restore CS4014 // Because this call is not awaited, execution of the current method continues before the call is completed
-                
+
                 // set status to connecting
                 State.Status = ConnectionStatus.Connecting;
                 break;
@@ -248,9 +249,9 @@ internal sealed class TcpTransportActor : UntypedActor
                 var warningMsg = State.Status == ConnectionStatus.Connecting
                     ? "Already attempting to connect to [{0}:{1}]"
                     : "Already connected to [{0}:{1}]";
-                
+
                 var formatted = string.Format(warningMsg, TcpOptions.Host, TcpOptions.Port);
-                
+
                 _log.Warning(formatted);
                 Sender.Tell(new ConnectResult(ConnectionStatus.Connecting, formatted));
                 break;
@@ -294,16 +295,25 @@ internal sealed class TcpTransportActor : UntypedActor
         {
             try
             {
-                var (buffer, readableBytes) = await _writesToTransport.Reader.ReadAsync(ct);
-                try
-                {
-                    await _tcpStream!.WriteAsync(buffer.Memory.Slice(0, readableBytes), ct);
-                }
-                finally
-                {
-                    // free the pooled buffer
-                    buffer.Dispose();
-                }
+                while (await _writesToTransport.Reader.WaitToReadAsync(ct))
+                    while (_writesToTransport.Reader.TryRead(out var item))
+                    {
+                        var (buffer, readableBytes) = item;
+                        try
+                        {
+                            if (readableBytes == 0)
+                            {
+                                continue;
+                            }
+
+                            await _tcpStream!.WriteAsync(buffer.Memory.Slice(0, readableBytes), ct);
+                        }
+                        finally
+                        {
+                            // free the pooled buffer
+                            buffer.Dispose();
+                        }
+                    }
             }
             catch (Exception ex)
             {

@@ -136,7 +136,7 @@ public class InMemoryMqtt311End2EndSpecs : TestKit
             publishResult.IsSuccess.Should().BeTrue();
         }
 
-        await foreach (var message in client.ReceiveMessagesAsync(cts.Token))
+        await foreach (var message in client.ReceivedMessages.ReadAllAsync(cts.Token))
         {
             receivedMessages.Add(message);
             if (receivedMessages.Count == messages.Length)
@@ -198,7 +198,7 @@ public class InMemoryMqtt311End2EndSpecs : TestKit
             publishResult.IsSuccess.Should().BeTrue();
         }
 
-        await foreach (var message in client.ReceiveMessagesAsync(cts.Token))
+        await foreach (var message in client.ReceivedMessages.ReadAllAsync(cts.Token))
         {
             receivedMessages.Add(message);
             if (receivedMessages.Count == messages.Length)
@@ -260,7 +260,7 @@ public class InMemoryMqtt311End2EndSpecs : TestKit
             publishResult.IsSuccess.Should().BeTrue();
         }
 
-        await foreach (var message in client.ReceiveMessagesAsync(cts.Token))
+        await foreach (var message in client.ReceivedMessages.ReadAllAsync(cts.Token))
         {
             receivedMessages.Add(message);
             if (receivedMessages.Count == messages.Length)
@@ -313,7 +313,7 @@ public class InMemoryMqtt311End2EndSpecs : TestKit
         var a = async () =>
         {
             using var shortCts = new CancellationTokenSource(TimeSpan.FromMilliseconds(100));
-            var receivedMessage = await client.ReceiveMessagesAsync(shortCts.Token).FirstOrDefaultAsync(shortCts.Token);
+            var receivedMessage = await client.ReceivedMessages.ReadAllAsync(shortCts.Token).FirstOrDefaultAsync(shortCts.Token);
         };
         await a.Should().ThrowAsync<OperationCanceledException>();
     }
