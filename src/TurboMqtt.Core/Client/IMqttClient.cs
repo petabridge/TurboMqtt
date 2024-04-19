@@ -383,6 +383,9 @@ public sealed class MqttClient : IMqttClient
             PacketId = _packetIdCounter.GetNextValue(),
             Topics = topics
         };
+        
+        // Violates MQTT spec - we should never have a packet ID of 0 on Subscribe or Unsubscribe
+        System.Diagnostics.Debug.Assert(subscribePacket.PacketId != 0, "PacketId should not be 0");
 
         var askTask = _requiredActors.ClientAck.Ask<IAckResponse>(subscribePacket, cancellationToken);
 
@@ -420,16 +423,19 @@ public sealed class MqttClient : IMqttClient
         if (_transport.Status != ConnectionStatus.Connected)
             return new AckProtocol.UnsubscribeFailure("Not connected to broker.");
 
-        var subscribePacket = new UnsubscribePacket()
+        var unsubscribePacket = new UnsubscribePacket()
         {
             PacketId = _packetIdCounter.GetNextValue(),
             Topics = topics
         };
+        
+        // Violates MQTT spec - we should never have a packet ID of 0 on Subscribe or Unsubscribe
+        System.Diagnostics.Debug.Assert(unsubscribePacket.PacketId != 0, "PacketId should not be 0");
 
-        var askTask = _requiredActors.ClientAck.Ask<IAckResponse>(subscribePacket, cancellationToken);
+        var askTask = _requiredActors.ClientAck.Ask<IAckResponse>(unsubscribePacket, cancellationToken);
 
         // flush the packet to the wire
-        await _packetWriter.WriteAsync(subscribePacket, cancellationToken);
+        await _packetWriter.WriteAsync(unsubscribePacket, cancellationToken);
 
         // wait for the response
         try
