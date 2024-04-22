@@ -347,11 +347,9 @@ internal sealed class TcpTransportActor : UntypedActor
 
     private async Task DoWriteToPipeAsync(CancellationToken ct)
     {
-        const int MinBufferSize = 512;
-
         while (!ct.IsCancellationRequested)
         {
-            var memory = _pipe.Writer.GetMemory(TcpOptions.MaxFrameSize / 2);
+            var memory = _pipe.Writer.GetMemory(TcpOptions.MaxFrameSize / 4);
             try
             {
                 int bytesRead = await _tcpClient!.ReceiveAsync(memory, SocketFlags.None, ct);
