@@ -137,12 +137,16 @@ internal sealed class ClientStreamOwner : UntypedActor
         {
             case MqttProtocolVersion.V3_1_1:
             {
-                var inboundMessages = MqttClientStreams.Mqtt311InboundMessageSource(createClient.Transport,
+                var inboundMessages = MqttClientStreams.Mqtt311InboundMessageSource(
+                    createClient.ConnectOptions.ClientId,
+                    createClient.Transport,
                     outboundPackets,
                     requiredActors,
                     clientConnectOptions.MaxRetainedPacketIds, clientConnectOptions.MaxPacketIdRetentionTime);
 
-                var outboundMessages = MqttClientStreams.Mqtt311OutboundPacketSink(createClient.Transport,
+                var outboundMessages = MqttClientStreams.Mqtt311OutboundPacketSink(
+                    createClient.ConnectOptions.ClientId,
+                    createClient.Transport,
                     MemoryPool<byte>.Shared,
                     maxFrameSize, (int)clientConnectOptions.MaximumPacketSize);
 

@@ -7,10 +7,11 @@
 using System.Buffers;
 using System.Threading.Channels;
 using Akka;
-using Akka.Streams;
 using Akka.Streams.Dsl;
 using TurboMqtt.Core.IO;
 using TurboMqtt.Core.PacketTypes;
+using TurboMqtt.Core.Protocol;
+using TurboMqtt.Core.Telemetry;
 
 namespace TurboMqtt.Core.Streams;
 
@@ -19,24 +20,27 @@ namespace TurboMqtt.Core.Streams;
 /// </summary>
 internal static class MqttClientStreams
 {
-    public static Sink<MqttPacket, NotUsed> Mqtt311OutboundPacketSink(IMqttTransport transport,
+    public static Sink<MqttPacket, NotUsed> Mqtt311OutboundPacketSink(string clientId, IMqttTransport transport,
         MemoryPool<byte> memoryPool, int maxFrameSize, int maxPacketSize)
     {
         var finalSink = Sink.FromWriter(transport.Writer, true);
         var g = Flow.Create<MqttPacket>()
-            //.Via(PacketIdEncodingFlows.PacketIdEncoding())
+            .Via(OpenTelemetryFlows.MqttPacketRateTelemetryFlow(MqttProtocolVersion.V3_1_1, clientId, OpenTelemetrySupport.Direction.Outbound))
             .Via(MqttEncodingFlows.Mqtt311Encoding(memoryPool, maxFrameSize, maxPacketSize))
+            .Via(OpenTelemetryFlows.MqttBitRateTelemetryFlow(MqttProtocolVersion.V3_1_1, clientId, OpenTelemetrySupport.Direction.Outbound))
             .To(finalSink);
 
         return g;
     }
 
-    public static Source<MqttMessage, NotUsed> Mqtt311InboundMessageSource(IMqttTransport transport, 
+    public static Source<MqttMessage, NotUsed> Mqtt311InboundMessageSource(string clientId, IMqttTransport transport, 
         ChannelWriter<MqttPacket> outboundPackets,
         MqttRequiredActors actors, int maxRememberedPacketIds, TimeSpan packetIdExpiry)
     {
         var finalSource = (ChannelSource.FromReader(transport.Reader)
+            .Via(OpenTelemetryFlows.MqttBitRateTelemetryFlow(MqttProtocolVersion.V3_1_1, clientId, OpenTelemetrySupport.Direction.Inbound))
             .Via(MqttDecodingFlows.Mqtt311Decoding())
+            .Via(OpenTelemetryFlows.MqttPacketRateTelemetryFlow(MqttProtocolVersion.V3_1_1, clientId, OpenTelemetrySupport.Direction.Inbound))
             .Via(MqttReceiverFlows.ClientAckingFlow(maxRememberedPacketIds, packetIdExpiry, outboundPackets, actors))
             .Where(c => c.PacketType == MqttPacketType.Publish)
             .Select(c => ((PublishPacket)c).FromPacket()));

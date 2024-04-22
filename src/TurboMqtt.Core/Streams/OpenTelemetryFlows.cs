@@ -22,7 +22,7 @@ namespace TurboMqtt.Core.Streams;
 internal static class OpenTelemetryFlows
 {
     public static IGraph<FlowShape<MqttPacket, MqttPacket>, NotUsed> MqttPacketRateTelemetryFlow(
-        MqttProtocolVersion version, string clientId, OpenTelemetryConfig.Direction direction)
+        MqttProtocolVersion version, string clientId, OpenTelemetrySupport.Direction direction)
     {
         var g = new MqttPacketRateTelemetryFlow(version, clientId, direction);
         return g;
@@ -31,9 +31,9 @@ internal static class OpenTelemetryFlows
     public static
         IGraph<FlowShape<(IMemoryOwner<byte> buffer, int readableBytes), (IMemoryOwner<byte> buffer, int readableBytes)>
             , NotUsed> MqttBitRateTelemetryFlow(
-            string clientId, MqttProtocolVersion version, OpenTelemetryConfig.Direction direction)
+            MqttProtocolVersion version, string clientId, OpenTelemetrySupport.Direction direction)
     {
-        var g = new MqttBitRateTelemetryFlow(clientId, version, direction);
+        var g = new MqttBitRateTelemetryFlow(version, clientId, direction);
         return g;
     }
 }
@@ -46,10 +46,10 @@ internal sealed class MqttBitRateTelemetryFlow : GraphStage<FlowShape<(
 {
     private readonly string _clientId;
     private readonly MqttProtocolVersion _version;
-    private readonly OpenTelemetryConfig.Direction _direction;
+    private readonly OpenTelemetrySupport.Direction _direction;
 
-    public MqttBitRateTelemetryFlow(string clientId, MqttProtocolVersion version,
-        OpenTelemetryConfig.Direction direction)
+    public MqttBitRateTelemetryFlow(MqttProtocolVersion version, string clientId, 
+        OpenTelemetrySupport.Direction direction)
     {
         _clientId = clientId;
         _version = version;
@@ -81,7 +81,7 @@ internal sealed class MqttBitRateTelemetryFlow : GraphStage<FlowShape<(
         public Logic(MqttBitRateTelemetryFlow flow) : base(flow.Shape)
         {
             _flow = flow;
-            _bitRateCounter = OpenTelemetryConfig.CreateBitRateCounter(flow._clientId, flow._version, flow._direction);
+            _bitRateCounter = OpenTelemetrySupport.CreateBitRateCounter(flow._clientId, flow._version, flow._direction);
         }
 
         public override void OnPush()
@@ -108,11 +108,11 @@ internal sealed class MqttPacketRateTelemetryFlow : GraphStage<FlowShape<MqttPac
 {
     private readonly string _clientId;
     private readonly MqttProtocolVersion _version;
-    private readonly OpenTelemetryConfig.Direction _direction;
+    private readonly OpenTelemetrySupport.Direction _direction;
 
 
     public MqttPacketRateTelemetryFlow(MqttProtocolVersion version, string clientId,
-        OpenTelemetryConfig.Direction direction)
+        OpenTelemetrySupport.Direction direction)
     {
         _version = version;
         _clientId = clientId;
@@ -138,19 +138,19 @@ internal sealed class MqttPacketRateTelemetryFlow : GraphStage<FlowShape<MqttPac
         {
             _flow = flow;
 
-            _msgCounter = OpenTelemetryConfig.CreateMessagesCounter(flow._clientId, flow._version, flow._direction);
+            _msgCounter = OpenTelemetrySupport.CreateMessagesCounter(flow._clientId, flow._version, flow._direction);
         }
 
         public override void OnPush()
         {
             var msg = Grab(_flow.In);
 
-            var tagList = new TagList { { OpenTelemetryConfig.PacketTypeTag, msg.PacketType } };
+            var tagList = new TagList { { OpenTelemetrySupport.PacketTypeTag, msg.PacketType } };
 
             // record the packet type and QoS level for publish packets
             if (msg.PacketType == MqttPacketType.Publish)
             {
-                tagList.Add(OpenTelemetryConfig.QoSLevelTag, msg.QualityOfService);
+                tagList.Add(OpenTelemetrySupport.QoSLevelTag, msg.QualityOfService);
             }
 
             _msgCounter.Add(1,

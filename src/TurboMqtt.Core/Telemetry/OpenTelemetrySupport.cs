@@ -1,5 +1,5 @@
 ﻿// -----------------------------------------------------------------------
-// <copyright file="OpenTelemetryConfig.cs" company="Petabridge, LLC">
+// <copyright file="OpenTelemetrySupport.cs" company="Petabridge, LLC">
 //      Copyright (C) 2024 - 2024 Petabridge, LLC <https://petabridge.com>
 // </copyright>
 // -----------------------------------------------------------------------
@@ -11,7 +11,10 @@ using TurboMqtt.Core.Protocol;
 
 namespace TurboMqtt.Core.Telemetry;
 
-internal static class OpenTelemetryConfig
+/// <summary>
+/// INTERNAL API - defines all TurboMqtt OTEL metric and activity sources.
+/// </summary>
+internal static class OpenTelemetrySupport
 {
     private static readonly string
         Version = typeof(IMqttClient).Assembly.GetName().Version?.ToString() ?? string.Empty;
