@@ -67,7 +67,10 @@ internal sealed class FakeMqttTcpServer
             ReceiveBufferSize = _options.MaxFrameSize * 2,
             SendBufferSize = _options.MaxFrameSize * 2
         };
-        bindSocket.Bind(new IPEndPoint(IPAddress.Parse(_options.Host), _options.Port));
+        
+        var hostAddress = Dns.GetHostAddresses(_options.Host).First();
+        
+        bindSocket.Bind(new IPEndPoint(hostAddress, _options.Port));
         bindSocket.Listen(10);
 
         // begin the accept loop
@@ -109,6 +112,9 @@ internal sealed class FakeMqttTcpServer
                 // process the incoming message, send any necessary replies back
                 handle.HandleBytes(buffer.Slice(0, bytesRead));
             }
+            
+            // send a disconnect message
+            handle.DisconnectFromServer();
 
             return;
 
