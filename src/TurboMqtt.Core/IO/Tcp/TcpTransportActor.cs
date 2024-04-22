@@ -12,6 +12,8 @@ using System.Threading.Channels;
 using Akka.Actor;
 using Akka.Event;
 using TurboMqtt.Core.Client;
+using TurboMqtt.Core.PacketTypes;
+using TurboMqtt.Core.Protocol;
 using Debug = System.Diagnostics.Debug;
 
 namespace TurboMqtt.Core.IO;
@@ -429,8 +431,12 @@ internal sealed class TcpTransportActor : UntypedActor
     {
         switch (message)
         {
-            case DoClose:
-            case ReadFinished: // graceful close cases
+            case DoClose: // we are closing
+            {
+                _ = CleanUpGracefully(true);
+                break;
+            }
+            case ReadFinished: // server closed us
             {
                 _ = CleanUpGracefully(); // idempotent
                 break;
@@ -446,16 +452,26 @@ internal sealed class TcpTransportActor : UntypedActor
         }
     }
 
-    private async Task CleanUpGracefully()
+    private async Task CleanUpGracefully(bool waitOnReads = false)
     {
+        // add a simulated DisconnectPacket to help ensure the stream gets terminated
+        _readsFromTransport.Writer.TryWrite(DisconnectToBinary.NormalDisconnectPacket.ToBinary(MqttProtocolVersion.V3_1_1));
+        
         // no more writes to transport
         _writesToTransport.Writer.TryComplete();
 
         // wait for any pending writes to finish
         await _waitForPendingWrites.Task;
 
-        // shut down reads from the transport
-        _readsFromTransport.Writer.TryComplete();
+        if (waitOnReads)
+        {
+            // wait for any reads to finish (should be terminated by Akka.Streams once the `DisconnectPacket` is processed.)
+            await _readsFromTransport.Reader.Completion;
+        }
+        else // if we're not waiting on reads, just complete the reader
+        {
+            _readsFromTransport.Writer.TryComplete();
+        }
 
         _closureSelf.Tell(PoisonPill.Instance);
     }
@@ -473,8 +489,8 @@ internal sealed class TcpTransportActor : UntypedActor
             // stop reading from the socket
             State.ShutDownCts.Cancel();
 
-            _pipe?.Reader.Complete();
-            _pipe?.Writer.Complete();
+            _pipe.Reader.Complete();
+            _pipe.Writer.Complete();
             _tcpClient?.Close();
             _tcpClient?.Dispose();
         }

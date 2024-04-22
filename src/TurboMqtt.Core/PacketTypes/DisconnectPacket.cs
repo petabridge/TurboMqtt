@@ -4,6 +4,11 @@
 // </copyright>
 // -----------------------------------------------------------------------
 
+using System.Buffers;
+using System.Diagnostics;
+using TurboMqtt.Core.IO;
+using TurboMqtt.Core.Protocol;
+
 namespace TurboMqtt.Core.PacketTypes;
 
 /// <summary>
@@ -15,7 +20,7 @@ public sealed class DisconnectPacket : MqttPacket
     /// Used for MQTT 3.1.1, since no additional properties are supported.
     /// </summary>
     internal static readonly DisconnectPacket Instance = new();
-    
+
     public override MqttPacketType PacketType => MqttPacketType.Disconnect;
 
     // MQTT 5.0 - Optional Reason Code and Properties
