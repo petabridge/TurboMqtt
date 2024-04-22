@@ -85,19 +85,20 @@ public sealed class MqttProducerService : BackgroundService
             foreach (var i in Enumerable.Range(0, config.MessageCount))
             {
                 MqttMessage msg;
+                msg = new MqttMessage(config.Topic, CreatePayload(i, TargetMessageSize.EightKb));
                 
-                if(i % 3 == 0)
-                {
-                    msg = new MqttMessage(config.Topic, CreatePayload(i, TargetMessageSize.OneKb));
-                }
-                else if(i % 5 == 0)
-                {
-                    msg = new MqttMessage(config.Topic, CreatePayload(i, TargetMessageSize.EightKb));
-                }
-                else
-                {
-                    msg = new MqttMessage(config.Topic, CreatePayload(i, TargetMessageSize.Tiny));
-                }
+                // if(i % 3 == 0)
+                // {
+                //     msg = new MqttMessage(config.Topic, CreatePayload(i, TargetMessageSize.OneKb));
+                // }
+                // else if(i % 5 == 0)
+                // {
+                //     msg = new MqttMessage(config.Topic, CreatePayload(i, TargetMessageSize.EightKb));
+                // }
+                // else
+                // {
+                //     msg = new MqttMessage(config.Topic, CreatePayload(i, TargetMessageSize.Tiny));
+                // }
 
                 await client.PublishAsync(msg, stoppingToken);
                 //if(i % 1000 == 0)
