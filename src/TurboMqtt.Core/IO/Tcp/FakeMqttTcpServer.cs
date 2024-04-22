@@ -8,6 +8,7 @@ using System.Buffers;
 using System.Net;
 using System.Net.Sockets;
 using Akka.Event;
+using Akka.Streams.Implementation.Fusing;
 using TurboMqtt.Core.Protocol;
 
 namespace TurboMqtt.Core.IO;
@@ -76,11 +77,18 @@ internal sealed class FakeMqttTcpServer
         // begin the accept loop
         var _ = BeginAcceptAsync();
     }
-    
+
     public void Shutdown()
     {
-        _shutdownTcs.Cancel();
-        bindSocket?.Close();
+        try
+        {
+            _shutdownTcs.Cancel();
+            bindSocket?.Close();
+        }
+        catch (Exception)
+        {
+            // do nothing - this method is idempotent
+        }
     }
 
     private async Task BeginAcceptAsync()
@@ -102,15 +110,22 @@ internal sealed class FakeMqttTcpServer
 
             while (!_shutdownTcs.IsCancellationRequested)
             {
-                var bytesRead = await socket.ReceiveAsync(buffer, SocketFlags.None);
-                if (bytesRead == 0)
+                try
                 {
-                    socket.Close();
-                    return;
-                }
+                    var bytesRead = await socket.ReceiveAsync(buffer, SocketFlags.None, _shutdownTcs.Token);
+                    if (bytesRead == 0)
+                    {
+                        socket.Close();
+                        return;
+                    }
 
-                // process the incoming message, send any necessary replies back
-                handle.HandleBytes(buffer.Slice(0, bytesRead));
+                    // process the incoming message, send any necessary replies back
+                    handle.HandleBytes(buffer.Slice(0, bytesRead));
+                }
+                catch (OperationCanceledException)
+                {
+                    _log.Warning("Server shutting down...");
+                }
             }
             
             // send a disconnect message

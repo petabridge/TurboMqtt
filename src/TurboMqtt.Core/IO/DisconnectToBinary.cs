@@ -32,19 +32,20 @@ internal static class DisconnectToBinary
             throw new NotSupportedException();
 
         var estimate = MqttPacketSizeEstimator.EstimatePacketSize(packet, version);
-        Memory<byte> bytes = new byte[estimate];
+        var fullSize = estimate + 2; // add 2 bytes for the fixed header
+        Memory<byte> bytes = new byte[fullSize];
 
         switch (version)
         {
             case MqttProtocolVersion.V3_1_1:
             {
                 var actualSize = Mqtt311Encoder.EncodePacket(packet, ref bytes, estimate);
-                Debug.Assert(actualSize == estimate,
-                    $"Actual size {actualSize} did not match estimated size {estimate}");
+                Debug.Assert(actualSize == fullSize,
+                    $"Actual size {actualSize} did not match estimated size {fullSize}");
                 break;
             }
         }
 
-        return (new UnsharedMemoryOwner<byte>(bytes), estimate);
+        return (new UnsharedMemoryOwner<byte>(bytes), fullSize);
     }
 }

@@ -52,4 +52,16 @@ public class TcpMqtt311End2EndSpecs : TestKit
         await client.DisconnectAsync(cts.Token);
         client.IsConnected.Should().BeFalse();
     }
+
+    [Fact]
+    public async Task ShouldHandleServerDisconnect()
+    {
+        var client = await ClientFactory.CreateTcpClient(DefaultConnectOptions, DefaultTcpOptions);
+
+        using var cts = new CancellationTokenSource(RemainingOrDefault);
+        var connectResult = await client.ConnectAsync(cts.Token);
+        connectResult.IsSuccess.Should().BeTrue();
+        _server.Shutdown();
+        await client.WhenTerminated.WaitAsync(cts.Token);
+    }
 }
