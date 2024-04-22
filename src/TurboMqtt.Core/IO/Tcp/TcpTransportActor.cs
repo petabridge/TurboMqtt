@@ -351,7 +351,7 @@ internal sealed class TcpTransportActor : UntypedActor
 
         while (!ct.IsCancellationRequested)
         {
-            var memory = _pipe.Writer.GetMemory(MinBufferSize);
+            var memory = _pipe.Writer.GetMemory(TcpOptions.MaxFrameSize / 2);
             try
             {
                 int bytesRead = await _tcpClient!.ReceiveAsync(memory, SocketFlags.None, ct);
