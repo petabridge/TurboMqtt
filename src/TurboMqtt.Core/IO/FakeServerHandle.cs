@@ -19,6 +19,7 @@ internal interface IFakeServerHandle
     void HandleBytes(in ReadOnlyMemory<byte> bytes);
     void HandlePacket(MqttPacket packet);
     void TryPush(MqttPacket outboundPacket);
+    void DisconnectFromServer();
 }
 
 internal class FakeMqtt311ServerHandle : IFakeServerHandle
@@ -58,6 +59,12 @@ internal class FakeMqtt311ServerHandle : IFakeServerHandle
         {
             Log.Debug("Successfully wrote packet of type {0} [{1} bytes] to transport.", packet.PacketType, estimatedSize + headerSize);
         }
+    }
+
+    public void DisconnectFromServer()
+    {
+        // use this to tell the client we're disconnecting
+        TryPush(DisconnectPacket.Instance);
     }
 
     public MqttProtocolVersion ProtocolVersion => MqttProtocolVersion.V3_1_1;

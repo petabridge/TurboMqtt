@@ -4,8 +4,10 @@
 // </copyright>
 // -----------------------------------------------------------------------
 
+using System.Buffers;
 using System.Net;
 using System.Net.Sockets;
+using Akka.Event;
 using TurboMqtt.Core.Protocol;
 
 namespace TurboMqtt.Core.IO;
@@ -22,14 +24,14 @@ internal sealed class MqttTcpServerOptions
     /// Would love to just do IPV6, but that still meets resistance everywhere
     /// </summary>
     public AddressFamily AddressFamily { get; set; } = AddressFamily.Unspecified;
-    
+
     /// <summary>
     /// Frames are limited to this size in bytes. A frame can contain multiple packets.
     /// </summary>
     public int MaxFrameSize { get; set; } = 128 * 1024; // 128kb
-    
+
     public string Host { get; }
-    
+
     public int Port { get; }
 }
 
@@ -42,22 +44,24 @@ internal sealed class FakeMqttTcpServer
     private readonly MqttProtocolVersion _version;
     private readonly MqttTcpServerOptions _options;
     private readonly CancellationTokenSource _shutdownTcs = new();
+    private readonly ILoggingAdapter _log;
     private Socket? bindSocket;
 
-    public FakeMqttTcpServer(MqttTcpServerOptions options, MqttProtocolVersion version)
+    public FakeMqttTcpServer(MqttTcpServerOptions options, MqttProtocolVersion version, ILoggingAdapter log)
     {
         _options = options;
         _version = version;
-        
-        if(_version == MqttProtocolVersion.V5_0)
+        _log = log;
+
+        if (_version == MqttProtocolVersion.V5_0)
             throw new NotSupportedException("V5.0 not supported.");
     }
-    
+
     public void Bind()
     {
-        if(bindSocket != null)
+        if (bindSocket != null)
             throw new InvalidOperationException("Cannot bind the same server twice.");
-        
+
         bindSocket = new Socket(_options.AddressFamily, SocketType.Stream, ProtocolType.Tcp)
         {
             ReceiveBufferSize = _options.MaxFrameSize * 2,
@@ -65,9 +69,15 @@ internal sealed class FakeMqttTcpServer
         };
         bindSocket.Bind(new IPEndPoint(IPAddress.Parse(_options.Host), _options.Port));
         bindSocket.Listen(10);
-        
+
         // begin the accept loop
-        var _ =BeginAcceptAsync();
+        var _ = BeginAcceptAsync();
+    }
+    
+    public void Shutdown()
+    {
+        _shutdownTcs.Cancel();
+        bindSocket?.Close();
     }
 
     private async Task BeginAcceptAsync()
@@ -81,24 +91,62 @@ internal sealed class FakeMqttTcpServer
 
     private async Task ProcessClientAsync(Socket socket)
     {
-        Memory<byte> buffer = new byte[_options.MaxFrameSize];
-        while (!_shutdownTcs.IsCancellationRequested)
+        using (socket)
         {
-            var bytesRead = await socket.ReceiveAsync(buffer, SocketFlags.None);
-            if (bytesRead == 0)
+            Memory<byte> buffer = new byte[_options.MaxFrameSize];
+
+            var handle = new FakeMqtt311ServerHandle(PushMessage, ClosingAction, _log);
+
+            while (!_shutdownTcs.IsCancellationRequested)
             {
-                socket.Close();
-                return;
+                var bytesRead = await socket.ReceiveAsync(buffer, SocketFlags.None);
+                if (bytesRead == 0)
+                {
+                    socket.Close();
+                    return;
+                }
+
+                // process the incoming message, send any necessary replies back
+                handle.HandleBytes(buffer.Slice(0, bytesRead));
             }
 
-            // process the incoming message
-            if (_decoder.TryDecode(buffer.Slice(0, bytesRead), out var remaining))
+            return;
+
+            bool PushMessage((IMemoryOwner<byte> buffer, int estimatedSize) msg)
             {
-                
+                try
+                {
+                    if (socket.Connected)
+                    {
+                        var sent = socket.Send(msg.buffer.Memory.Span.Slice(0, msg.estimatedSize));
+                        while (sent < msg.estimatedSize)
+                        {
+                            if (sent == 0) return false; // we are shutting down
+
+                            var remaining = msg.buffer.Memory.Slice(sent);
+                            var sent2 = socket.Send(remaining.Span);
+                            if (sent2 == remaining.Length)
+                                sent += sent2;
+                            else
+                                return false;
+                        }
+
+                        return true;
+                    }
+
+                    return false;
+                }
+                finally
+                {
+                    msg.buffer.Dispose(); // release any shared memory
+                }
             }
-        
-            // echo the message back to the client
-            await socket.SendAsync(buffer, SocketFlags.None);
+
+            Task ClosingAction()
+            {
+                if (socket.Connected) socket.Close();
+                return Task.CompletedTask;
+            }
         }
     }
 }
