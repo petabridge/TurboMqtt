@@ -436,7 +436,7 @@ internal sealed class TcpTransportActor : UntypedActor
                 _ = CleanUpGracefully(true);
                 break;
             }
-            case ReadFinished: // server closed us
+            case ReadFinished: // server closed us (ni
             {
                 _ = CleanUpGracefully(); // idempotent
                 break;
