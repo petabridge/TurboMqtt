@@ -431,8 +431,12 @@ internal sealed class TcpTransportActor : UntypedActor
     {
         switch (message)
         {
-            case DoClose:
-            case ReadFinished: // graceful close cases
+            case DoClose: // we are closing
+            {
+                _ = CleanUpGracefully(true);
+                break;
+            }
+            case ReadFinished: // server closed us
             {
                 _ = CleanUpGracefully(); // idempotent
                 break;
@@ -448,7 +452,7 @@ internal sealed class TcpTransportActor : UntypedActor
         }
     }
 
-    private async Task CleanUpGracefully()
+    private async Task CleanUpGracefully(bool waitOnReads = false)
     {
         // add a simulated DisconnectPacket to help ensure the stream gets terminated
         _readsFromTransport.Writer.TryWrite(DisconnectToBinary.NormalDisconnectPacket.ToBinary(MqttProtocolVersion.V3_1_1));
@@ -458,9 +462,16 @@ internal sealed class TcpTransportActor : UntypedActor
 
         // wait for any pending writes to finish
         await _waitForPendingWrites.Task;
-        
-        // wait for any reads to finish (should be terminated by Akka.Streams once the `DisconnectPacket` is processed.)
-        await _readsFromTransport.Reader.Completion;
+
+        if (waitOnReads)
+        {
+            // wait for any reads to finish (should be terminated by Akka.Streams once the `DisconnectPacket` is processed.)
+            await _readsFromTransport.Reader.Completion;
+        }
+        else // if we're not waiting on reads, just complete the reader
+        {
+            _readsFromTransport.Writer.TryComplete();
+        }
 
         _closureSelf.Tell(PoisonPill.Instance);
     }

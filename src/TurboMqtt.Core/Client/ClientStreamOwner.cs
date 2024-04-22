@@ -93,9 +93,23 @@ internal sealed class ClientStreamOwner : UntypedActor
                 ChannelSource.FromReader(outboundPacketsReader)
                     .To(outboundStream)
                     .Run(_materializer);
+                
+                // check for streams termination
+                var watchTermination = Flow.Create<MqttMessage>()
+                    .WatchTermination((_, done) =>
+                    {
+                        done.ContinueWith(t =>
+                        {
+                            // TODO: replace this with recreating the transport
+                            _log.Warning("Transport was terminated by broker. Shutting down client.");
+                            createClient.Transport.CloseAsync();
+                        }, TaskContinuationOptions.ExecuteSynchronously);
+                        return NotUsed.Instance;
+                    });
 
                 // begin inbound stream
                 inboundStream
+                    .Via(watchTermination)
                     .To(ChannelSink.FromWriter(_inboundChannel.Writer, true))
                     .Run(_materializer);
 
