@@ -82,6 +82,9 @@ internal sealed class MqttBitRateTelemetryFlow : GraphStage<FlowShape<(
         {
             _flow = flow;
             _bitRateCounter = OpenTelemetrySupport.CreateBitRateCounter(flow._clientId, flow._version, flow._direction);
+            
+            SetHandler(_flow.In, this);
+            SetHandler(_flow.Out, this);
         }
 
         public override void OnPush()
@@ -139,6 +142,9 @@ internal sealed class MqttPacketRateTelemetryFlow : GraphStage<FlowShape<MqttPac
             _flow = flow;
 
             _msgCounter = OpenTelemetrySupport.CreateMessagesCounter(flow._clientId, flow._version, flow._direction);
+            
+            SetHandler(_flow.In, this);
+            SetHandler(_flow.Out, this);
         }
 
         public override void OnPush()
