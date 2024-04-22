@@ -14,6 +14,13 @@ using TurboMqtt.Core.Protocol;
 
 namespace TurboMqtt.Samples.BackpressureProducer;
 
+internal enum TargetMessageSize
+{
+    Tiny,
+    OneKb,
+    EightKb
+}
+
 public sealed class MqttProducerService : BackgroundService
 {
     private readonly ILogger<MqttProducerService> _logger;
@@ -21,14 +28,33 @@ public sealed class MqttProducerService : BackgroundService
     private readonly IOptionsSnapshot<MqttConfig> _config;
     private readonly IHostLifetime _lifetime;
 
-    public MqttProducerService(IMqttClientFactory clientFactory, 
-        IOptionsSnapshot<MqttConfig> config, 
+    public MqttProducerService(IMqttClientFactory clientFactory,
+        IOptionsSnapshot<MqttConfig> config,
         ILogger<MqttProducerService> logger, IHostLifetime lifetime)
     {
         _clientFactory = clientFactory;
         _config = config;
         _logger = logger;
         _lifetime = lifetime;
+    }
+
+    // generate a roughly 1kb long JSON payload message as a static variable
+    private static readonly byte[] OneKbIshPayload = Encoding.UTF8.GetBytes(
+        "{\"id\":\"1234567890\",\"name\":\"John Doe\",\"age\":30,\"address\":\"123 Elm St\",\"city\":\"Springfield\",\"state\":\"IL\",\"zip\":\"62701\"}");
+
+    // generate a roughly 8kb long JSON payload message as a static variable
+    private static readonly byte[] EightKbIshPayload = Encoding.UTF8.GetBytes(
+        "{\"id\":\"1234567890\",\"name\":\"John Doe\",\"age\":30,\"address\":\"123 Elm St\",\"city\":\"Springfield\",\"state\":\"IL\",\"zip\":\"62701\",\"children\":[{\"id\":\"1234567890\",\"name\":\"Jane Doe\",\"age\":5,\"address\":\"123 Elm St\",\"city\":\"Springfield\",\"state\":\"IL\",\"zip\":\"62701\"},{\"id\":\"1234567890\",\"name\":\"Jack Doe\",\"age\":10,\"address\":\"123 Elm St\",\"city\":\"Springfield\",\"state\":\"IL\",\"zip\":\"62701\"},{\"id\":\"1234567890\",\"name\":\"Jill Doe\",\"age\":15,\"address\":\"123 Elm St\",\"city\":\"Springfield\",\"state\":\"IL\",\"zip\":\"62701\"},{\"id\":\"1234567890\",\"name\":\"Jim Doe\",\"age\":20,\"address\":\"123 Elm St\",\"city\":\"Springfield\",\"state\":\"IL\",\"zip\":\"62701\"},{\"id\":\"1234567890\",\"name\":\"Jenny Doe\",\"age\":25,\"address\":\"123 Elm St\",\"city\":\"Springfield\",\"state\":\"IL\",\"zip\":\"62701\"},{\"id\":\"1234567890\",\"name\":\"Jerry Doe\",\"age\":30,\"address\":\"123 Elm St\",\"city\":\"Springfield\",\"state\":\"IL\",\"zip\":\"62701\"},{\"id\":\"1234567890\",\"name\":\"Jasmine Doe\",\"age\":35,\"address\":\"123 Elm St\",\"city\":\"Springfield\",\"state\":\"IL\",\"zip\":\"62701\"},{\"id\":\"1234567890\",\"name\":\"Jared Doe\",\"age\":40,\"address\":\"123 Elm St\",\"city\":\"Springfield\",\"state\":\"IL\",\"zip\":\"62701\"}]}");
+    
+    private static Memory<byte> CreatePayload(int i, TargetMessageSize size)
+    {
+        return size switch
+        {
+            TargetMessageSize.Tiny => Encoding.UTF8.GetBytes($"msg-{i}"),
+            TargetMessageSize.OneKb => OneKbIshPayload,
+            TargetMessageSize.EightKb => EightKbIshPayload,
+            _ => throw new ArgumentOutOfRangeException(nameof(size), size, null)
+        };
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -58,7 +84,21 @@ public sealed class MqttProducerService : BackgroundService
             _logger.LogInformation("Connected to MQTT broker at {0}:{1}", config.Host, config.Port);
             foreach (var i in Enumerable.Range(0, config.MessageCount))
             {
-                var msg = new MqttMessage(config.Topic, $"msg-{i}");
+                MqttMessage msg;
+                msg = new MqttMessage(config.Topic, CreatePayload(i, TargetMessageSize.EightKb));
+                
+                // if(i % 3 == 0)
+                // {
+                //     msg = new MqttMessage(config.Topic, CreatePayload(i, TargetMessageSize.OneKb));
+                // }
+                // else if(i % 5 == 0)
+                // {
+                //     msg = new MqttMessage(config.Topic, CreatePayload(i, TargetMessageSize.EightKb));
+                // }
+                // else
+                // {
+                //     msg = new MqttMessage(config.Topic, CreatePayload(i, TargetMessageSize.Tiny));
+                // }
 
                 await client.PublishAsync(msg, stoppingToken);
                 //if(i % 1000 == 0)
@@ -78,5 +118,7 @@ public sealed class MqttProducerService : BackgroundService
         {
             _ = _lifetime.StopAsync(default);
         }
+
+        Environment.Exit(0);
     }
 }

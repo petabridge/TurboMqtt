@@ -158,7 +158,7 @@ internal sealed class ClientStreamOwner : UntypedActor
     protected override void PostStop()
     {
         // force both channels to complete - this will shut down the streams and the transport
-        _outboundChannel?.Writer.Complete();
-        _inboundChannel?.Writer.Complete();
+        _outboundChannel?.Writer.TryComplete();
+        _inboundChannel?.Writer.TryComplete();
     }
 }

@@ -43,20 +43,20 @@ internal sealed class InMemoryMqttTransport : IMqttTransport
     public ILoggingAdapter Log { get; }
     public ConnectionStatus Status { get; private set; } = ConnectionStatus.NotStarted;
 
-    public Task<ConnectionTerminatedReason> WaitForTermination()
-    {
-        return _terminationSource.Task;
-    }
+    public Task<ConnectionTerminatedReason> WhenTerminated => _terminationSource.Task;
+    
+    private readonly TaskCompletionSource<bool> _waitForPendingWrites = new();
+    public Task<bool> WaitForPendingWrites => _waitForPendingWrites.Task;
 
-    public Task CloseAsync(CancellationToken ct = default)
+    public async Task CloseAsync(CancellationToken ct = default)
     {
         Status = ConnectionStatus.Disconnected;
-        _terminationSource.TrySetResult(ConnectionTerminatedReason.Normal);
-        _shutdownTokenSource.Cancel();
-        _shutdownTokenSource.Dispose();
         _writesToTransport.Writer.TryComplete();
+        await _waitForPendingWrites.Task;
+        await _shutdownTokenSource.CancelAsync();
+        _shutdownTokenSource.Dispose();
         _readsFromTransport.Writer.TryComplete();
-        return Task.CompletedTask;
+        _terminationSource.TrySetResult(ConnectionTerminatedReason.Normal);
     }
 
     public Task ConnectAsync(CancellationToken ct = default)
@@ -83,11 +83,18 @@ internal sealed class InMemoryMqttTransport : IMqttTransport
     private async Task DoByteWritesAsync(CancellationToken ct)
     {
         Log.Debug("Starting to read from transport.");
-        do
+        while(!_writesToTransport.Reader.Completion.IsCompleted)
         {
             if (!_writesToTransport.Reader.TryRead(out var msg))
             {
-                await _writesToTransport.Reader.WaitToReadAsync(ct);
+                try
+                {
+                    await _writesToTransport.Reader.WaitToReadAsync(ct);
+                }
+                catch(OperationCanceledException)
+                {
+                    
+                }
                 continue;
             }
             
@@ -113,7 +120,10 @@ internal sealed class InMemoryMqttTransport : IMqttTransport
                 // have to free the shared buffer
                 msg.buffer.Dispose();
             }
-        } while (!_writesToTransport.Reader.Completion.IsCompleted);
+        }
+
+        // should signal that all pending writes have finished
+        _waitForPendingWrites.TrySetResult(true);
     }
 
     public int MaxFrameSize { get; }
@@ -275,7 +285,7 @@ internal sealed class InMemoryMqttTransport : IMqttTransport
             }
             case MqttPacketType.Disconnect:
                 // shut it down
-                CloseAsync();
+                _ = CloseAsync();
                 break;
             default:
                 var ex = new NotSupportedException($"Packet type {packet.PacketType} is not supported by this flow.");

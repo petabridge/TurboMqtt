@@ -122,7 +122,7 @@ public interface IMqttClient : IAsyncDisposable
     /// <remarks>
     /// Does not cause the connection to terminate - just waits for it to finish.
     /// </remarks>
-    public Task<ConnectionTerminatedReason> WaitForTermination();
+    public Task<ConnectionTerminatedReason> WhenTerminated { get; }
 }
 
 /// <summary>
@@ -158,7 +158,7 @@ public sealed class MqttClient : IMqttClient
     {
         // should trigger a graceful stop of the client and the transport
         await _clientOwner.GracefulStop(TimeSpan.FromSeconds(3));
-        await WaitForTermination();
+        await WhenTerminated;
     }
 
     public async Task<IAckResponse> ConnectAsync(CancellationToken cancellationToken = default)
@@ -252,11 +252,15 @@ public sealed class MqttClient : IMqttClient
 
         var disconnectPacket = new DisconnectPacket();
         await _packetWriter.WriteAsync(disconnectPacket, cancellationToken);
+        
+        // begin the shutdown of the transport - internally, the transport should guarantee
+        // that all pending writes are flushed before the connection is closed
+        await _transport.CloseAsync(cancellationToken);
 
         // the broker SHOULD disconnect from us
         try
         {
-            await WaitForTermination().WaitAsync(TimeSpan.FromSeconds(5), cancellationToken);
+            await WhenTerminated.WaitAsync(TimeSpan.FromSeconds(1), cancellationToken);
         }
         catch
         {
@@ -456,10 +460,7 @@ public sealed class MqttClient : IMqttClient
         }
     }
 
-    public Task<ConnectionTerminatedReason> WaitForTermination()
-    {
-        return _transport.WaitForTermination();
-    }
+    public Task<ConnectionTerminatedReason> WhenTerminated => _transport.WhenTerminated;
 
     public async ValueTask DisposeAsync()
     {
