@@ -28,6 +28,7 @@ internal sealed class InMemoryMqttTransport : IMqttTransport
         Channel.CreateUnbounded<(IMemoryOwner<byte> buffer, int readableBytes)>();
     
     private readonly CancellationTokenSource _shutdownTokenSource = new();
+    private IFakeServerHandle _serverHandle;
 
     public InMemoryMqttTransport(int maxFrameSize, ILoggingAdapter log, MqttProtocolVersion protocolVersion)
     {
@@ -36,6 +37,18 @@ internal sealed class InMemoryMqttTransport : IMqttTransport
         ProtocolVersion = protocolVersion;
         Reader = _readsFromTransport;
         Writer = _writesToTransport;
+        
+        Func<(IMemoryOwner<byte> buffer, int estimatedSize), bool> pushFn = msg => _readsFromTransport.Writer.TryWrite(msg);
+        Func<Task> closeFn = async () =>
+        {
+            await CloseAsync();
+        };
+        
+        _serverHandle = protocolVersion switch
+        {
+            MqttProtocolVersion.V3_1_1 => new FakeMqtt311ServerHandle(pushFn, closeFn, log),
+            _ => throw new NotSupportedException("Only V3.1.1 is supported.")
+        };
     }
 
     public MqttProtocolVersion ProtocolVersion { get; }
@@ -47,6 +60,8 @@ internal sealed class InMemoryMqttTransport : IMqttTransport
     
     private readonly TaskCompletionSource<bool> _waitForPendingWrites = new();
     public Task<bool> WaitForPendingWrites => _waitForPendingWrites.Task;
+    
+
 
     public async Task CloseAsync(CancellationToken ct = default)
     {
@@ -71,8 +86,6 @@ internal sealed class InMemoryMqttTransport : IMqttTransport
 
         return Task.CompletedTask;
     }
-    
-    private readonly Mqtt311Decoder _decoder = new();
 
     /// <summary>
     /// Simulates the "Server" side of this connection
@@ -101,18 +114,7 @@ internal sealed class InMemoryMqttTransport : IMqttTransport
             {
                 ReadOnlyMemory<byte> buffer = msg.buffer.Memory.Slice(0, msg.readableBytes);
                 Log.Debug("Received {0} bytes from transport.", buffer.Length);
-                if (_decoder.TryDecode(in buffer, out var msgs))
-                {
-                    Log.Debug("Decoded {0} packets from transport.", msgs.Count);
-                    foreach (var m in msgs)
-                    {
-                        HandlePacket(m);
-                    }
-                }
-                else
-                {
-                    Log.Debug("Didn't have enough bytes to decode a packet. Waiting for more.");
-                }
+                _serverHandle.HandleBytes(buffer);
             }
             finally
             {
@@ -129,167 +131,4 @@ internal sealed class InMemoryMqttTransport : IMqttTransport
     public ChannelWriter<(IMemoryOwner<byte> buffer, int readableBytes)> Writer { get; }
     public ChannelReader<(IMemoryOwner<byte> buffer, int readableBytes)> Reader { get; }
     
-    private void TryPush(MqttPacket packet)
-    {
-        switch (ProtocolVersion)
-        {
-            case MqttProtocolVersion.V3_1_1:
-            {
-                Log.Debug("Sending packet of type {0} using {1}", packet.PacketType, ProtocolVersion);
-                var estimatedSize = MqttPacketSizeEstimator.EstimateMqtt3PacketSize(packet);
-                var headerSize = MqttPacketSizeEstimator.GetPacketLengthHeaderSize(estimatedSize) + 1;
-                var buffer = new Memory<byte>(new byte[estimatedSize + headerSize]);
-
-                Mqtt311Encoder.EncodePacket(packet, ref buffer, estimatedSize);
-
-                var unshared = new UnsharedMemoryOwner<byte>(buffer);
-                
-                // simulate reads back on the client here
-                var didWrite = _readsFromTransport.Writer.TryWrite((unshared, estimatedSize + headerSize));
-                if (!didWrite)
-                {
-                    Log.Error("Failed to write packet of type {0} to transport.", packet.PacketType);
-                    unshared.Dispose();
-                }
-                else
-                {
-                    Log.Debug("Successfully wrote packet of type {0} [{1} bytes] to transport.", packet.PacketType, estimatedSize + headerSize);
-                }
-                
-                break;
-            }
-            case MqttProtocolVersion.V5_0:
-            default:
-                throw new NotSupportedException();
-        }
-    }
-    
-    private readonly HashSet<string> _subscribedTopics = new();
-
-
-    public void HandlePacket(MqttPacket packet)
-    {
-        Log.Debug("Received packet of type {0}", packet.PacketType);
-        switch (packet.PacketType)
-        {
-            case MqttPacketType.Publish:
-                var publish = (PublishPacket)packet;
-
-                switch (publish.QualityOfService)
-                {
-                    case QualityOfService.AtLeastOnce:
-                        var pubAck = publish.ToPubAck();
-                        TryPush(pubAck);
-                        break;
-                    case QualityOfService.ExactlyOnce:
-                        var pubRec = publish.ToPubRec();
-                        TryPush(pubRec);
-                        break;
-                }
-
-                // are there any subscribers to this topic?
-                if (_subscribedTopics.Contains(publish.TopicName))
-                {
-                    // if so, we need to propagate this message to them
-                    TryPush(publish);
-                }
-
-                break;
-            case MqttPacketType.PubAck:
-            {
-                // nothing to do here
-                break;
-            }
-            case MqttPacketType.Connect:
-                var connect = (ConnectPacket)packet;
-                var connAck = new ConnAckPacket()
-                {
-                    SessionPresent = true,
-                    ReasonCode = ConnAckReasonCode.Success,
-                    MaximumPacketSize = connect.MaximumPacketSize
-                };
-                TryPush(connAck);
-                break;
-
-            case MqttPacketType.PingReq:
-                var pingResp = PingRespPacket.Instance;
-                TryPush(pingResp);
-                break;
-            case MqttPacketType.Subscribe:
-            {
-                var subscribe = (SubscribePacket)packet;
-                foreach (var topic in subscribe.Topics)
-                {
-                    _subscribedTopics.Add(topic.Topic);
-                }
-
-                var subAck = subscribe.ToSubAckPacket(subscribe.Topics.Select(c =>
-                {
-                    // does realistic validation here
-                    if (!MqttTopicValidator.ValidateSubscribeTopic(c.Topic).IsValid)
-                        return MqttSubscribeReasonCode.TopicFilterInvalid;
-
-                    return c.Options.QoS switch
-                    {
-                        QualityOfService.AtMostOnce => MqttSubscribeReasonCode.GrantedQoS0,
-                        QualityOfService.AtLeastOnce => MqttSubscribeReasonCode.GrantedQoS1,
-                        QualityOfService.ExactlyOnce => MqttSubscribeReasonCode.GrantedQoS2,
-                        _ => MqttSubscribeReasonCode.UnspecifiedError
-                    };
-                }).ToArray());
-
-                TryPush(subAck);
-                break;
-            }
-            case MqttPacketType.PubRec:
-            {
-                var pubRec = (PubRecPacket)packet;
-                var pubRel = pubRec.ToPubRel();
-                TryPush(pubRel);
-                break;
-            }
-            case MqttPacketType.PubRel:
-            {
-                var pubRel = (PubRelPacket)packet;
-                var pubComp = pubRel.ToPubComp();
-                TryPush(pubComp);
-                break;
-            }
-            case MqttPacketType.PubComp:
-            {
-                // nothing to do here
-                break;
-            }
-            case MqttPacketType.Unsubscribe:
-            {
-                var unsubscribe = (UnsubscribePacket)packet;
-                foreach (var topic in unsubscribe.Topics)
-                {
-                    _subscribedTopics.Remove(topic);
-                }
-
-                var unsubAck = new UnsubAckPacket
-                {
-                    PacketId = unsubscribe.PacketId,
-                    ReasonCodes = unsubscribe.Topics.Select(c =>
-                    {
-                        if (!MqttTopicValidator.ValidateSubscribeTopic(c).IsValid)
-                            return MqttUnsubscribeReasonCode.TopicFilterInvalid;
-
-                        return MqttUnsubscribeReasonCode.Success;
-                    }).ToArray()
-                };
-                TryPush(unsubAck);
-                break;
-            }
-            case MqttPacketType.Disconnect:
-                // shut it down
-                _ = CloseAsync();
-                break;
-            default:
-                var ex = new NotSupportedException($"Packet type {packet.PacketType} is not supported by this flow.");
-                Log.Error(ex, "Received unsupported packet type {0}", packet.PacketType);
-                throw ex; 
-        }
-    }
 }
