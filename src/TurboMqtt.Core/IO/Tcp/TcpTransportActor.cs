@@ -12,6 +12,8 @@ using System.Threading.Channels;
 using Akka.Actor;
 using Akka.Event;
 using TurboMqtt.Core.Client;
+using TurboMqtt.Core.PacketTypes;
+using TurboMqtt.Core.Protocol;
 using Debug = System.Diagnostics.Debug;
 
 namespace TurboMqtt.Core.IO;
@@ -448,14 +450,17 @@ internal sealed class TcpTransportActor : UntypedActor
 
     private async Task CleanUpGracefully()
     {
+        // add a simulated DisconnectPacket to help ensure the stream gets terminated
+        _readsFromTransport.Writer.TryWrite(DisconnectToBinary.NormalDisconnectPacket.ToBinary(MqttProtocolVersion.V3_1_1));
+        
         // no more writes to transport
         _writesToTransport.Writer.TryComplete();
 
         // wait for any pending writes to finish
         await _waitForPendingWrites.Task;
-
-        // shut down reads from the transport
-        _readsFromTransport.Writer.TryComplete();
+        
+        // wait for any reads to finish (should be terminated by Akka.Streams once the `DisconnectPacket` is processed.)
+        await _readsFromTransport.Reader.Completion;
 
         _closureSelf.Tell(PoisonPill.Instance);
     }
