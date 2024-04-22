@@ -99,4 +99,9 @@ public sealed record MqttClientConnectOptions
     public TimeSpan PublishRetryInterval { get; init; } = TimeSpan.FromSeconds(5);
 
     public ushort ReceiveMaximum { get; set; }
+    
+    /// <summary>
+    /// When set to <c>true</c> (default), causes each <see cref="IMqttClient"/> to emit OpenTelemetry metrics.
+    /// </summary>
+    public bool EnableOpenTelemetry { get; set; } = true;
 }

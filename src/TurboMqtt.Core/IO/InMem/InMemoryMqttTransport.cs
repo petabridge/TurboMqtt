@@ -54,7 +54,6 @@ internal sealed class InMemoryMqttTransport : IMqttTransport
         _writesToTransport.Writer.TryComplete();
         await _waitForPendingWrites.Task;
         await _shutdownTokenSource.CancelAsync();
-        _shutdownTokenSource.Dispose();
         _readsFromTransport.Writer.TryComplete();
         _terminationSource.TrySetResult(ConnectionTerminatedReason.Normal);
     }
