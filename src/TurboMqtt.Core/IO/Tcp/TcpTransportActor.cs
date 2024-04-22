@@ -489,8 +489,8 @@ internal sealed class TcpTransportActor : UntypedActor
             // stop reading from the socket
             State.ShutDownCts.Cancel();
 
-            _pipe?.Reader.Complete();
-            _pipe?.Writer.Complete();
+            _pipe.Reader.Complete();
+            _pipe.Writer.Complete();
             _tcpClient?.Close();
             _tcpClient?.Dispose();
         }
