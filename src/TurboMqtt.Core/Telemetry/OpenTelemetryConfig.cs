@@ -30,9 +30,7 @@ internal static class OpenTelemetryConfig
         { MqttVersionTag, "5.0" }
     };
     
-    public const string ReceivedMessagesCounterName = "recv_messages";
-    public const string SentMessagesCounterName = "sent_messages";
-    
+    public const string QoSLevelTag = "qos";
     public const string ClientIdTag = "client.id";
     public const string MqttVersionTag = "mqtt.version";
     public const string PacketTypeTag = "packet.type";

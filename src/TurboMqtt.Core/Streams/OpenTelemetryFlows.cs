@@ -5,6 +5,7 @@
 // -----------------------------------------------------------------------
 
 using System.Buffers;
+using System.Diagnostics;
 using System.Diagnostics.Metrics;
 using Akka;
 using Akka.Streams;
@@ -26,9 +27,11 @@ internal static class OpenTelemetryFlows
         var g = new MqttPacketRateTelemetryFlow(version, clientId, direction);
         return g;
     }
-    
-    public static IGraph<FlowShape<(IMemoryOwner<byte> buffer, int readableBytes), (IMemoryOwner<byte> buffer, int readableBytes)>, NotUsed> MqttBitRateTelemetryFlow(
-        string clientId, MqttProtocolVersion version, OpenTelemetryConfig.Direction direction)
+
+    public static
+        IGraph<FlowShape<(IMemoryOwner<byte> buffer, int readableBytes), (IMemoryOwner<byte> buffer, int readableBytes)>
+            , NotUsed> MqttBitRateTelemetryFlow(
+            string clientId, MqttProtocolVersion version, OpenTelemetryConfig.Direction direction)
     {
         var g = new MqttBitRateTelemetryFlow(clientId, version, direction);
         return g;
@@ -39,24 +42,28 @@ internal static class OpenTelemetryFlows
 /// Used to measure the inbound and outbound bit rate of MQTT packets.
 /// </summary>
 internal sealed class MqttBitRateTelemetryFlow : GraphStage<FlowShape<(
-    IMemoryOwner<byte> buffer, int readableBytes), (IMemoryOwner<byte> buffer, int readableBytes)>>{
-    
+    IMemoryOwner<byte> buffer, int readableBytes), (IMemoryOwner<byte> buffer, int readableBytes)>>
+{
     private readonly string _clientId;
     private readonly MqttProtocolVersion _version;
     private readonly OpenTelemetryConfig.Direction _direction;
 
-    public MqttBitRateTelemetryFlow(string clientId, MqttProtocolVersion version, OpenTelemetryConfig.Direction direction)
+    public MqttBitRateTelemetryFlow(string clientId, MqttProtocolVersion version,
+        OpenTelemetryConfig.Direction direction)
     {
         _clientId = clientId;
         _version = version;
         _direction = direction;
-        Shape = new FlowShape<(IMemoryOwner<byte> buffer, int readableBytes), (IMemoryOwner<byte> buffer, int readableBytes)>(In, Out);
+        Shape =
+            new FlowShape<(IMemoryOwner<byte> buffer, int readableBytes), (IMemoryOwner<byte> buffer, int readableBytes
+                )>(In, Out);
     }
-    
+
     public Inlet<(IMemoryOwner<byte> buffer, int readableBytes)> In { get; } = new("MqttBitRateTelemetryFlow.in");
     public Outlet<(IMemoryOwner<byte> buffer, int readableBytes)> Out { get; } = new("MqttBitRateTelemetryFlow.out");
 
-    public override FlowShape<(IMemoryOwner<byte> buffer, int readableBytes), (IMemoryOwner<byte> buffer, int readableBytes)> Shape
+    public override
+        FlowShape<(IMemoryOwner<byte> buffer, int readableBytes), (IMemoryOwner<byte> buffer, int readableBytes)> Shape
     {
         get;
     }
@@ -65,12 +72,12 @@ internal sealed class MqttBitRateTelemetryFlow : GraphStage<FlowShape<(
     {
         return new Logic(this);
     }
-    
+
     private sealed class Logic : InAndOutGraphStageLogic
     {
         private readonly MqttBitRateTelemetryFlow _flow;
         private readonly Counter<long> _bitRateCounter;
-        
+
         public Logic(MqttBitRateTelemetryFlow flow) : base(flow.Shape)
         {
             _flow = flow;
@@ -92,7 +99,6 @@ internal sealed class MqttBitRateTelemetryFlow : GraphStage<FlowShape<(
             Pull(_flow.In);
         }
     }
-    
 }
 
 /// <summary>
@@ -139,9 +145,16 @@ internal sealed class MqttPacketRateTelemetryFlow : GraphStage<FlowShape<MqttPac
         {
             var msg = Grab(_flow.In);
 
-            // record the packet type
+            var tagList = new TagList { { OpenTelemetryConfig.PacketTypeTag, msg.PacketType } };
+
+            // record the packet type and QoS level for publish packets
+            if (msg.PacketType == MqttPacketType.Publish)
+            {
+                tagList.Add(OpenTelemetryConfig.QoSLevelTag, msg.QualityOfService);
+            }
+
             _msgCounter.Add(1,
-                new KeyValuePair<string, object?>(OpenTelemetryConfig.PacketTypeTag, msg.PacketType.ToString()));
+                tagList);
 
             Push(_flow.Out, msg);
         }
