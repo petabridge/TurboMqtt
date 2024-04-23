@@ -27,14 +27,15 @@ internal sealed class ClientStreamOwner : UntypedActor
     /// <summary>
     /// Used to create a new client.
     /// </summary>
-    /// <param name="Transport">The underlying transport we're going to use to communicate with the broker.</param>
-    public sealed record CreateClient(IMqttTransport Transport, MqttClientConnectOptions ConnectOptions)
+    /// <param name="TransportManager">Used to create the underlying transport we're going to use to communicate with the broker.</param>
+    public sealed record CreateClient(IMqttTransportManager TransportManager, MqttClientConnectOptions ConnectOptions)
         : INoSerializationVerificationNeeded;
 
     private IActorRef? _exactlyOnceActor;
     private IActorRef? _atLeastOnceActor;
     private IActorRef? _clientAckActor;
     private IActorRef? _heartBeatActor;
+    private IMqttTransportManager? _transportManager;
     private IMqttClient? _client;
     private Channel<MqttPacket>? _outboundChannel;
     private Channel<MqttMessage>? _inboundChannel;
@@ -49,6 +50,7 @@ internal sealed class ClientStreamOwner : UntypedActor
         {
             case CreateClient createClient when _client is null:
             {
+                _transportManager = createClient.TransportManager;
                 var clientConnectOptions = createClient.ConnectOptions;
 
                 // outbound channel for packets
@@ -86,15 +88,21 @@ internal sealed class ClientStreamOwner : UntypedActor
                 // prepare the streams
                 var requiredActors = new MqttRequiredActors(_exactlyOnceActor, _atLeastOnceActor, _clientAckActor,
                     _heartBeatActor);
+                
+                // create the transport instance and begin the streams
+                using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(3));
+                
+                // have the task run synchronously just to keep things simple around here
+                var transport = _transportManager.CreateTransportAsync(cts.Token).Result;
 
                 var (inboundStream, outboundStream) = ConfigureMqttStreams(clientConnectOptions, createClient,
-                    outboundPackets, requiredActors, createClient.Transport.MaxFrameSize);
+                    outboundPackets, requiredActors, transport.MaxFrameSize);
 
                 // begin outbound stream
                 ChannelSource.FromReader(outboundPacketsReader)
                     .To(outboundStream)
                     .Run(_materializer);
-                
+
                 // check for streams termination
                 var watchTermination = Flow.Create<MqttMessage>()
                     .WatchTermination((_, done) =>
@@ -102,8 +110,8 @@ internal sealed class ClientStreamOwner : UntypedActor
                         done.ContinueWith(t =>
                         {
                             // TODO: replace this with recreating the transport
-                            _log.Warning("Transport was terminated by broker. Shutting down client.");
-                            createClient.Transport.CloseAsync();
+                            _log.Warning("TransportManager was terminated by broker. Shutting down client.");
+                            createClient.TransportManager.CloseAsync();
                         }, TaskContinuationOptions.ExecuteSynchronously);
                         return NotUsed.Instance;
                     });
@@ -114,7 +122,7 @@ internal sealed class ClientStreamOwner : UntypedActor
                     .To(ChannelSink.FromWriter(_inboundChannel.Writer, true))
                     .Run(_materializer);
 
-                _client = new MqttClient(createClient.Transport,
+                _client = new MqttClient(createClient.TransportManager,
                     Self,
                     requiredActors,
                     _inboundChannel.Reader,
@@ -154,14 +162,14 @@ internal sealed class ClientStreamOwner : UntypedActor
             {
                 var inboundMessages = MqttClientStreams.Mqtt311InboundMessageSource(
                     createClient.ConnectOptions.ClientId,
-                    createClient.Transport,
+                    createClient.TransportManager,
                     outboundPackets,
                     requiredActors,
                     clientConnectOptions.MaxRetainedPacketIds, clientConnectOptions.MaxPacketIdRetentionTime);
 
                 var outboundMessages = MqttClientStreams.Mqtt311OutboundPacketSink(
                     createClient.ConnectOptions.ClientId,
-                    createClient.Transport,
+                    createClient.TransportManager,
                     MemoryPool<byte>.Shared,
                     maxFrameSize, (int)clientConnectOptions.MaximumPacketSize);
 
