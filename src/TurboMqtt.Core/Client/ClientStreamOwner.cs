@@ -25,6 +25,17 @@ namespace TurboMqtt.Core.Client;
 internal sealed class ClientStreamOwner : UntypedActor
 {
     /// <summary>
+    /// Performs a graceful disconnect of the client.
+    /// </summary>
+    public sealed record DoDisconnect(CancellationToken CancellationToken);
+    
+    public sealed class DisconnectComplete
+    {
+        public static readonly DisconnectComplete Instance = new();
+        private DisconnectComplete() { }
+    }
+    
+    /// <summary>
     /// Used to create a new client.
     /// </summary>
     /// <param name="TransportManager">Creates the transport we're going to use to communicate with the broker.</param>
@@ -146,6 +157,23 @@ internal sealed class ClientStreamOwner : UntypedActor
     {
         switch (message)
         {
+            case DoDisconnect doDisconnect:
+            {
+                _log.Info("Disconnecting client...");
+
+                async Task ExecDisconnect()
+                {
+                    var sender = Sender;
+                    var self = Self;
+                    await _currentTransport!.CloseAsync(doDisconnect.CancellationToken);
+                    sender.Tell(DisconnectComplete.Instance);
+                    self.Tell(PoisonPill.Instance); // shut ourselves down
+                }
+                
+                var _ = ExecDisconnect();
+                
+                break;
+            }
             case CreateClient:
                 // Just resend the existing client
                 Sender.Tell(_client);

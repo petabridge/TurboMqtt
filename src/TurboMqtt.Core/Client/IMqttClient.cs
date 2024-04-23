@@ -255,7 +255,7 @@ public sealed class MqttClient : IMqttClient
         
         // begin the shutdown of the transport - internally, the transport should guarantee
         // that all pending writes are flushed before the connection is closed
-        await _transport.CloseAsync(cancellationToken);
+        await _clientOwner.Ask<ClientStreamOwner.DisconnectComplete>(new ClientStreamOwner.DoDisconnect(cancellationToken), cancellationToken);
 
         // the broker SHOULD disconnect from us
         try
