@@ -71,7 +71,7 @@ internal sealed class TcpTransport : IMqttTransport
     public Task CloseAsync(CancellationToken ct = default)
     {
         var watch = _connectionActor.WatchAsync(ct);
-        Writer.TryComplete(); // mark the writer as complete
+         // mark the writer as complete
         _connectionActor.Tell(new TcpTransportActor.DoClose(ct));
         return watch;
     }

@@ -114,7 +114,6 @@ internal sealed class TcpTransportActor : UntypedActor
         Channel.CreateUnbounded<(IMemoryOwner<byte> buffer, int readableBytes)>();
 
     private readonly TaskCompletionSource<ConnectionTerminatedReason> _whenTerminated = new();
-    private readonly TaskCompletionSource<bool> _waitForPendingWrites = new();
     private readonly ILoggingAdapter _log = Context.GetLogger();
 
     private readonly Pipe _pipe;
@@ -125,7 +124,7 @@ internal sealed class TcpTransportActor : UntypedActor
         MaxFrameSize = tcpOptions.MaxFrameSize;
 
         State = new ConnectionState(_writesToTransport.Writer, _readsFromTransport.Reader, _whenTerminated.Task,
-            MaxFrameSize, _waitForPendingWrites.Task);
+            MaxFrameSize, _writesToTransport.Reader.Completion); // we signal completion when _writesToTransport is done
 
         _pipe = new Pipe(new PipeOptions(pauseWriterThreshold: MaxFrameSize, resumeWriterThreshold: MaxFrameSize / 2,
             useSynchronizationContext: false));
@@ -343,7 +342,7 @@ internal sealed class TcpTransportActor : UntypedActor
         }
 
         WritesFinished:
-            _waitForPendingWrites.TrySetResult(true);
+            _writesToTransport.Writer.TryComplete(); // can't write anymore either
     }
 
     private async Task DoWriteToPipeAsync(CancellationToken ct)
@@ -460,7 +459,7 @@ internal sealed class TcpTransportActor : UntypedActor
         _writesToTransport.Writer.TryComplete();
 
         // wait for any pending writes to finish
-        await _waitForPendingWrites.Task;
+        await State.WaitForPendingWrites;
 
         if (waitOnReads)
         {
@@ -525,7 +524,6 @@ internal sealed class TcpTransportActor : UntypedActor
 
         // let upstairs know we're done
         _whenTerminated.TrySetResult(reason);
-        _waitForPendingWrites.TrySetResult(true);
     }
 
     protected override void PostStop()

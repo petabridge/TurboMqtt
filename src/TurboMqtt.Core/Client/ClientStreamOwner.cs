@@ -122,7 +122,7 @@ internal sealed class ClientStreamOwner : UntypedActor
                         {
                             // TODO: replace this with recreating the transport
                             _log.Warning("Transport was terminated by broker. Shutting down client.");
-                            _currentTransport.CloseAsync();
+                            _currentTransport.AbortAsync();
                         }, TaskContinuationOptions.ExecuteSynchronously);
                         return NotUsed.Instance;
                     });
