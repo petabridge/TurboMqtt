@@ -5,6 +5,7 @@
 // -----------------------------------------------------------------------
 
 using System.Buffers;
+using System.Collections.Concurrent;
 using System.Net;
 using System.Net.Sockets;
 using Akka.Event;
@@ -45,6 +46,7 @@ internal sealed class FakeMqttTcpServer
     private readonly MqttTcpServerOptions _options;
     private readonly CancellationTokenSource _shutdownTcs = new();
     private readonly ILoggingAdapter _log;
+    private readonly ConcurrentDictionary<string, CancellationTokenSource> _clientCts = new();
     private Socket? bindSocket;
 
     public FakeMqttTcpServer(MqttTcpServerOptions options, MqttProtocolVersion version, ILoggingAdapter log)
@@ -78,14 +80,25 @@ internal sealed class FakeMqttTcpServer
                 SendBufferSize = _options.MaxFrameSize * 2
             };
         }
-       
+
         var hostAddress = Dns.GetHostAddresses(_options.Host).First();
-        
+
         bindSocket.Bind(new IPEndPoint(hostAddress, _options.Port));
         bindSocket.Listen(10);
 
         // begin the accept loop
         var _ = BeginAcceptAsync();
+    }
+
+    public bool TryKickClient(string clientId)
+    {
+        if (_clientCts.TryRemove(clientId, out var cts))
+        {
+            cts.Cancel();
+            return true;
+        }
+
+        return false;
     }
 
     public void Shutdown()
@@ -106,7 +119,7 @@ internal sealed class FakeMqttTcpServer
         while (!_shutdownTcs.IsCancellationRequested)
         {
             var socket = await bindSocket!.AcceptAsync();
-            var _ = ProcessClientAsync(socket);
+            _ = ProcessClientAsync(socket);
         }
     }
 
@@ -117,12 +130,21 @@ internal sealed class FakeMqttTcpServer
             Memory<byte> buffer = new byte[_options.MaxFrameSize];
 
             var handle = new FakeMqtt311ServerHandle(PushMessage, ClosingAction, _log);
-
-            while (!_shutdownTcs.IsCancellationRequested)
+            var clientShutdownCts = new CancellationTokenSource();
+            _ = handle.WhenClientIdAssigned.ContinueWith(t =>
+            {
+                if (t.IsCompletedSuccessfully)
+                {
+                    _clientCts.TryAdd(t.Result, clientShutdownCts);
+                }
+            }, clientShutdownCts.Token);
+            
+            var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(clientShutdownCts.Token, _shutdownTcs.Token);
+            while (!linkedCts.IsCancellationRequested)
             {
                 try
                 {
-                    var bytesRead = await socket.ReceiveAsync(buffer, SocketFlags.None, _shutdownTcs.Token);
+                    var bytesRead = await socket.ReceiveAsync(buffer, SocketFlags.None, linkedCts.Token);
                     if (bytesRead == 0)
                     {
                         socket.Close();
@@ -137,7 +159,7 @@ internal sealed class FakeMqttTcpServer
                     _log.Warning("Server shutting down...");
                 }
             }
-            
+
             // send a disconnect message
             handle.DisconnectFromServer();
 

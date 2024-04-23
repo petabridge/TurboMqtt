@@ -34,6 +34,8 @@ public abstract class TransportSpecBase : TestKit
     public MqttClientFactory ClientFactory { get; }
     
     public abstract Task<IMqttClient> CreateClient();
+    
+    public const string DefaultTopic = "topic";
 
     [Fact]
     public async Task ShouldConnectAndDisconnect()
@@ -51,7 +53,7 @@ public abstract class TransportSpecBase : TestKit
     {
         new MqttMessage[]
         {
-            new MqttMessage("topic", "hello world")
+            new MqttMessage(DefaultTopic, "hello world")
             {
                 QoS = QualityOfService.AtMostOnce,
                 Retain = false,
@@ -59,17 +61,17 @@ public abstract class TransportSpecBase : TestKit
         },
         new MqttMessage[]
         {
-            new MqttMessage("topic", "hello world 1")
+            new MqttMessage(DefaultTopic, "hello world 1")
             {
                 QoS = QualityOfService.AtMostOnce,
                 Retain = false,
             },
-            new MqttMessage("topic", "hello world 2")
+            new MqttMessage(DefaultTopic, "hello world 2")
             {
                 QoS = QualityOfService.AtMostOnce,
                 Retain = false,
             },
-            new MqttMessage("topic", "hello world 3")
+            new MqttMessage(DefaultTopic, "hello world 3")
             {
                 QoS = QualityOfService.AtMostOnce,
                 Retain = false,
@@ -77,7 +79,7 @@ public abstract class TransportSpecBase : TestKit
         },
         new MqttMessage[]
         {
-            new MqttMessage("topic", "hello world 1")
+            new MqttMessage(DefaultTopic, "hello world 1")
             {
                 QoS = QualityOfService.AtLeastOnce,
                 Retain = false,
@@ -85,7 +87,7 @@ public abstract class TransportSpecBase : TestKit
         },
         new MqttMessage[]
         {
-            new MqttMessage("topic", "hello world 1")
+            new MqttMessage(DefaultTopic, "hello world 1")
             {
                 QoS = QualityOfService.ExactlyOnce,
                 Retain = false,
@@ -123,7 +125,7 @@ public abstract class TransportSpecBase : TestKit
         var connectResult = await client.ConnectAsync(cts.Token);
         connectResult.IsSuccess.Should().BeTrue();
 
-        var subscribeResult = await client.SubscribeAsync("topic", QualityOfService.AtLeastOnce, cts.Token);
+        var subscribeResult = await client.SubscribeAsync(DefaultTopic, QualityOfService.AtLeastOnce, cts.Token);
         subscribeResult.IsSuccess.Should().BeTrue();
 
         var receivedMessages = new List<MqttMessage>();

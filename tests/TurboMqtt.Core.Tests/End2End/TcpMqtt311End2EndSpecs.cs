@@ -41,14 +41,34 @@ public class TcpMqtt311End2EndSpecs : TransportSpecBase
     }
 
     [Fact]
-    public async Task ShouldHandleServerDisconnect()
+    public async Task ShouldAutomaticallyReconnectandSubscribeAfterServerDisconnect()
     {
         var client = await ClientFactory.CreateTcpClient(DefaultConnectOptions, DefaultTcpOptions);
 
         using var cts = new CancellationTokenSource(RemainingOrDefault);
         var connectResult = await client.ConnectAsync(cts.Token);
         connectResult.IsSuccess.Should().BeTrue();
-        _server.Shutdown();
+        
+        // subscribe
+        var subResult = await client.SubscribeAsync(DefaultTopic, QualityOfService.AtLeastOnce, cts.Token);
+        subResult.IsSuccess.Should().BeTrue();
+        
+        // kick the client
+        _server.TryKickClient(DefaultConnectOptions.ClientId).Should().BeTrue();
+        
+        // automatic reconnect should be happening behind the scenes - attempt to publish a message we will receive
+        var mqttMessage = new MqttMessage(DefaultTopic, "hello, world!") { QoS = QualityOfService.AtLeastOnce };
+        var pubResult = await client.PublishAsync(mqttMessage, cts.Token);
+        pubResult.IsSuccess.Should().BeTrue();
+        
+        // now we should receive the message
+        (await client.ReceivedMessages.WaitToReadAsync(cts.Token)).Should().BeTrue();
+        client.ReceivedMessages.TryRead(out var receivedMessage).Should().BeTrue();
+        receivedMessage!.Topic.Should().Be(DefaultTopic);
+
+        // shut down
+        await client.DisconnectAsync(cts.Token);
+        
         await client.WhenTerminated.WaitAsync(cts.Token);
     }
 }
