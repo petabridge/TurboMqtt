@@ -9,7 +9,7 @@ using System.Threading.Channels;
 using Akka.Actor;
 using Akka.Event;
 
-namespace TurboMqtt.Core.IO;
+namespace TurboMqtt.Core.IO.Tcp;
 
 /// <summary>
 /// TCP implementation of <see cref="IMqttTransport"/>.

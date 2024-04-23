@@ -6,6 +6,7 @@
 
 using TurboMqtt.Core.Client;
 using TurboMqtt.Core.IO;
+using TurboMqtt.Core.IO.Tcp;
 using TurboMqtt.Core.Protocol;
 using Xunit.Abstractions;
 

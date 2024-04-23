@@ -8,10 +8,9 @@ using System.Buffers;
 using System.Net;
 using System.Net.Sockets;
 using Akka.Event;
-using Akka.Streams.Implementation.Fusing;
 using TurboMqtt.Core.Protocol;
 
-namespace TurboMqtt.Core.IO;
+namespace TurboMqtt.Core.IO.Tcp;
 
 internal sealed class MqttTcpServerOptions
 {

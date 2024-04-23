@@ -11,13 +11,13 @@ using Akka.Actor;
 using Akka.Event;
 using Akka.Streams;
 using Akka.Streams.Dsl;
-using TurboMqtt.Core.Client;
 using TurboMqtt.Core.IO;
 using TurboMqtt.Core.PacketTypes;
 using TurboMqtt.Core.Protocol;
 using TurboMqtt.Core.Protocol.Pub;
+using TurboMqtt.Core.Streams;
 
-namespace TurboMqtt.Core.Streams;
+namespace TurboMqtt.Core.Client;
 
 /// <summary>
 /// Actor responsible for owning a client's streams and child actors.

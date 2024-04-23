@@ -6,6 +6,8 @@
 
 using Akka.Actor;
 using TurboMqtt.Core.IO;
+using TurboMqtt.Core.IO.InMem;
+using TurboMqtt.Core.IO.Tcp;
 using TurboMqtt.Core.PacketTypes;
 using TurboMqtt.Core.Protocol;
 using TurboMqtt.Core.Streams;

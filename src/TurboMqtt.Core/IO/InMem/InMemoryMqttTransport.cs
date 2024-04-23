@@ -7,10 +7,9 @@
 using System.Buffers;
 using System.Threading.Channels;
 using Akka.Event;
-using TurboMqtt.Core.PacketTypes;
 using TurboMqtt.Core.Protocol;
 
-namespace TurboMqtt.Core.IO;
+namespace TurboMqtt.Core.IO.InMem;
 
 
 

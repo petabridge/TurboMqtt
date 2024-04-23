@@ -6,9 +6,8 @@
 
 using TurboMqtt.Core.PacketTypes;
 using TurboMqtt.Core.Protocol;
-using TurboMqtt.Core.Tests.Packets;
 
-namespace TurboMqtt.Core.Tests.Protocol;
+namespace TurboMqtt.Core.Tests.Packets.Connect;
 
 /// <summary>
 /// Tests encoding and decoding of messages using the MQTT 3.1.1 protocol.

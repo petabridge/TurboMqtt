@@ -12,11 +12,10 @@ using System.Threading.Channels;
 using Akka.Actor;
 using Akka.Event;
 using TurboMqtt.Core.Client;
-using TurboMqtt.Core.PacketTypes;
 using TurboMqtt.Core.Protocol;
 using Debug = System.Diagnostics.Debug;
 
-namespace TurboMqtt.Core.IO;
+namespace TurboMqtt.Core.IO.Tcp;
 
 /// <summary>
 /// Actor responsible for managing the TCP transport layer for MQTT.
