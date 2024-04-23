@@ -9,6 +9,7 @@ using System.Threading.Channels;
 using Akka.Actor;
 using Akka.Event;
 using TurboMqtt.Core.Client;
+using TurboMqtt.Core.PacketTypes;
 using TurboMqtt.Core.Protocol;
 
 namespace TurboMqtt.Core.IO.Tcp;
@@ -64,7 +65,7 @@ internal sealed class TcpTransport : IMqttTransport
     private TcpTransportActor.ConnectionState State { get; }
     private readonly IActorRef _connectionActor;
 
-    public Task<ConnectionTerminatedReason> WhenTerminated => State.WhenTerminated;
+    public Task<DisconnectReasonCode> WhenTerminated => State.WhenTerminated;
     
     public Task WaitForPendingWrites => State.WaitForPendingWrites;
 

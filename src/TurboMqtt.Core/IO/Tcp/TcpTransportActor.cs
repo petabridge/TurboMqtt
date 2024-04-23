@@ -12,6 +12,7 @@ using System.Threading.Channels;
 using Akka.Actor;
 using Akka.Event;
 using TurboMqtt.Core.Client;
+using TurboMqtt.Core.PacketTypes;
 using TurboMqtt.Core.Protocol;
 using Debug = System.Diagnostics.Debug;
 
@@ -34,7 +35,7 @@ internal sealed class TcpTransportActor : UntypedActor
     {
         public ConnectionState(ChannelWriter<(IMemoryOwner<byte> buffer, int readableBytes)> writer,
             ChannelReader<(IMemoryOwner<byte> buffer, int readableBytes)> reader,
-            Task<ConnectionTerminatedReason> whenTerminated, int maxFrameSize, Task waitForPendingWrites)
+            Task<DisconnectReasonCode> whenTerminated, int maxFrameSize, Task waitForPendingWrites)
         {
             Writer = writer;
             Reader = reader;
@@ -49,7 +50,7 @@ internal sealed class TcpTransportActor : UntypedActor
 
         public int MaxFrameSize { get; }
 
-        public Task<ConnectionTerminatedReason> WhenTerminated { get; }
+        public Task<DisconnectReasonCode> WhenTerminated { get; }
 
         public Task WaitForPendingWrites { get; }
 
@@ -96,7 +97,7 @@ internal sealed class TcpTransportActor : UntypedActor
     /// </summary>
     /// <param name="Reason"></param>
     /// <param name="ReasonMessage"></param>
-    public sealed record ConnectionUnexpectedlyClosed(ConnectionTerminatedReason Reason, string ReasonMessage);
+    public sealed record ConnectionUnexpectedlyClosed(DisconnectReasonCode Reason, string ReasonMessage);
 
     #endregion
 
@@ -113,7 +114,7 @@ internal sealed class TcpTransportActor : UntypedActor
     private readonly Channel<(IMemoryOwner<byte> buffer, int readableBytes)> _readsFromTransport =
         Channel.CreateUnbounded<(IMemoryOwner<byte> buffer, int readableBytes)>();
 
-    private readonly TaskCompletionSource<ConnectionTerminatedReason> _whenTerminated = new();
+    private readonly TaskCompletionSource<DisconnectReasonCode> _whenTerminated = new();
     private readonly ILoggingAdapter _log = Context.GetLogger();
 
     private readonly Pipe _pipe;
@@ -333,7 +334,7 @@ internal sealed class TcpTransportActor : UntypedActor
             {
                 _log.Error(ex, "Failed to write to socket.");
                 // we are done writing
-                _closureSelf.Tell(new ConnectionUnexpectedlyClosed(ConnectionTerminatedReason.Error, ex.Message));
+                _closureSelf.Tell(new ConnectionUnexpectedlyClosed(DisconnectReasonCode.UnspecifiedError, ex.Message));
                 // socket was closed
                 // abort ongoing reads and writes, but don't shutdown the transport
                 await State.ShutDownCts.CancelAsync();
@@ -373,7 +374,7 @@ internal sealed class TcpTransportActor : UntypedActor
             {
                 _log.Error(ex, "Failed to read from socket.");
                 // we are done reading
-                _closureSelf.Tell(new ConnectionUnexpectedlyClosed(ConnectionTerminatedReason.Error, ex.Message));
+                _closureSelf.Tell(new ConnectionUnexpectedlyClosed(DisconnectReasonCode.UnspecifiedError, ex.Message));
                 // socket was closed
                 // abort ongoing reads and writes, but don't shutdown the transport
                 await State.ShutDownCts.CancelAsync();
@@ -506,7 +507,7 @@ internal sealed class TcpTransportActor : UntypedActor
     /// <summary>
     /// This is for when we run out of retries or we were explicitly told to close the connection.
     /// </summary>
-    private void FullShutdown(ConnectionTerminatedReason reason = ConnectionTerminatedReason.Normal)
+    private void FullShutdown(DisconnectReasonCode reason = DisconnectReasonCode.NormalDisconnection)
     {
         // mark the channels as complete (should have already been done by the time we get here, but doesn't hurt)
         _writesToTransport.Writer.TryComplete();
@@ -514,9 +515,9 @@ internal sealed class TcpTransportActor : UntypedActor
 
         var newStatus = reason switch
         {
-            ConnectionTerminatedReason.Error => ConnectionStatus.Failed,
-            ConnectionTerminatedReason.Normal => ConnectionStatus.Disconnected,
-            ConnectionTerminatedReason.CouldNotConnect => ConnectionStatus.Failed,
+            DisconnectReasonCode.ServerShuttingDown => ConnectionStatus.Disconnected,
+            DisconnectReasonCode.NormalDisconnection => ConnectionStatus.Disconnected,
+            DisconnectReasonCode.UnspecifiedError => ConnectionStatus.Failed,
             _ => ConnectionStatus.Aborted
         };
 

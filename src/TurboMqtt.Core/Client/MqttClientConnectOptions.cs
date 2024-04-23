@@ -104,4 +104,9 @@ public sealed record MqttClientConnectOptions
     /// When set to <c>true</c> (default), causes each <see cref="IMqttClient"/> to emit OpenTelemetry metrics.
     /// </summary>
     public bool EnableOpenTelemetry { get; set; } = true;
+
+    /// <summary>
+    /// Maximum number of consecutive times we should attempt to reconnect to the broker before giving up.
+    /// </summary>
+    public int MaxReconnectAttempts { get; set; } = 3;
 }

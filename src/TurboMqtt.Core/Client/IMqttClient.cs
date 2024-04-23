@@ -122,13 +122,24 @@ public interface IMqttClient : IAsyncDisposable
     /// <remarks>
     /// Does not cause the connection to terminate - just waits for it to finish.
     /// </remarks>
-    public Task<ConnectionTerminatedReason> WhenTerminated { get; }
+    public Task<DisconnectReasonCode> WhenTerminated { get; }
+}
+
+/// <summary>
+/// INTERNAL API
+/// </summary>
+internal interface IInternalMqttClient : IMqttClient
+{
+    /// <summary>
+    /// Needed to power the ability to swap out the transport during reconnect scenarios.
+    /// </summary>
+    void SwapTransport(IMqttTransport newTransport);
 }
 
 /// <summary>
 /// Default MQTT client implementation
 /// </summary>
-public sealed class MqttClient : IMqttClient
+public sealed class MqttClient : IInternalMqttClient
 {
     private readonly MqttClientConnectOptions _options;
     private IMqttTransport _transport;
@@ -140,7 +151,7 @@ public sealed class MqttClient : IMqttClient
 
     internal MqttClient(IMqttTransport transport, IActorRef clientOwner, MqttRequiredActors requiredActors,
         ChannelReader<MqttMessage> messageReader, ChannelWriter<MqttPacket> packetWriter, ILoggingAdapter log,
-        MqttClientConnectOptions options, Task<ConnectionTerminatedReason> trueDeath)
+        MqttClientConnectOptions options, Task<DisconnectReasonCode> trueDeath)
     {
         _transport = transport;
         _clientOwner = clientOwner;
@@ -156,7 +167,7 @@ public sealed class MqttClient : IMqttClient
     /// Used to swap out the transport for a new one during reconnect scenarios.
     /// </summary>
     /// <param name="newTransport">The replacement transport</param>
-    internal void SwapTransport(IMqttTransport newTransport)
+    void IInternalMqttClient.SwapTransport(IMqttTransport newTransport)
     {
         _transport = newTransport;
     }
@@ -403,6 +414,7 @@ public sealed class MqttClient : IMqttClient
         // Violates MQTT spec - we should never have a packet ID of 0 on Subscribe or Unsubscribe
         System.Diagnostics.Debug.Assert(subscribePacket.PacketId != 0, "PacketId should not be 0");
 
+        _clientOwner.Tell(subscribePacket); // for reconnect support
         var askTask = _requiredActors.ClientAck.Ask<IAckResponse>(subscribePacket, cancellationToken);
 
         // flush the packet to the wire
@@ -447,7 +459,7 @@ public sealed class MqttClient : IMqttClient
         
         // Violates MQTT spec - we should never have a packet ID of 0 on Subscribe or Unsubscribe
         System.Diagnostics.Debug.Assert(unsubscribePacket.PacketId != 0, "PacketId should not be 0");
-
+        _clientOwner.Tell(unsubscribePacket); // for reconnect support
         var askTask = _requiredActors.ClientAck.Ask<IAckResponse>(unsubscribePacket, cancellationToken);
 
         // flush the packet to the wire
@@ -472,7 +484,7 @@ public sealed class MqttClient : IMqttClient
         }
     }
 
-    public Task<ConnectionTerminatedReason> WhenTerminated { get; }
+    public Task<DisconnectReasonCode> WhenTerminated { get; }
 
     public async ValueTask DisposeAsync()
     {

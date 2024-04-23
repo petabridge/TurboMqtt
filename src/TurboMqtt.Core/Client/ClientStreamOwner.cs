@@ -56,19 +56,20 @@ internal sealed class ClientStreamOwner : UntypedActor
     private IActorRef? _atLeastOnceActor;
     private IActorRef? _clientAckActor;
     private IActorRef? _heartBeatActor;
-    private IMqttClient? _client;
+    private IInternalMqttClient? _client;
     private IMqttTransportManager? _transportManager;
     private IMqttTransport? _currentTransport;
     private Channel<MqttPacket>? _outboundChannel;
     private Channel<MqttMessage>? _inboundChannel;
-    private readonly TaskCompletionSource<ConnectionTerminatedReason> _trueDeath = new();
+    private readonly TaskCompletionSource<DisconnectReasonCode> _trueDeath = new();
 
     private readonly IMaterializer _materializer = Context.Materializer();
     private readonly ILoggingAdapter _log = Context.GetLogger();
     
     /* Data we need for automatic reconnects */
-    private ConnectPacket? _savedConnectPacket;
+    private MqttClientConnectOptions? _connectOptions;
     private Dictionary<string, TopicSubscription> _savedSubscriptions = new();
+    private int _remainingReconnectAttempts = 3;
 
     protected override void OnReceive(object message)
     {
@@ -79,6 +80,8 @@ internal sealed class ClientStreamOwner : UntypedActor
                 _transportManager = createClient.TransportManager;
 
                 var clientConnectOptions = createClient.ConnectOptions;
+                _connectOptions = clientConnectOptions;
+                _remainingReconnectAttempts = clientConnectOptions.MaxReconnectAttempts;
 
                 // outbound channel for packets
                 _outboundChannel =
@@ -185,12 +188,6 @@ internal sealed class ClientStreamOwner : UntypedActor
         switch (message)
         {
             /* Memorization methods - need this data for reconnects */
-            
-            case ConnectPacket connectPacket:
-            {
-                _savedConnectPacket = connectPacket;
-                break;
-            }
             case SubscribePacket subscribePacket:
             {
                 foreach(var s in subscribePacket.Topics)
@@ -206,10 +203,12 @@ internal sealed class ClientStreamOwner : UntypedActor
             
             /* Connection handling methods */
             
-            case ServerDisconnect serverDisconnect:
+            case ServerDisconnect serverDisconnect when _remainingReconnectAttempts > 0:
             {
                 _log.Info("Server disconnected the client. Reason: {0}", serverDisconnect.Reason);
+                _ = _currentTransport?.AbortAsync(); // have to force old resources to close
                 _currentTransport = null; // null out the old transport
+                _remainingReconnectAttempts--;
 
                 // TODO: determine if this is an irrecoverable broker error
                 // if it is, we need to shut down the client
@@ -218,8 +217,58 @@ internal sealed class ClientStreamOwner : UntypedActor
                 // time to recreate the transport
                 _currentTransport = _transportManager!.CreateTransportAsync().GetAwaiter().GetResult();
                 
-                // need to reconnect the streams
+                // swap transports
+                _client!.SwapTransport(_currentTransport);
                 
+                var requiredActors = new MqttRequiredActors(_exactlyOnceActor!, _atLeastOnceActor!, _clientAckActor!,
+                    _heartBeatActor!);
+                
+                // need to reconnect the streams
+                PrepareStream(_connectOptions!, _currentTransport, _outboundChannel!.Writer, requiredActors, _outboundChannel!.Reader);
+
+                var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+                _ = DoReconnect(cts.Token);
+                
+                break;
+
+                // reconnect the client using the client with the new transport
+                async Task DoReconnect(CancellationToken ct)
+                {
+                    var self = Self;
+                    try
+                    {
+                        var resp =await _client!.ConnectAsync(ct);
+                        if (!resp.IsSuccess)
+                        {
+                            _log.Warning("Failed to reconnect client. Reason: {0}", resp.Reason);
+                            self.Tell(new ServerDisconnect(DisconnectReasonCode.UnspecifiedError));
+                        }
+                    
+                        // for each of our subscriptions, we need to resubscribe
+                        var subscribeResp = await _client.SubscribeAsync(_savedSubscriptions.Values.ToArray(), ct);
+                        if (!subscribeResp.IsSuccess)
+                        {
+                            _log.Warning("Failed to resubscribe to topics. Reason: {0}", subscribeResp.Reason);
+                            self.Tell(new ServerDisconnect(DisconnectReasonCode.UnspecifiedError));
+                        }
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        _log.Warning("Reconnect operation timed out. Aborting transport.");
+                        // ReSharper disable once MethodSupportsCancellation
+                        _ = _currentTransport!.AbortAsync();
+                    }
+                }
+            }
+            
+            case ServerDisconnect serverDisconnect when _remainingReconnectAttempts == 0:
+            {
+                _log.Info("Server disconnected the client. Reason: {0}", serverDisconnect.Reason);
+                _log.Info("Client has exhausted all reconnect attempts. Shutting down.");
+                Context.Stop(Self);
+                
+                
+                _trueDeath.TrySetResult(DisconnectReasonCode.UnspecifiedError);
                 break;
             }
             
@@ -308,6 +357,6 @@ internal sealed class ClientStreamOwner : UntypedActor
         // force both channels to complete - this will shut down the streams and the transport
         _outboundChannel?.Writer.TryComplete();
         _inboundChannel?.Writer.TryComplete();
-        _trueDeath.TrySetResult(ConnectionTerminatedReason.Normal);
+        _trueDeath.TrySetResult(DisconnectReasonCode.NormalDisconnection);
     }
 }

@@ -7,6 +7,7 @@
 using System.Buffers;
 using System.Threading.Channels;
 using Akka.Event;
+using TurboMqtt.Core.PacketTypes;
 using TurboMqtt.Core.Protocol;
 
 namespace TurboMqtt.Core.IO.InMem;
@@ -38,7 +39,7 @@ internal sealed class InMemoryMqttTransportManager : IMqttTransportManager
 /// </summary>
 internal sealed class InMemoryMqttTransport : IMqttTransport
 {
-    private readonly TaskCompletionSource<ConnectionTerminatedReason> _terminationSource = new();
+    private readonly TaskCompletionSource<DisconnectReasonCode> _terminationSource = new();
 
     private readonly Channel<(IMemoryOwner<byte> buffer, int readableBytes)> _writesToTransport =
         Channel.CreateUnbounded<(IMemoryOwner<byte> buffer, int readableBytes)>();
@@ -77,7 +78,7 @@ internal sealed class InMemoryMqttTransport : IMqttTransport
     public ILoggingAdapter Log { get; }
     public ConnectionStatus Status { get; private set; } = ConnectionStatus.NotStarted;
 
-    public Task<ConnectionTerminatedReason> WhenTerminated => _terminationSource.Task;
+    public Task<DisconnectReasonCode> WhenTerminated => _terminationSource.Task;
     
     private readonly TaskCompletionSource<bool> _waitForPendingWrites = new();
     public Task WaitForPendingWrites => _waitForPendingWrites.Task;
@@ -91,7 +92,7 @@ internal sealed class InMemoryMqttTransport : IMqttTransport
         await _waitForPendingWrites.Task;
         await _shutdownTokenSource.CancelAsync();
         _readsFromTransport.Writer.TryComplete();
-        _terminationSource.TrySetResult(ConnectionTerminatedReason.Normal);
+        _terminationSource.TrySetResult(DisconnectReasonCode.NormalDisconnection);
     }
 
     public Task AbortAsync(CancellationToken ct = default)
@@ -99,7 +100,7 @@ internal sealed class InMemoryMqttTransport : IMqttTransport
         Status = ConnectionStatus.Disconnected;
         _writesToTransport.Writer.TryComplete();
         _readsFromTransport.Writer.TryComplete();
-        _terminationSource.TrySetResult(ConnectionTerminatedReason.Timeout);
+        _terminationSource.TrySetResult(DisconnectReasonCode.UnspecifiedError);
         return Task.CompletedTask;
     }
 
