@@ -19,6 +19,7 @@ namespace TurboMqtt.Core.Streams;
 /// </summary>
 internal sealed class ClientAckingFlow : GraphStage<FlowShape<MqttPacket, MqttPacket>>
 {
+    private readonly TaskCompletionSource<DisconnectPacket> _whenDisconnected;
     private readonly MqttRequiredActors _actors;
     private readonly int _bufferSize;
     private readonly TimeSpan _bufferExpiry;
@@ -28,7 +29,7 @@ internal sealed class ClientAckingFlow : GraphStage<FlowShape<MqttPacket, MqttPa
     /// </summary>
     private readonly ChannelWriter<MqttPacket> _outboundPackets;
 
-    public ClientAckingFlow(int bufferSize, TimeSpan bufferExpiry, ChannelWriter<MqttPacket> outboundPackets, MqttRequiredActors actors)
+    public ClientAckingFlow(int bufferSize, TimeSpan bufferExpiry, ChannelWriter<MqttPacket> outboundPackets, MqttRequiredActors actors, TaskCompletionSource<DisconnectPacket> whenDisconnected)
     {
         // assert that buffer size is at least 1
         if (bufferSize < 1)
@@ -39,6 +40,7 @@ internal sealed class ClientAckingFlow : GraphStage<FlowShape<MqttPacket, MqttPa
             throw new ArgumentException("Buffer expiry must be greater than zero", nameof(bufferExpiry));
         _outboundPackets = outboundPackets;
         _actors = actors;
+        _whenDisconnected = whenDisconnected;
 
         _bufferSize = bufferSize;
         _bufferExpiry = bufferExpiry;
@@ -59,9 +61,6 @@ internal sealed class ClientAckingFlow : GraphStage<FlowShape<MqttPacket, MqttPa
         private readonly SimpleLruCache<NonZeroUInt16> _publishIds;
         private readonly SimpleLruCache<NonZeroUInt16> _pubRelIds;
         private readonly ClientAckingFlow _stage;
-        
-        // just to stop us from logging multiple Disconnect messages
-        private bool _shutdownTriggered;
 
         protected override object LogSource => Akka.Event.LogSource.Create("ClientAckingFlow");
 
@@ -127,10 +126,10 @@ internal sealed class ClientAckingFlow : GraphStage<FlowShape<MqttPacket, MqttPa
                 }
                 case MqttPacketType.Disconnect:
                 {
-                    if (!_shutdownTriggered)
+                    if (!_stage._whenDisconnected.Task.IsCompleted)
                     {
                         Log.Info("Received DISCONNECT packet from broker - closing connection.");
-                        _shutdownTriggered = true;
+                        _stage._whenDisconnected.TrySetResult((DisconnectPacket) packet);
                     }
                    
                     // a completion watch stage above will handle the rest of the cleanup
