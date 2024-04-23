@@ -72,6 +72,7 @@ internal sealed class TcpTransport : IMqttTransport
     {
         var watch = _connectionActor.WatchAsync(ct);
          // mark the writer as complete
+        State.Writer.TryComplete();
         _connectionActor.Tell(new TcpTransportActor.DoClose(ct));
         return watch;
     }
