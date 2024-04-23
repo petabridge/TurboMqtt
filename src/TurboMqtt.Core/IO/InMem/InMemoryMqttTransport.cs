@@ -12,7 +12,27 @@ using TurboMqtt.Core.Protocol;
 
 namespace TurboMqtt.Core.IO;
 
+/// <summary>
+/// INTERNAL API
+/// </summary>
+internal sealed class InMemoryMqttTransportManager : IMqttTransportManager
+{
+    private readonly int _maxFrameSize;
+    private readonly ILoggingAdapter _log;
+    private readonly MqttProtocolVersion _protocolVersion;
 
+    public InMemoryMqttTransportManager(int maxFrameSize, ILoggingAdapter log, MqttProtocolVersion protocolVersion)
+    {
+        _maxFrameSize = maxFrameSize;
+        _log = log;
+        _protocolVersion = protocolVersion;
+    }
+
+    public Task<IMqttTransport> CreateTransportAsync(CancellationToken ct = default)
+    {
+        return Task.FromResult<IMqttTransport>(new InMemoryMqttTransport(_maxFrameSize, _log, _protocolVersion));
+    }
+}
 
 /// <summary>
 /// Intended for use in testing scenarios where we want to simulate a network connection
@@ -28,7 +48,7 @@ internal sealed class InMemoryMqttTransport : IMqttTransport
         Channel.CreateUnbounded<(IMemoryOwner<byte> buffer, int readableBytes)>();
     
     private readonly CancellationTokenSource _shutdownTokenSource = new();
-    private IFakeServerHandle _serverHandle;
+    private readonly IFakeServerHandle _serverHandle;
 
     public InMemoryMqttTransport(int maxFrameSize, ILoggingAdapter log, MqttProtocolVersion protocolVersion)
     {

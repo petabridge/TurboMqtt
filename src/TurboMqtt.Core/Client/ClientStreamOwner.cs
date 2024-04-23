@@ -38,6 +38,7 @@ internal sealed class ClientStreamOwner : UntypedActor
     private IMqttClient? _client;
     private Channel<MqttPacket>? _outboundChannel;
     private Channel<MqttMessage>? _inboundChannel;
+    private CancellationTokenSource _clientShutdownToken = new();
 
     private readonly IMaterializer _materializer = Context.Materializer();
     private readonly ILoggingAdapter _log = Context.GetLogger();
