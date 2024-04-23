@@ -137,11 +137,10 @@ public sealed class MqttClient : IMqttClient
     private readonly ChannelWriter<MqttPacket> _packetWriter;
     private readonly ILoggingAdapter _log;
     private readonly UShortCounter _packetIdCounter = new();
-    private readonly TaskCompletionSource<ConnectionTerminatedReason> _trueDeathCompletionSource = new();
 
     internal MqttClient(IMqttTransport transport, IActorRef clientOwner, MqttRequiredActors requiredActors,
         ChannelReader<MqttMessage> messageReader, ChannelWriter<MqttPacket> packetWriter, ILoggingAdapter log,
-        MqttClientConnectOptions options, TaskCompletionSource<ConnectionTerminatedReason> trueDeathCompletionSource)
+        MqttClientConnectOptions options, Task<ConnectionTerminatedReason> trueDeathNotification)
     {
         _transport = transport;
         _clientOwner = clientOwner;
@@ -150,7 +149,7 @@ public sealed class MqttClient : IMqttClient
         _packetWriter = packetWriter;
         _log = log;
         _options = options;
-        _trueDeathCompletionSource = trueDeathCompletionSource;
+        WhenTerminated = trueDeathNotification;
     }
 
 
@@ -467,7 +466,7 @@ public sealed class MqttClient : IMqttClient
         }
     }
 
-    public Task<ConnectionTerminatedReason> WhenTerminated => _trueDeathCompletionSource.Task;
+    public Task<ConnectionTerminatedReason> WhenTerminated { get; }
 
     public async ValueTask DisposeAsync()
     {

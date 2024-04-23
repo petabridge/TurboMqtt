@@ -24,6 +24,19 @@ namespace TurboMqtt.Core.Streams;
 /// </summary>
 internal sealed class ClientStreamOwner : UntypedActor
 {
+    private record CurrentConnectionState(
+        IMqttTransport Transport,
+        TaskCompletionSource<DisconnectPacket> TransportDeath,
+        CancellationTokenSource TransportStreamsKillSwitch)
+    {
+        public async Task KillCurrentTransportAsync(CancellationToken ct = default)
+        {
+            await Transport.CloseAsync(ct);
+            TransportDeath.TrySetResult(DisconnectPacket.Instance);
+            TransportStreamsKilLSwitch.Cancel();
+        }
+    }
+    
     /// <summary>
     /// Used to create a new client.
     /// </summary>
@@ -40,6 +53,8 @@ internal sealed class ClientStreamOwner : UntypedActor
     private Channel<MqttPacket>? _outboundChannel;
     private Channel<MqttMessage>? _inboundChannel;
     private CancellationTokenSource _clientShutdownToken = new();
+    private readonly TaskCompletionSource<DisconnectReasonCode> _trueDeath = new();
+    private TaskCompletionSource<DisconnectPacket> _transportDeath = new();
 
     private readonly IMaterializer _materializer = Context.Materializer();
     private readonly ILoggingAdapter _log = Context.GetLogger();
@@ -122,11 +137,11 @@ internal sealed class ClientStreamOwner : UntypedActor
                     .To(ChannelSink.FromWriter(_inboundChannel.Writer, true))
                     .Run(_materializer);
 
-                _client = new MqttClient(createClient.TransportManager,
+                _client = new MqttClient(transport,
                     Self,
                     requiredActors,
                     _inboundChannel.Reader,
-                    outboundPackets, _log, clientConnectOptions);
+                    outboundPackets, _log, clientConnectOptions, _trueDeath);
 
                 // client is now fully constructed
                 Sender.Tell(_client);
@@ -153,25 +168,27 @@ internal sealed class ClientStreamOwner : UntypedActor
     }
 
     private static (Source<MqttMessage, NotUsed> inbound, Sink<MqttPacket, NotUsed> outbound) ConfigureMqttStreams(
-        MqttClientConnectOptions clientConnectOptions, CreateClient createClient,
-        ChannelWriter<MqttPacket> outboundPackets, MqttRequiredActors requiredActors, int maxFrameSize)
+        MqttClientConnectOptions clientConnectOptions, IMqttTransport transport,
+        ChannelWriter<MqttPacket> outboundPackets, MqttRequiredActors requiredActors, int maxFrameSize, 
+        TaskCompletionSource<DisconnectPacket> transportDeath)
     {
         switch (clientConnectOptions.ProtocolVersion)
         {
             case MqttProtocolVersion.V3_1_1:
             {
                 var inboundMessages = MqttClientStreams.Mqtt311InboundMessageSource(
-                    createClient.ConnectOptions.ClientId,
-                    createClient.TransportManager,
+                    clientConnectOptions.ClientId,
+                    transport,
                     outboundPackets,
                     requiredActors,
-                    clientConnectOptions.MaxRetainedPacketIds, clientConnectOptions.MaxPacketIdRetentionTime);
+                    clientConnectOptions.MaxRetainedPacketIds, clientConnectOptions.MaxPacketIdRetentionTime, transportDeath,
+                    clientConnectOptions.EnableOpenTelemetry);
 
                 var outboundMessages = MqttClientStreams.Mqtt311OutboundPacketSink(
-                    createClient.ConnectOptions.ClientId,
-                    createClient.TransportManager,
+                    clientConnectOptions.ClientId,
+                    transport,
                     MemoryPool<byte>.Shared,
-                    maxFrameSize, (int)clientConnectOptions.MaximumPacketSize);
+                    maxFrameSize, (int)clientConnectOptions.MaximumPacketSize, clientConnectOptions.EnableOpenTelemetry);
 
                 return (inboundMessages, outboundMessages);
             }
