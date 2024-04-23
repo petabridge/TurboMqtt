@@ -56,18 +56,20 @@ internal sealed class InMemoryMqttTransport : IMqttTransport
         ProtocolVersion = protocolVersion;
         Reader = _readsFromTransport;
         Writer = _writesToTransport;
-        
-        Func<(IMemoryOwner<byte> buffer, int estimatedSize), bool> pushFn = msg => _readsFromTransport.Writer.TryWrite(msg);
-        Func<Task> closeFn = async () =>
-        {
-            await CloseAsync();
-        };
-        
+
         _serverHandle = protocolVersion switch
         {
-            MqttProtocolVersion.V3_1_1 => new FakeMqtt311ServerHandle(pushFn, closeFn, log),
+            MqttProtocolVersion.V3_1_1 => new FakeMqtt311ServerHandle(PushFn, CloseFn, log),
             _ => throw new NotSupportedException("Only V3.1.1 is supported.")
         };
+        return;
+
+        async Task CloseFn()
+        {
+            await CloseAsync();
+        }
+
+        bool PushFn((IMemoryOwner<byte> buffer, int estimatedSize) msg) => _readsFromTransport.Writer.TryWrite(msg);
     }
 
     public MqttProtocolVersion ProtocolVersion { get; }
@@ -78,7 +80,7 @@ internal sealed class InMemoryMqttTransport : IMqttTransport
     public Task<ConnectionTerminatedReason> WhenTerminated => _terminationSource.Task;
     
     private readonly TaskCompletionSource<bool> _waitForPendingWrites = new();
-    public Task<bool> WaitForPendingWrites => _waitForPendingWrites.Task;
+    public Task WaitForPendingWrites => _waitForPendingWrites.Task;
     
 
 
@@ -90,6 +92,15 @@ internal sealed class InMemoryMqttTransport : IMqttTransport
         await _shutdownTokenSource.CancelAsync();
         _readsFromTransport.Writer.TryComplete();
         _terminationSource.TrySetResult(ConnectionTerminatedReason.Normal);
+    }
+
+    public Task AbortAsync(CancellationToken ct = default)
+    {
+        Status = ConnectionStatus.Disconnected;
+        _writesToTransport.Writer.TryComplete();
+        _readsFromTransport.Writer.TryComplete();
+        _terminationSource.TrySetResult(ConnectionTerminatedReason.Timeout);
+        return Task.CompletedTask;
     }
 
     public Task ConnectAsync(CancellationToken ct = default)

@@ -66,12 +66,21 @@ internal sealed class TcpTransport : IMqttTransport
 
     public Task<ConnectionTerminatedReason> WhenTerminated => State.WhenTerminated;
     
-    public Task<bool> WaitForPendingWrites => State.WaitForPendingWrites;
+    public Task WaitForPendingWrites => State.WaitForPendingWrites;
 
     public Task CloseAsync(CancellationToken ct = default)
     {
         var watch = _connectionActor.WatchAsync(ct);
+        Writer.TryComplete(); // mark the writer as complete
         _connectionActor.Tell(new TcpTransportActor.DoClose(ct));
+        return watch;
+    }
+
+    public Task AbortAsync(CancellationToken ct = default)
+    {
+        // just force a shutdown
+        var watch = _connectionActor.WatchAsync(ct);
+        _connectionActor.Tell(PoisonPill.Instance);
         return watch;
     }
 

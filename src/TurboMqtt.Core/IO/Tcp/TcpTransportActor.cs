@@ -34,7 +34,7 @@ internal sealed class TcpTransportActor : UntypedActor
     {
         public ConnectionState(ChannelWriter<(IMemoryOwner<byte> buffer, int readableBytes)> writer,
             ChannelReader<(IMemoryOwner<byte> buffer, int readableBytes)> reader,
-            Task<ConnectionTerminatedReason> whenTerminated, int maxFrameSize, Task<bool> waitForPendingWrites)
+            Task<ConnectionTerminatedReason> whenTerminated, int maxFrameSize, Task waitForPendingWrites)
         {
             Writer = writer;
             Reader = reader;
@@ -51,7 +51,7 @@ internal sealed class TcpTransportActor : UntypedActor
 
         public Task<ConnectionTerminatedReason> WhenTerminated { get; }
 
-        public Task<bool> WaitForPendingWrites { get; }
+        public Task WaitForPendingWrites { get; }
 
         public ChannelWriter<(IMemoryOwner<byte> buffer, int readableBytes)> Writer { get; }
 
@@ -343,7 +343,7 @@ internal sealed class TcpTransportActor : UntypedActor
         }
 
         WritesFinished:
-        _waitForPendingWrites.TrySetResult(true);
+            _waitForPendingWrites.TrySetResult(true);
     }
 
     private async Task DoWriteToPipeAsync(CancellationToken ct)
@@ -477,6 +477,7 @@ internal sealed class TcpTransportActor : UntypedActor
 
     private void DisposeSocket(ConnectionStatus newStatus)
     {
+        _log.Info("Disposing of TCP client socket.");
         if (_tcpClient is null)
             return; // already disposed
 

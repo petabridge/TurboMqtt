@@ -43,7 +43,7 @@ internal interface IMqttTransport
     /// <summary>
     /// Waits for all pending writes to complete.
     /// </summary>
-    public Task<bool> WaitForPendingWrites { get;}
+    public Task WaitForPendingWrites { get;}
     
     /// <summary>
     /// Closes the transport connection.
@@ -55,6 +55,11 @@ internal interface IMqttTransport
     /// Also, this method is idempotent - it can be called multiple times without any side effects after the first call.
     /// </remarks>
     public Task CloseAsync(CancellationToken ct = default);
+    
+    /// <summary>
+    /// Force an immediate, unclean shutdown of the transport.
+    /// </summary>
+    public Task AbortAsync(CancellationToken ct = default);
 
     /// <summary>
     /// If this is a client, this method will be used to establish a connection to the server.

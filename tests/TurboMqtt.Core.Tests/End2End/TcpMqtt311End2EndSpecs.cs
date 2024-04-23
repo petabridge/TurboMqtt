@@ -4,6 +4,7 @@
 // </copyright>
 // -----------------------------------------------------------------------
 
+using Akka.Configuration;
 using TurboMqtt.Core.Client;
 using TurboMqtt.Core.IO;
 using TurboMqtt.Core.IO.Tcp;
@@ -14,7 +15,11 @@ namespace TurboMqtt.Core.Tests.End2End;
 
 public class TcpMqtt311End2EndSpecs : TransportSpecBase
 {
-    public TcpMqtt311End2EndSpecs(ITestOutputHelper output) : base(output: output)
+    public static readonly Config DebugLogging = """
+                                                 akka.loglevel = DEBUG
+                                                 """;
+    
+    public TcpMqtt311End2EndSpecs(ITestOutputHelper output) : base(output: output, config: DebugLogging)
     {
         _server = new FakeMqttTcpServer(new MqttTcpServerOptions("localhost", 21883), MqttProtocolVersion.V3_1_1, Log);
         _server.Bind();

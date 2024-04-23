@@ -255,7 +255,9 @@ public sealed class MqttClient : IMqttClient
         
         // begin the shutdown of the transport - internally, the transport should guarantee
         // that all pending writes are flushed before the connection is closed
-        await _clientOwner.Ask<ClientStreamOwner.DisconnectComplete>(new ClientStreamOwner.DoDisconnect(cancellationToken), cancellationToken);
+#pragma warning disable CA2016
+        await _clientOwner.Ask<ClientStreamOwner.DisconnectComplete>(new ClientStreamOwner.DoDisconnect(cancellationToken));
+#pragma warning restore CA2016
 
         // the broker SHOULD disconnect from us
         try

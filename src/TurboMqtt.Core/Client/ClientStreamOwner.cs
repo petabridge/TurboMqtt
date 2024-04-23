@@ -51,6 +51,7 @@ internal sealed class ClientStreamOwner : UntypedActor
     private IMqttTransport? _currentTransport;
     private Channel<MqttPacket>? _outboundChannel;
     private Channel<MqttMessage>? _inboundChannel;
+    private readonly TaskCompletionSource<DisconnectReasonCode> _trueDeath = new();
 
     private readonly IMaterializer _materializer = Context.Materializer();
     private readonly ILoggingAdapter _log = Context.GetLogger();
@@ -165,9 +166,21 @@ internal sealed class ClientStreamOwner : UntypedActor
                 {
                     var sender = Sender;
                     var self = Self;
-                    await _currentTransport!.CloseAsync(doDisconnect.CancellationToken);
-                    sender.Tell(DisconnectComplete.Instance);
-                    self.Tell(PoisonPill.Instance); // shut ourselves down
+                    try
+                    {
+                        await _currentTransport!.CloseAsync(doDisconnect.CancellationToken);
+                    }
+                    catch (OperationCanceledException) // cts timed out
+                    {
+                        _log.Warning("Disconnect operation timed out. Aborting transport.");
+                        await _currentTransport!.AbortAsync();
+                    }
+                    finally
+                    {
+                        sender.Tell(DisconnectComplete.Instance);
+                        self.Tell(PoisonPill.Instance); // shut ourselves down
+                    }
+                    
                 }
                 
                 var _ = ExecDisconnect();
