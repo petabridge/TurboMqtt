@@ -138,8 +138,9 @@ internal sealed class FakeMqttTcpServer
                     _clientCts.TryAdd(t.Result, clientShutdownCts);
                 }
             }, clientShutdownCts.Token);
-            
-            var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(clientShutdownCts.Token, _shutdownTcs.Token);
+
+            var linkedCts =
+                CancellationTokenSource.CreateLinkedTokenSource(clientShutdownCts.Token, _shutdownTcs.Token);
             while (!linkedCts.IsCancellationRequested)
             {
                 try
@@ -156,7 +157,10 @@ internal sealed class FakeMqttTcpServer
                 }
                 catch (OperationCanceledException)
                 {
-                    _log.Warning("Server shutting down...");
+                    _log.Warning("Client {0} is being disconnected from server.",
+                        handle.WhenClientIdAssigned.IsCompletedSuccessfully
+                            ? handle.WhenClientIdAssigned.Result
+                            : "unknown");
                 }
             }
 
