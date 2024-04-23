@@ -8,8 +8,40 @@ using System.Buffers;
 using System.Threading.Channels;
 using Akka.Actor;
 using Akka.Event;
+using TurboMqtt.Core.Client;
+using TurboMqtt.Core.Protocol;
 
 namespace TurboMqtt.Core.IO.Tcp;
+
+/// <summary>
+/// INTERNAL API
+/// </summary>
+internal sealed class TcpMqttTransportManager : IMqttTransportManager
+{
+    private readonly MqttClientTcpOptions _tcpOptions;
+    private readonly MqttProtocolVersion _protocolVersion;
+    private readonly IActorRef _mqttClientManager;
+
+    public TcpMqttTransportManager(MqttClientTcpOptions tcpOptions, IActorRef mqttClientManager, MqttProtocolVersion protocolVersion)
+    {
+        _tcpOptions = tcpOptions;
+        _mqttClientManager = mqttClientManager;
+        _protocolVersion = protocolVersion;
+    }
+
+    public async Task<IMqttTransport> CreateTransportAsync(CancellationToken ct = default)
+    {
+        var tcpTransportActor =
+            await _mqttClientManager.Ask<IActorRef>(new TcpConnectionManager.CreateTcpTransport(_tcpOptions, _protocolVersion), cancellationToken: ct)
+                .ConfigureAwait(false);
+
+        // get the TCP transport
+        var tcpTransport = await tcpTransportActor.Ask<IMqttTransport>(TcpTransportActor.CreateTcpTransport.Instance, cancellationToken: ct)
+            .ConfigureAwait(false);
+
+        return tcpTransport;
+    }
+}
 
 /// <summary>
 /// TCP implementation of <see cref="IMqttTransport"/>.
