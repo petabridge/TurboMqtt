@@ -6,6 +6,7 @@
 
 using Akka.Configuration;
 using Akka.Event;
+using Akka.TestKit.Extensions;
 using Akka.TestKit.Xunit2;
 using TurboMqtt.Core.Client;
 using TurboMqtt.Core.IO.Tcp;
@@ -32,8 +33,6 @@ public class TcpMqtt311HeartbeatFailureEnd2EndSpecs : TestKit
     private readonly FakeMqttTcpServer _server;
     
     public MqttClientFactory ClientFactory { get; }
-    
-   
 
     private MqttClientConnectOptions DefaultConnectOptions =>
         new MqttClientConnectOptions("test-client", MqttProtocolVersion.V3_1_1)
