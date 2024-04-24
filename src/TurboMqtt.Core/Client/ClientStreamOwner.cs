@@ -24,9 +24,9 @@ internal sealed class ClientStreamOwner : UntypedActor
     /// <summary>
     /// Performs a graceful disconnect of the client.
     /// </summary>
-    public sealed record DoDisconnect(CancellationToken CancellationToken);
+    public sealed record DoDisconnect(CancellationToken CancellationToken) : IDeadLetterSuppression;
 
-    public sealed class DisconnectComplete
+    public sealed class DisconnectComplete : IDeadLetterSuppression
     {
         public static readonly DisconnectComplete Instance = new();
 
@@ -35,7 +35,7 @@ internal sealed class ClientStreamOwner : UntypedActor
         }
     }
 
-    public sealed class ServerDisconnect
+    public sealed class ServerDisconnect : IDeadLetterSuppression
     {
         public ServerDisconnect(DisconnectReasonCode reason)
         {
@@ -45,7 +45,7 @@ internal sealed class ClientStreamOwner : UntypedActor
         public DisconnectReasonCode Reason { get; }
     }
 
-    private sealed class StreamTerminated
+    private sealed class StreamTerminated : IDeadLetterSuppression
     {
         private StreamTerminated()
         {
