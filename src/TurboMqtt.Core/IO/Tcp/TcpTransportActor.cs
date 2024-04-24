@@ -216,8 +216,7 @@ internal sealed class TcpTransportActor : UntypedActor
     {
         switch (message)
         {
-            case DoConnect connect when State.Status != ConnectionStatus.Connected ||
-                                        State.Status != ConnectionStatus.Connecting:
+            case DoConnect connect when State.Status == ConnectionStatus.NotStarted:
             {
                 _log.Info("Attempting to connect to [{0}:{1}]", TcpOptions.Host, TcpOptions.Port);
 
@@ -370,7 +369,8 @@ internal sealed class TcpTransportActor : UntypedActor
             }
             catch (Exception ex)
             {
-                _log.Error(ex, "Failed to read from socket.");
+                // this is a debug-level issue
+                _log.Debug(ex, "Failed to read from socket.");
                 // we are done reading
                 _closureSelf.Tell(new ConnectionUnexpectedlyClosed(DisconnectReasonCode.UnspecifiedError, ex.Message));
                 // socket was closed
