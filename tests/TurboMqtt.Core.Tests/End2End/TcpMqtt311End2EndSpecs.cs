@@ -5,6 +5,7 @@
 // -----------------------------------------------------------------------
 
 using Akka.Configuration;
+using Akka.Event;
 using TurboMqtt.Core.Client;
 using TurboMqtt.Core.IO.Tcp;
 using TurboMqtt.Core.Protocol;
@@ -20,7 +21,10 @@ public class TcpMqtt311End2EndSpecs : TransportSpecBase
     
     public TcpMqtt311End2EndSpecs(ITestOutputHelper output) : base(output: output, config: DebugLogging)
     {
-        _server = new FakeMqttTcpServer(new MqttTcpServerOptions("localhost", 21883), MqttProtocolVersion.V3_1_1, Log);
+        // create custom log source for our TCP server
+        var logSource = LogSource.Create("FakeMqttTcpServer", typeof(FakeMqttTcpServer));
+        var logger = Logging.GetLogger(Sys, logSource);
+        _server = new FakeMqttTcpServer(new MqttTcpServerOptions("localhost", 21883), MqttProtocolVersion.V3_1_1, logger);
         _server.Bind();
     }
     
