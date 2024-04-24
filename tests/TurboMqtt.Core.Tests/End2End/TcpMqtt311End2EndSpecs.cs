@@ -25,7 +25,7 @@ public class TcpMqtt311End2EndSpecs : TransportSpecBase
         //var logSource = LogSource.Create("FakeMqttTcpServer", typeof(FakeMqttTcpServer));
         var logger = new BusLogging(Sys.EventStream, "FakeMqttTcpServer", typeof(FakeMqttTcpServer),
             Sys.Settings.LogFormatter);
-        _server = new FakeMqttTcpServer(new MqttTcpServerOptions("localhost", 21883), MqttProtocolVersion.V3_1_1, logger);
+        _server = new FakeMqttTcpServer(new MqttTcpServerOptions("localhost", 21883), MqttProtocolVersion.V3_1_1, logger, TimeSpan.Zero);
         _server.Bind();
     }
     

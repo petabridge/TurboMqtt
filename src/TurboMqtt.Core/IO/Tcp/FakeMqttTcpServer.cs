@@ -49,12 +49,12 @@ internal sealed class FakeMqttTcpServer
     private readonly TimeSpan _heatBeatDelay;
     private Socket? bindSocket;
 
-    public FakeMqttTcpServer(MqttTcpServerOptions options, MqttProtocolVersion version, ILoggingAdapter log, TimeSpan? heartbeatDelay = default)
+    public FakeMqttTcpServer(MqttTcpServerOptions options, MqttProtocolVersion version, ILoggingAdapter log, TimeSpan heartbeatDelay)
     {
         _options = options;
         _version = version;
         _log = log;
-        _heatBeatDelay = heartbeatDelay ?? TimeSpan.Zero;
+        _heatBeatDelay = heartbeatDelay;
 
         if (_version == MqttProtocolVersion.V5_0)
             throw new NotSupportedException("V5.0 not supported.");
