@@ -7,7 +7,6 @@
 using System.Buffers;
 using System.Threading.Channels;
 using Akka.Event;
-using TurboMqtt.Core.PacketTypes;
 
 namespace TurboMqtt.Core.IO;
 
@@ -39,7 +38,7 @@ internal interface IMqttTransport
     /// <remarks>
     /// Does not cause the connection to terminate - just waits for it to finish.
     /// </remarks>
-    public Task<DisconnectReasonCode> WhenTerminated { get; }
+    public Task<ConnectionTerminatedReason> WhenTerminated { get; }
     
     /// <summary>
     /// Waits for all pending writes to complete.
@@ -101,4 +100,12 @@ public enum ConnectionStatus
     Disconnected,
     Aborted,
     Failed
+}
+
+public enum ConnectionTerminatedReason
+{
+    Normal,
+    CouldNotConnect,
+    Error,
+    Timeout
 }
