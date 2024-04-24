@@ -30,13 +30,16 @@ internal class FakeMqtt311ServerHandle : IFakeServerHandle
     private readonly Func<(IMemoryOwner<byte> buffer, int estimatedSize), bool> _pushMessage;
     private readonly Func<Task> _closingAction;
     private readonly HashSet<string> _subscribedTopics = [];
+    private readonly TimeSpan _heartbeatDelay;
 
 
-    public FakeMqtt311ServerHandle(Func<(IMemoryOwner<byte> buffer, int estimatedSize), bool> pushMessage, Func<Task> closingAction, ILoggingAdapter log)
+    public FakeMqtt311ServerHandle(Func<(IMemoryOwner<byte> buffer, int estimatedSize), bool> pushMessage,
+        Func<Task> closingAction, ILoggingAdapter log, TimeSpan? heartbeatDelay = null)
     {
         _pushMessage = pushMessage;
         _closingAction = closingAction;
         Log = log;
+        _heartbeatDelay = heartbeatDelay ?? TimeSpan.Zero;
     }
 
     public void TryPush(MqttPacket packet)
@@ -49,7 +52,7 @@ internal class FakeMqtt311ServerHandle : IFakeServerHandle
         Mqtt311Encoder.EncodePacket(packet, ref buffer, estimatedSize);
 
         var unshared = new UnsharedMemoryOwner<byte>(buffer);
-                
+
         // simulate reads back on the client here
         var didWrite = _pushMessage((unshared, estimatedSize + headerSize));
         if (!didWrite)
@@ -59,7 +62,8 @@ internal class FakeMqtt311ServerHandle : IFakeServerHandle
         }
         else
         {
-            Log.Debug("Successfully wrote packet of type {0} [{1} bytes] to transport.", packet.PacketType, estimatedSize + headerSize);
+            Log.Debug("Successfully wrote packet of type {0} [{1} bytes] to transport.", packet.PacketType,
+                estimatedSize + headerSize);
         }
     }
 
@@ -136,7 +140,14 @@ internal class FakeMqtt311ServerHandle : IFakeServerHandle
 
             case MqttPacketType.PingReq:
                 var pingResp = PingRespPacket.Instance;
-                TryPush(pingResp);
+                
+                // schedule a heartbeat response according to the delay interval
+                if (_heartbeatDelay > TimeSpan.Zero)
+                {
+                    Task.Delay(_heartbeatDelay).ContinueWith(_ => TryPush(pingResp));
+                }
+                else
+                    TryPush(pingResp);
                 break;
             case MqttPacketType.Subscribe:
             {
@@ -212,7 +223,7 @@ internal class FakeMqtt311ServerHandle : IFakeServerHandle
             default:
                 var ex = new NotSupportedException($"Packet type {packet.PacketType} is not supported by this flow.");
                 Log.Error(ex, "Received unsupported packet type {0}", packet.PacketType);
-                throw ex; 
+                throw ex;
         }
     }
 }
