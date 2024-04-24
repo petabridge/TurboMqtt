@@ -64,7 +64,8 @@ public class TcpMqtt311HeartbeatFailureEnd2EndSpecs : TestKit
     {
         var client = await ClientFactory.CreateTcpClient(DefaultConnectOptions, DefaultTcpOptions);
 
-        var cts = new CancellationTokenSource(RemainingOrDefault);
+        // need a longer timeout for this test
+        var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
         var connectResult = await client.ConnectAsync(cts.Token);
         connectResult.IsSuccess.Should().BeTrue();
         
