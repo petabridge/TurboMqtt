@@ -237,7 +237,7 @@ internal sealed class ClientStreamOwner : UntypedActor
                     var self = Self;
                     try
                     {
-                        var resp = await _client!.ConnectAsync(ct);
+                        var resp =await _client!.ConnectAsync(ct);
                         if (!resp.IsSuccess)
                         {
                             _log.Warning("Failed to reconnect client. Reason: {0}", resp.Reason);
