@@ -7,6 +7,7 @@
 using System.Buffers;
 using System.Threading.Channels;
 using Akka.Event;
+using TurboMqtt.Core.PacketTypes;
 
 namespace TurboMqtt.Core.IO;
 
@@ -38,7 +39,12 @@ internal interface IMqttTransport
     /// <remarks>
     /// Does not cause the connection to terminate - just waits for it to finish.
     /// </remarks>
-    public Task<ConnectionTerminatedReason> WaitForTermination();
+    public Task<DisconnectReasonCode> WhenTerminated { get; }
+    
+    /// <summary>
+    /// Waits for all pending writes to complete.
+    /// </summary>
+    public Task WaitForPendingWrites { get;}
     
     /// <summary>
     /// Closes the transport connection.
@@ -50,6 +56,11 @@ internal interface IMqttTransport
     /// Also, this method is idempotent - it can be called multiple times without any side effects after the first call.
     /// </remarks>
     public Task CloseAsync(CancellationToken ct = default);
+    
+    /// <summary>
+    /// Force an immediate, unclean shutdown of the transport.
+    /// </summary>
+    public Task AbortAsync(CancellationToken ct = default);
 
     /// <summary>
     /// If this is a client, this method will be used to establish a connection to the server.
@@ -90,12 +101,4 @@ public enum ConnectionStatus
     Disconnected,
     Aborted,
     Failed
-}
-
-public enum ConnectionTerminatedReason
-{
-    Normal,
-    CouldNotConnect,
-    Error,
-    Timeout
 }

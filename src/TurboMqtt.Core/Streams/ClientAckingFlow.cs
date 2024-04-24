@@ -59,6 +59,9 @@ internal sealed class ClientAckingFlow : GraphStage<FlowShape<MqttPacket, MqttPa
         private readonly SimpleLruCache<NonZeroUInt16> _publishIds;
         private readonly SimpleLruCache<NonZeroUInt16> _pubRelIds;
         private readonly ClientAckingFlow _stage;
+        
+        // just to stop us from logging multiple Disconnect messages
+        private bool _shutdownTriggered;
 
         protected override object LogSource => Akka.Event.LogSource.Create("ClientAckingFlow");
 
@@ -124,8 +127,12 @@ internal sealed class ClientAckingFlow : GraphStage<FlowShape<MqttPacket, MqttPa
                 }
                 case MqttPacketType.Disconnect:
                 {
-                    Log.Info("Received DISCONNECT packet from broker - closing connection.");
-                    
+                    if (!_shutdownTriggered)
+                    {
+                        Log.Info("Received DISCONNECT packet from broker - closing connection.");
+                        _shutdownTriggered = true;
+                    }
+                   
                     // a completion watch stage above will handle the rest of the cleanup
                     Complete(_stage.Out);
                     break;

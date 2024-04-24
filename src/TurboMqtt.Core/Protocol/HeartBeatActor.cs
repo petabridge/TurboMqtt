@@ -7,6 +7,7 @@
 using System.Threading.Channels;
 using Akka.Actor;
 using Akka.Event;
+using TurboMqtt.Core.Client;
 using TurboMqtt.Core.PacketTypes;
 
 namespace TurboMqtt.Core.Protocol;
@@ -18,21 +19,27 @@ namespace TurboMqtt.Core.Protocol;
 /// </summary>
 internal sealed class FailureDetector
 {
-    private readonly TaskCompletionSource _connectionFailed = new();
+    private readonly IActorRef _failedConnectionActor;
 
-    public FailureDetector(TimeSpan heartbeatInterval)
+    public FailureDetector(TimeSpan heartbeatInterval, IActorRef failedConnectionActor)
     {
         HeartbeatInterval = heartbeatInterval;
+        _failedConnectionActor = failedConnectionActor;
     }
 
     public TimeSpan HeartbeatInterval { get; }
 
     public void Trigger(Exception ex)
     {
-        _connectionFailed.TrySetException(ex);
+        var code = ex switch
+        {
+            TimeoutException _ => DisconnectReasonCode.KeepAliveTimeout,
+            _ => DisconnectReasonCode.UnspecifiedError
+        };
+            
+        
+        _failedConnectionActor.Tell(new ClientStreamOwner.ServerDisconnect(DisconnectReasonCode.ServerBusy));
     }
-
-    public Task WhenConnectionFailed => _connectionFailed.Task;
 }
 
 /// <summary>
@@ -108,8 +115,7 @@ internal sealed class HeartBeatActor : UntypedActor, IWithTimers
                     var errorMsg = $"No heartbeat received from broker in {elapsed}";
                     var ex = new TimeoutException(errorMsg);
                     _log.Error(ex, errorMsg);
-                    _failureDetector.Trigger(ex);
-                    Context.Stop(Self); // stop the actor
+                    _failureDetector.Trigger(ex); // should result in the listener being notified
                 }
 
                 break;

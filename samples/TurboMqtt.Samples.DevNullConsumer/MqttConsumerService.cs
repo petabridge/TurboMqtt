@@ -77,13 +77,19 @@ public sealed class MqttConsumerService : BackgroundService
             }
 
             _logger.LogInformation("Shutting down MQTT consumer service");
-            await client.DisposeAsync();
+            await client.DisconnectAsync(stoppingToken);
         }
+        catch(OperationCanceledException){ }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error occurred in MQTT consumer service");
+        }
+        finally
+        {
             // shut the process down
             _ = _lifetime.StopAsync(default);
         }
+        
+        Environment.Exit(0);
     }
 }
