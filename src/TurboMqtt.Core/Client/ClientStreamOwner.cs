@@ -61,7 +61,7 @@ internal sealed class ClientStreamOwner : UntypedActor
     private IMqttTransport? _currentTransport;
     private Channel<MqttPacket>? _outboundChannel;
     private Channel<MqttMessage>? _inboundChannel;
-    private readonly TaskCompletionSource<ConnectionTerminatedReason> _trueDeath = new();
+    private readonly TaskCompletionSource<DisconnectReasonCode> _trueDeath = new();
 
     private readonly IMaterializer _materializer = Context.Materializer();
     private readonly ILoggingAdapter _log = Context.GetLogger();
@@ -125,7 +125,7 @@ internal sealed class ClientStreamOwner : UntypedActor
                     Self,
                     requiredActors,
                     _inboundChannel.Reader,
-                    outboundPackets, _log, clientConnectOptions, _trueDeath.Task);
+                    outboundPackets, _log, clientConnectOptions);
 
                 // client is now fully constructed
                 Sender.Tell(_client);
@@ -308,6 +308,5 @@ internal sealed class ClientStreamOwner : UntypedActor
         // force both channels to complete - this will shut down the streams and the transport
         _outboundChannel?.Writer.TryComplete();
         _inboundChannel?.Writer.TryComplete();
-        _trueDeath.TrySetResult(ConnectionTerminatedReason.Normal);
     }
 }
