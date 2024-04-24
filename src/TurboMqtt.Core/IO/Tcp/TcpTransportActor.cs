@@ -251,6 +251,8 @@ internal sealed class TcpTransportActor : UntypedActor
                     : "Already connected to [{0}:{1}]";
 
                 var formatted = string.Format(warningMsg, TcpOptions.Host, TcpOptions.Port);
+
+                _log.Warning(formatted);
                 Sender.Tell(new ConnectResult(ConnectionStatus.Connecting, formatted));
                 break;
             }

@@ -212,7 +212,7 @@ public class ClientAcksActorSpecs : TestKit
         // expect the ClientAcksActor to have a pending connect
         var connectSuccess = await ExpectMsgAsync<ConnectSuccess>();
         connectSuccess.IsSuccess.Should().BeTrue();
-        connectSuccess.ConnAck!.ReasonCode.Should().Be(connAckPacket.ReasonCode);
+        connectSuccess.ConnAck.ReasonCode.Should().Be(connAckPacket.ReasonCode);
     }
     
     // test a ConnAck scenario where we get an unsuccessful ConnAck packet back (i.e. bad return code)

@@ -64,11 +64,6 @@ public static class PublishingProtocol{
     {
         public string Reason { get; } = reason;
         public PublishingStatus Status => PublishingStatus.Failed;
-
-        public override string ToString()
-        {
-            return $"PublishFailure({Reason})";
-        }
     }
     
     /// <summary>

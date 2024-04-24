@@ -59,7 +59,7 @@ public class TcpMqtt311End2EndSpecs : TransportSpecBase
         // automatic reconnect should be happening behind the scenes - attempt to publish a message we will receive
         var mqttMessage = new MqttMessage(DefaultTopic, "hello, world!") { QoS = QualityOfService.AtLeastOnce };
         var pubResult = await client.PublishAsync(mqttMessage, cts.Token);
-        pubResult.IsSuccess.Should().BeTrue($"Expected to be able to publish message {mqttMessage} after reconnect, but got {pubResult} instead.");
+        pubResult.IsSuccess.Should().BeTrue();
         
         // now we should receive the message
         (await client.ReceivedMessages.WaitToReadAsync(cts.Token)).Should().BeTrue();
