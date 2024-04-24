@@ -125,7 +125,7 @@ internal sealed class ClientStreamOwner : UntypedActor
                             "acks");
                     Context.Watch(_clientAckActor);
 
-                    var heartBeat = new FailureDetector(TimeSpan.FromSeconds(clientConnectOptions.KeepAliveSeconds));
+                    var heartBeat = new FailureDetector(TimeSpan.FromSeconds(clientConnectOptions.KeepAliveSeconds), Self);
                     _heartBeatActor = Context.ActorOf(
                         Props.Create(() => new HeartBeatActor(outboundPackets, heartBeat)),
                         "heartbeat");
