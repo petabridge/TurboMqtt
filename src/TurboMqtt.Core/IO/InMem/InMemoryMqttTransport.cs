@@ -10,16 +10,36 @@ using Akka.Event;
 using TurboMqtt.Core.PacketTypes;
 using TurboMqtt.Core.Protocol;
 
-namespace TurboMqtt.Core.IO;
+namespace TurboMqtt.Core.IO.InMem;
 
+/// <summary>
+/// INTERNAL API
+/// </summary>
+internal sealed class InMemoryMqttTransportManager : IMqttTransportManager
+{
+    private readonly int _maxFrameSize;
+    private readonly ILoggingAdapter _log;
+    private readonly MqttProtocolVersion _protocolVersion;
 
+    public InMemoryMqttTransportManager(int maxFrameSize, ILoggingAdapter log, MqttProtocolVersion protocolVersion)
+    {
+        _maxFrameSize = maxFrameSize;
+        _log = log;
+        _protocolVersion = protocolVersion;
+    }
+
+    public Task<IMqttTransport> CreateTransportAsync(CancellationToken ct = default)
+    {
+        return Task.FromResult<IMqttTransport>(new InMemoryMqttTransport(_maxFrameSize, _log, _protocolVersion));
+    }
+}
 
 /// <summary>
 /// Intended for use in testing scenarios where we want to simulate a network connection
 /// </summary>
 internal sealed class InMemoryMqttTransport : IMqttTransport
 {
-    private readonly TaskCompletionSource<ConnectionTerminatedReason> _terminationSource = new();
+    private readonly TaskCompletionSource<DisconnectReasonCode> _terminationSource = new();
 
     private readonly Channel<(IMemoryOwner<byte> buffer, int readableBytes)> _writesToTransport =
         Channel.CreateUnbounded<(IMemoryOwner<byte> buffer, int readableBytes)>();
@@ -28,7 +48,7 @@ internal sealed class InMemoryMqttTransport : IMqttTransport
         Channel.CreateUnbounded<(IMemoryOwner<byte> buffer, int readableBytes)>();
     
     private readonly CancellationTokenSource _shutdownTokenSource = new();
-    private IFakeServerHandle _serverHandle;
+    private readonly IFakeServerHandle _serverHandle;
 
     public InMemoryMqttTransport(int maxFrameSize, ILoggingAdapter log, MqttProtocolVersion protocolVersion)
     {
@@ -37,18 +57,20 @@ internal sealed class InMemoryMqttTransport : IMqttTransport
         ProtocolVersion = protocolVersion;
         Reader = _readsFromTransport;
         Writer = _writesToTransport;
-        
-        Func<(IMemoryOwner<byte> buffer, int estimatedSize), bool> pushFn = msg => _readsFromTransport.Writer.TryWrite(msg);
-        Func<Task> closeFn = async () =>
-        {
-            await CloseAsync();
-        };
-        
+
         _serverHandle = protocolVersion switch
         {
-            MqttProtocolVersion.V3_1_1 => new FakeMqtt311ServerHandle(pushFn, closeFn, log),
+            MqttProtocolVersion.V3_1_1 => new FakeMqtt311ServerHandle(PushFn, CloseFn, log),
             _ => throw new NotSupportedException("Only V3.1.1 is supported.")
         };
+        return;
+
+        async Task CloseFn()
+        {
+            await CloseAsync();
+        }
+
+        bool PushFn((IMemoryOwner<byte> buffer, int estimatedSize) msg) => _readsFromTransport.Writer.TryWrite(msg);
     }
 
     public MqttProtocolVersion ProtocolVersion { get; }
@@ -56,10 +78,10 @@ internal sealed class InMemoryMqttTransport : IMqttTransport
     public ILoggingAdapter Log { get; }
     public ConnectionStatus Status { get; private set; } = ConnectionStatus.NotStarted;
 
-    public Task<ConnectionTerminatedReason> WhenTerminated => _terminationSource.Task;
+    public Task<DisconnectReasonCode> WhenTerminated => _terminationSource.Task;
     
     private readonly TaskCompletionSource<bool> _waitForPendingWrites = new();
-    public Task<bool> WaitForPendingWrites => _waitForPendingWrites.Task;
+    public Task WaitForPendingWrites => _waitForPendingWrites.Task;
     
 
 
@@ -70,7 +92,16 @@ internal sealed class InMemoryMqttTransport : IMqttTransport
         await _waitForPendingWrites.Task;
         await _shutdownTokenSource.CancelAsync();
         _readsFromTransport.Writer.TryComplete();
-        _terminationSource.TrySetResult(ConnectionTerminatedReason.Normal);
+        _terminationSource.TrySetResult(DisconnectReasonCode.NormalDisconnection);
+    }
+
+    public Task AbortAsync(CancellationToken ct = default)
+    {
+        Status = ConnectionStatus.Disconnected;
+        _writesToTransport.Writer.TryComplete();
+        _readsFromTransport.Writer.TryComplete();
+        _terminationSource.TrySetResult(DisconnectReasonCode.UnspecifiedError);
+        return Task.CompletedTask;
     }
 
     public Task ConnectAsync(CancellationToken ct = default)

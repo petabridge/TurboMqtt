@@ -4,11 +4,7 @@
 // </copyright>
 // -----------------------------------------------------------------------
 
-using Akka.Streams;
-using Akka.Streams.Stage;
-using TurboMqtt.Core.PacketTypes;
-
-namespace TurboMqtt.Core.IO;
+namespace TurboMqtt.Core.IO.InMem;
 
 /* Not currently used */
 

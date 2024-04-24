@@ -6,6 +6,8 @@
 
 using Akka.Actor;
 using TurboMqtt.Core.IO;
+using TurboMqtt.Core.IO.InMem;
+using TurboMqtt.Core.IO.Tcp;
 using TurboMqtt.Core.PacketTypes;
 using TurboMqtt.Core.Protocol;
 using TurboMqtt.Core.Streams;
@@ -51,52 +53,29 @@ public sealed class MqttClientFactory : IMqttClientFactory, IInternalMqttClientF
     public async Task<IMqttClient> CreateTcpClient(MqttClientConnectOptions options, MqttClientTcpOptions tcpOptions)
     {
         AssertMqtt311(options);
-        var tcpTransportActor =
-            await _mqttClientManager.Ask<IActorRef>(new TcpConnectionManager.CreateTcpTransport(tcpOptions, options.ProtocolVersion))
-                .ConfigureAwait(false);
-
-        // get the TCP transport
-        var tcpTransport = await tcpTransportActor.Ask<IMqttTransport>(TcpTransportActor.CreateTcpTransport.Instance)
-            .ConfigureAwait(false);
+        var transportManager = new TcpMqttTransportManager(tcpOptions, _mqttClientManager, options.ProtocolVersion);
 
         // create the client
         var clientActor =
             await _mqttClientManager.Ask<IActorRef>(new ClientManagerActor.StartClientActor(options.ClientId))
                 .ConfigureAwait(false);
 
-        var client = await clientActor.Ask<IMqttClient>(new ClientStreamOwner.CreateClient(tcpTransport, options))
+        var client = await clientActor.Ask<IMqttClient>(new ClientStreamOwner.CreateClient(transportManager, options))
             .ConfigureAwait(false);
-
-        async Task SignDeathPact()
-        {
-            // arrange death pact between client and transport
-            var deathWatches = Task.WhenAny(tcpTransportActor.WatchAsync(), clientActor.WatchAsync());
-
-            await deathWatches;
-
-            // kill the other actor if one dies (don't need to check)
-            tcpTransportActor.Tell(PoisonPill.Instance);
-            clientActor.Tell(PoisonPill.Instance);
-
-            // dispose of the client
-            await client.DisposeAsync();
-        }
-
-#pragma warning disable CS4014 // Because this call is not awaited, execution of the current method continues before the call is completed
-        SignDeathPact(); // fire and forget
-#pragma warning restore CS4014 // Because this call is not awaited, execution of the current method continues before the call is completed
-
+        
         return client;
     }
 
     public async Task<IMqttClient> CreateInMemoryClient(MqttClientConnectOptions options)
     {
         AssertMqtt311(options);
+        var transportManager = new InMemoryMqttTransportManager((int)options.MaximumPacketSize * 2,
+            _system.CreateLogger<InMemoryMqttTransportManager>(options.ClientId), options.ProtocolVersion);
+        
         var clientActor =
             await _mqttClientManager.Ask<IActorRef>(new ClientManagerActor.StartClientActor(options.ClientId));
         return await clientActor.Ask<IMqttClient>(new ClientStreamOwner.CreateClient(
-            new InMemoryMqttTransport((int)options.MaximumPacketSize * 2,
-                _system.CreateLogger<InMemoryMqttTransport>(options.ClientId), MqttProtocolVersion.V3_1_1),
+           transportManager,
             options));
     }
 

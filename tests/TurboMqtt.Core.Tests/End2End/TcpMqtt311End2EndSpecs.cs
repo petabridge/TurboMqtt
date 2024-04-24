@@ -4,8 +4,10 @@
 // </copyright>
 // -----------------------------------------------------------------------
 
+using Akka.Configuration;
+using Akka.Event;
 using TurboMqtt.Core.Client;
-using TurboMqtt.Core.IO;
+using TurboMqtt.Core.IO.Tcp;
 using TurboMqtt.Core.Protocol;
 using Xunit.Abstractions;
 
@@ -13,9 +15,17 @@ namespace TurboMqtt.Core.Tests.End2End;
 
 public class TcpMqtt311End2EndSpecs : TransportSpecBase
 {
-    public TcpMqtt311End2EndSpecs(ITestOutputHelper output) : base(output: output)
+    public static readonly Config DebugLogging = """
+                                                 akka.loglevel = DEBUG
+                                                 """;
+    
+    public TcpMqtt311End2EndSpecs(ITestOutputHelper output) : base(output: output, config: DebugLogging)
     {
-        _server = new FakeMqttTcpServer(new MqttTcpServerOptions("localhost", 21883), MqttProtocolVersion.V3_1_1, Log);
+        // create custom log source for our TCP server
+        //var logSource = LogSource.Create("FakeMqttTcpServer", typeof(FakeMqttTcpServer));
+        var logger = new BusLogging(Sys.EventStream, "FakeMqttTcpServer", typeof(FakeMqttTcpServer),
+            Sys.Settings.LogFormatter);
+        _server = new FakeMqttTcpServer(new MqttTcpServerOptions("localhost", 21883), MqttProtocolVersion.V3_1_1, logger);
         _server.Bind();
     }
     
@@ -36,14 +46,35 @@ public class TcpMqtt311End2EndSpecs : TransportSpecBase
     }
 
     [Fact]
-    public async Task ShouldHandleServerDisconnect()
+    public async Task ShouldAutomaticallyReconnectandSubscribeAfterServerDisconnect()
     {
         var client = await ClientFactory.CreateTcpClient(DefaultConnectOptions, DefaultTcpOptions);
 
         using var cts = new CancellationTokenSource(RemainingOrDefault);
         var connectResult = await client.ConnectAsync(cts.Token);
         connectResult.IsSuccess.Should().BeTrue();
-        _server.Shutdown();
-        await client.WhenTerminated.WaitAsync(cts.Token);
+        
+        // subscribe
+        var subResult = await client.SubscribeAsync(DefaultTopic, QualityOfService.AtLeastOnce, cts.Token);
+        subResult.IsSuccess.Should().BeTrue();
+        
+        // kick the client
+        _server.TryKickClient(DefaultConnectOptions.ClientId).Should().BeTrue();
+        
+        // automatic reconnect should be happening behind the scenes - attempt to publish a message we will receive
+        var mqttMessage = new MqttMessage(DefaultTopic, "hello, world!") { QoS = QualityOfService.AtLeastOnce };
+        var pubResult = await client.PublishAsync(mqttMessage);
+        pubResult.IsSuccess.Should().BeTrue($"Expected to be able to publish message {mqttMessage} after reconnect, but got {pubResult} instead.");
+        
+        // now we should receive the message
+        (await client.ReceivedMessages.WaitToReadAsync()).Should().BeTrue();
+        client.ReceivedMessages.TryRead(out var receivedMessage).Should().BeTrue();
+        receivedMessage!.Topic.Should().Be(DefaultTopic);
+
+        // shut down
+        using var shutdownCts = new CancellationTokenSource(RemainingOrDefault);
+        await client.DisconnectAsync(shutdownCts.Token);
+        
+        await client.WhenTerminated.WaitAsync(shutdownCts.Token);
     }
 }

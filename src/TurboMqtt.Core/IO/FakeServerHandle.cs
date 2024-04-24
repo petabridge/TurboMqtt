@@ -14,6 +14,7 @@ namespace TurboMqtt.Core.IO;
 
 internal interface IFakeServerHandle
 {
+    public Task<string> WhenClientIdAssigned { get; }
     MqttProtocolVersion ProtocolVersion { get; }
     ILoggingAdapter Log { get; }
     void HandleBytes(in ReadOnlyMemory<byte> bytes);
@@ -24,6 +25,7 @@ internal interface IFakeServerHandle
 
 internal class FakeMqtt311ServerHandle : IFakeServerHandle
 {
+    private readonly TaskCompletionSource<string> _clientIdAssigned = new();
     private readonly Mqtt311Decoder _decoder = new();
     private readonly Func<(IMemoryOwner<byte> buffer, int estimatedSize), bool> _pushMessage;
     private readonly Func<Task> _closingAction;
@@ -67,6 +69,7 @@ internal class FakeMqtt311ServerHandle : IFakeServerHandle
         TryPush(DisconnectPacket.Instance);
     }
 
+    public Task<string> WhenClientIdAssigned => _clientIdAssigned.Task;
     public MqttProtocolVersion ProtocolVersion => MqttProtocolVersion.V3_1_1;
     public ILoggingAdapter Log { get; }
 
@@ -121,6 +124,7 @@ internal class FakeMqtt311ServerHandle : IFakeServerHandle
             }
             case MqttPacketType.Connect:
                 var connect = (ConnectPacket)packet;
+                _clientIdAssigned.TrySetResult(connect.ClientId);
                 var connAck = new ConnAckPacket()
                 {
                     SessionPresent = true,

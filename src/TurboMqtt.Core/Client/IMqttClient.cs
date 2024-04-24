@@ -48,7 +48,7 @@ public interface IMqttClient : IAsyncDisposable
     /// </summary>
     /// <param name="cancellationToken">The token used to cancel the disconnection.</param>
     Task DisconnectAsync(CancellationToken cancellationToken = default);
-    
+
     /// <summary>
     /// Publishes a message to the MQTT broker.
     /// </summary>
@@ -83,7 +83,7 @@ public interface IMqttClient : IAsyncDisposable
     /// </remarks>
     Task<IAckResponse> SubscribeAsync(string topic, QualityOfService qos,
         CancellationToken cancellationToken = default);
-    
+
     /// <summary>
     /// Subscribe to multiple topics on the MQTT broker.
     /// </summary>
@@ -108,7 +108,7 @@ public interface IMqttClient : IAsyncDisposable
     /// <param name="topic">The topic to unsubscribe from.</param>
     /// <param name="cancellationToken">The token used to cancel the unsubscription.</param>
     Task<IAckResponse> UnsubscribeAsync(string topic, CancellationToken cancellationToken = default);
-    
+
     /// <summary>
     /// Unsubscribes from multiple topics on the MQTT broker.
     /// </summary>
@@ -122,16 +122,27 @@ public interface IMqttClient : IAsyncDisposable
     /// <remarks>
     /// Does not cause the connection to terminate - just waits for it to finish.
     /// </remarks>
-    public Task<ConnectionTerminatedReason> WhenTerminated { get; }
+    public Task<DisconnectReasonCode> WhenTerminated { get; }
+}
+
+/// <summary>
+/// INTERNAL API
+/// </summary>
+internal interface IInternalMqttClient : IMqttClient
+{
+    /// <summary>
+    /// Needed to power the ability to swap out the transport during reconnect scenarios.
+    /// </summary>
+    void SwapTransport(IMqttTransport newTransport);
 }
 
 /// <summary>
 /// Default MQTT client implementation
 /// </summary>
-public sealed class MqttClient : IMqttClient
+public sealed class MqttClient : IInternalMqttClient
 {
     private readonly MqttClientConnectOptions _options;
-    private readonly IMqttTransport _transport;
+    private IMqttTransport _transport;
     private readonly IActorRef _clientOwner;
     private readonly MqttRequiredActors _requiredActors;
     private readonly ChannelWriter<MqttPacket> _packetWriter;
@@ -140,7 +151,7 @@ public sealed class MqttClient : IMqttClient
 
     internal MqttClient(IMqttTransport transport, IActorRef clientOwner, MqttRequiredActors requiredActors,
         ChannelReader<MqttMessage> messageReader, ChannelWriter<MqttPacket> packetWriter, ILoggingAdapter log,
-        MqttClientConnectOptions options)
+        MqttClientConnectOptions options, Task<DisconnectReasonCode> trueDeath)
     {
         _transport = transport;
         _clientOwner = clientOwner;
@@ -149,6 +160,16 @@ public sealed class MqttClient : IMqttClient
         _packetWriter = packetWriter;
         _log = log;
         _options = options;
+        WhenTerminated = trueDeath;
+    }
+
+    /// <summary>
+    /// Used to swap out the transport for a new one during reconnect scenarios.
+    /// </summary>
+    /// <param name="newTransport">The replacement transport</param>
+    void IInternalMqttClient.SwapTransport(IMqttTransport newTransport)
+    {
+        _transport = newTransport;
     }
 
     public MqttProtocolVersion ProtocolVersion => _options.ProtocolVersion;
@@ -163,8 +184,11 @@ public sealed class MqttClient : IMqttClient
 
     public async Task<IAckResponse> ConnectAsync(CancellationToken cancellationToken = default)
     {
-        if (_transport.Status != ConnectionStatus.NotStarted)
-            return new AckProtocol.ConnectFailure($"Already in state [{_transport.Status}]");
+        if (_transport.Status == ConnectionStatus.Connected)
+            return new AckProtocol.ConnectSuccess("Already connected to broker.");
+        if(!(_transport.Status == ConnectionStatus.Connecting ||
+           _transport.Status == ConnectionStatus.NotStarted))
+                return new AckProtocol.ConnectFailure($"Already in state [{_transport.Status}]");
 
         // this will blow up if there's a problem with the connection
         await _transport.ConnectAsync(cancellationToken);
@@ -252,10 +276,13 @@ public sealed class MqttClient : IMqttClient
 
         var disconnectPacket = new DisconnectPacket();
         await _packetWriter.WriteAsync(disconnectPacket, cancellationToken);
-        
+
         // begin the shutdown of the transport - internally, the transport should guarantee
         // that all pending writes are flushed before the connection is closed
-        await _transport.CloseAsync(cancellationToken);
+#pragma warning disable CA2016
+        await _clientOwner.Ask<ClientStreamOwner.DisconnectComplete>(
+            new ClientStreamOwner.DoDisconnect(cancellationToken));
+#pragma warning restore CA2016
 
         // the broker SHOULD disconnect from us
         try
@@ -268,33 +295,36 @@ public sealed class MqttClient : IMqttClient
             await AbortConnectionAsync();
         }
     }
-    
-    private static readonly Task<IPublishControlMessage> Qos0Task = Task.FromResult((IPublishControlMessage)PublishingProtocol.PublishSuccess.Instance);
+
+    private static readonly Task<IPublishControlMessage> Qos0Task =
+        Task.FromResult((IPublishControlMessage)PublishingProtocol.PublishSuccess.Instance);
 
     private sealed class CancelHandle(IActorRef actor, object message)
     {
         public IActorRef Actor { get; } = actor;
         public object Message { get; } = message;
 
-        public void DoCancel(){
+        public void DoCancel()
+        {
             Actor.Tell(Message);
         }
     }
 
-    public async Task<IPublishControlMessage> PublishAsync(MqttMessage message, CancellationToken cancellationToken = default)
+    public async Task<IPublishControlMessage> PublishAsync(MqttMessage message,
+        CancellationToken cancellationToken = default)
     {
-        if (_transport.Status != ConnectionStatus.Connected)
-            return new PublishingProtocol.PublishFailure("Not connected to broker.");
+        // if (_transport.Status != ConnectionStatus.Connected)
+        //     return new PublishingProtocol.PublishFailure("Not connected to broker.");
 
         var publishPacket = message.ToPacket();
 
         Task<IPublishControlMessage> WaitForAck(IActorRef targetActor, PublishPacket packet)
         {
             var task = targetActor.Ask<IPublishControlMessage>(packet, cancellationToken);
-            
+
             var cancel = new CancelHandle(targetActor, new PublishingProtocol.PublishCancelled(packet.PacketId));
-            
-            cancellationToken.Register( (obj) =>
+
+            cancellationToken.Register((obj) =>
             {
                 if (obj is CancelHandle c)
                 {
@@ -358,7 +388,7 @@ public sealed class MqttClient : IMqttClient
             QoS = qos,
             Retain = retain
         };
-        
+
         return PublishAsync(mqttMessage, cancellationToken);
     }
 
@@ -373,11 +403,12 @@ public sealed class MqttClient : IMqttClient
         {
             Options = subscriptionOptions
         };
-        
+
         return SubscribeAsync([subscription], cancellationToken);
     }
 
-    public async Task<IAckResponse> SubscribeAsync(TopicSubscription[] topics, CancellationToken cancellationToken = default)
+    public async Task<IAckResponse> SubscribeAsync(TopicSubscription[] topics,
+        CancellationToken cancellationToken = default)
     {
         if (_transport.Status != ConnectionStatus.Connected)
             return new AckProtocol.SubscribeFailure("Not connected to broker.");
@@ -387,10 +418,11 @@ public sealed class MqttClient : IMqttClient
             PacketId = _packetIdCounter.GetNextValue(),
             Topics = topics
         };
-        
+
         // Violates MQTT spec - we should never have a packet ID of 0 on Subscribe or Unsubscribe
         System.Diagnostics.Debug.Assert(subscribePacket.PacketId != 0, "PacketId should not be 0");
 
+        _clientOwner.Tell(subscribePacket); // for reconnect support
         var askTask = _requiredActors.ClientAck.Ask<IAckResponse>(subscribePacket, cancellationToken);
 
         // flush the packet to the wire
@@ -432,10 +464,10 @@ public sealed class MqttClient : IMqttClient
             PacketId = _packetIdCounter.GetNextValue(),
             Topics = topics
         };
-        
+
         // Violates MQTT spec - we should never have a packet ID of 0 on Subscribe or Unsubscribe
         System.Diagnostics.Debug.Assert(unsubscribePacket.PacketId != 0, "PacketId should not be 0");
-
+        _clientOwner.Tell(unsubscribePacket); // for reconnect support
         var askTask = _requiredActors.ClientAck.Ask<IAckResponse>(unsubscribePacket, cancellationToken);
 
         // flush the packet to the wire
@@ -460,11 +492,11 @@ public sealed class MqttClient : IMqttClient
         }
     }
 
-    public Task<ConnectionTerminatedReason> WhenTerminated => _transport.WhenTerminated;
+    public Task<DisconnectReasonCode> WhenTerminated { get; }
 
     public async ValueTask DisposeAsync()
     {
-        if(_transport.Status is not (ConnectionStatus.Aborted or ConnectionStatus.Disconnected))
+        if (_transport.Status is not (ConnectionStatus.Aborted or ConnectionStatus.Disconnected))
             await AbortConnectionAsync();
     }
 }

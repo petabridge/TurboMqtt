@@ -6,6 +6,7 @@
 
 using Akka.Actor;
 using TurboMqtt.Core.IO;
+using TurboMqtt.Core.IO.Tcp;
 using TurboMqtt.Core.Streams;
 
 namespace TurboMqtt.Core.Client;
