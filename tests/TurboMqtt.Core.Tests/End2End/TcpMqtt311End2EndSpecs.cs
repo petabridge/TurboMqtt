@@ -22,8 +22,9 @@ public class TcpMqtt311End2EndSpecs : TransportSpecBase
     public TcpMqtt311End2EndSpecs(ITestOutputHelper output) : base(output: output, config: DebugLogging)
     {
         // create custom log source for our TCP server
-        var logSource = LogSource.Create("FakeMqttTcpServer", typeof(FakeMqttTcpServer));
-        var logger = Logging.GetLogger(Sys, logSource);
+        //var logSource = LogSource.Create("FakeMqttTcpServer", typeof(FakeMqttTcpServer));
+        var logger = new BusLogging(Sys.EventStream, "FakeMqttTcpServer", typeof(FakeMqttTcpServer),
+            Sys.Settings.LogFormatter);
         _server = new FakeMqttTcpServer(new MqttTcpServerOptions("localhost", 21883), MqttProtocolVersion.V3_1_1, logger);
         _server.Bind();
     }
