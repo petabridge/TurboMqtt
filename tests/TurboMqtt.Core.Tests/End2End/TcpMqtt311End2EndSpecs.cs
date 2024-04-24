@@ -25,11 +25,12 @@ public class TcpMqtt311End2EndSpecs : TransportSpecBase
         //var logSource = LogSource.Create("FakeMqttTcpServer", typeof(FakeMqttTcpServer));
         var logger = new BusLogging(Sys.EventStream, "FakeMqttTcpServer", typeof(FakeMqttTcpServer),
             Sys.Settings.LogFormatter);
-        _server = new FakeMqttTcpServer(new MqttTcpServerOptions("localhost", 21883), MqttProtocolVersion.V3_1_1, logger);
+        _server = new FakeMqttTcpServer(new MqttTcpServerOptions("localhost", 21883), MqttProtocolVersion.V3_1_1, logger, TimeSpan.Zero);
         _server.Bind();
     }
     
     private readonly FakeMqttTcpServer _server;
+
     public override async Task<IMqttClient> CreateClient()
     {
         var client = await ClientFactory.CreateTcpClient(DefaultConnectOptions, DefaultTcpOptions);
@@ -76,5 +77,29 @@ public class TcpMqtt311End2EndSpecs : TransportSpecBase
         await client.DisconnectAsync(shutdownCts.Token);
         
         await client.WhenTerminated.WaitAsync(shutdownCts.Token);
+    }
+    
+    [Fact]
+    public async Task ShouldTerminateClientAfterMultipleFailedConnectionAttempts()
+    {
+        var updatedOptions = DefaultConnectOptions;
+        updatedOptions.MaxReconnectAttempts = 1; // allow 1 reconnection attempt
+        var client = await ClientFactory.CreateTcpClient(updatedOptions, DefaultTcpOptions);
+
+        var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+        var connectResult = await client.ConnectAsync(cts.Token);
+        connectResult.IsSuccess.Should().BeTrue();
+        
+        // subscribe
+        var subResult = await client.SubscribeAsync(DefaultTopic, QualityOfService.AtLeastOnce, cts.Token);
+        subResult.IsSuccess.Should().BeTrue();
+        
+        // shutdown server
+        _server.Shutdown();
+        
+        // wait for retry-->reconnect loop to fail twice
+        
+        await client.WhenTerminated.WaitAsync(cts.Token);
+        client.WhenTerminated.IsCompleted.Should().BeTrue();
     }
 }
