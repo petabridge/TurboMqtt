@@ -131,7 +131,7 @@ public interface IMqttClient : IAsyncDisposable
 public sealed class MqttClient : IMqttClient
 {
     private readonly MqttClientConnectOptions _options;
-    private IMqttTransport _transport;
+    private readonly IMqttTransport _transport;
     private readonly IActorRef _clientOwner;
     private readonly MqttRequiredActors _requiredActors;
     private readonly ChannelWriter<MqttPacket> _packetWriter;
@@ -149,15 +149,6 @@ public sealed class MqttClient : IMqttClient
         _packetWriter = packetWriter;
         _log = log;
         _options = options;
-    }
-    
-    /// <summary>
-    /// Used to swap out the transport for a new one during reconnect scenarios.
-    /// </summary>
-    /// <param name="newTransport">The replacement transport</param>
-    internal void SwapTransport(IMqttTransport newTransport)
-    {
-        _transport = newTransport;
     }
 
     public MqttProtocolVersion ProtocolVersion => _options.ProtocolVersion;

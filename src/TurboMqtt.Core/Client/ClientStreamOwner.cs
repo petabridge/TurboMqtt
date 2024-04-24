@@ -35,16 +35,6 @@ internal sealed class ClientStreamOwner : UntypedActor
         private DisconnectComplete() { }
     }
     
-    public sealed class ServerDisconnect
-    {
-        public ServerDisconnect(DisconnectReasonCode reason)
-        {
-            Reason = reason;
-        }
-
-        public DisconnectReasonCode Reason { get; }
-    }
-    
     /// <summary>
     /// Used to create a new client.
     /// </summary>
@@ -65,10 +55,6 @@ internal sealed class ClientStreamOwner : UntypedActor
 
     private readonly IMaterializer _materializer = Context.Materializer();
     private readonly ILoggingAdapter _log = Context.GetLogger();
-    
-    /* Data we need for automatic reconnects */
-    private ConnectPacket? _savedConnectPacket;
-    private Dictionary<string, TopicSubscription> _savedSubscriptions = new();
 
     protected override void OnReceive(object message)
     {
@@ -119,7 +105,33 @@ internal sealed class ClientStreamOwner : UntypedActor
                 // create the transport (this is a blocking call)
                 _currentTransport = _transportManager.CreateTransportAsync().GetAwaiter().GetResult();
 
-                PrepareStream(clientConnectOptions, _currentTransport, outboundPackets, requiredActors, outboundPacketsReader);
+                var (inboundStream, outboundStream) = 
+                    ConfigureMqttStreams(clientConnectOptions, _currentTransport,
+                    outboundPackets, requiredActors, _currentTransport.MaxFrameSize);
+
+                // begin outbound stream
+                ChannelSource.FromReader(outboundPacketsReader)
+                    .To(outboundStream)
+                    .Run(_materializer);
+
+                // check for streams termination
+                var watchTermination = Flow.Create<MqttMessage>()
+                    .WatchTermination((_, done) =>
+                    {
+                        done.ContinueWith(t =>
+                        {
+                            // TODO: replace this with recreating the transport
+                            _log.Warning("Transport was terminated by broker. Shutting down client.");
+                            _currentTransport.AbortAsync();
+                        }, TaskContinuationOptions.ExecuteSynchronously);
+                        return NotUsed.Instance;
+                    });
+
+                // begin inbound stream
+                inboundStream
+                    .Via(watchTermination)
+                    .To(ChannelSink.FromWriter(_inboundChannel.Writer, true))
+                    .Run(_materializer);
 
                 _client = new MqttClient(_currentTransport,
                     Self,
@@ -139,44 +151,6 @@ internal sealed class ClientStreamOwner : UntypedActor
         }
     }
 
-    private void PrepareStream(MqttClientConnectOptions clientConnectOptions, 
-        IMqttTransport transport,
-        ChannelWriter<MqttPacket> outboundPackets,
-        MqttRequiredActors requiredActors, 
-        ChannelReader<MqttPacket> outboundPacketsReader)
-    {
-        var (inboundStream, outboundStream) = 
-            ConfigureMqttStreams(clientConnectOptions, transport,
-                outboundPackets, requiredActors, transport.MaxFrameSize);
-
-        // begin outbound stream
-        ChannelSource.FromReader(outboundPacketsReader)
-            .To(outboundStream)
-            .Run(_materializer);
-
-        // check for streams termination
-        var closureSelf = Self;
-        var watchTermination = Flow.Create<MqttMessage>()
-            .WatchTermination((_, done) =>
-            {
-                done.ContinueWith(t =>
-                {
-                    // TODO: replace this with recreating the transport
-                    _log.Warning("Transport was terminated by broker. Shutting down client.");
-                    transport.AbortAsync();
-                    closureSelf.Tell(new ServerDisconnect(DisconnectReasonCode.NormalDisconnection));
-                }, TaskContinuationOptions.ExecuteSynchronously);
-                return NotUsed.Instance;
-            });
-
-        // begin inbound stream
-        inboundStream
-            .Via(watchTermination)
-            // setting IsOwner to false here is crucial - otherwise, we can't reboot the client after broker disconnects
-            .To(ChannelSink.FromWriter(_inboundChannel!.Writer, false))
-            .Run(_materializer);
-    }
-
     /// <summary>
     /// State that we enter after the client has launched.
     /// </summary>
@@ -184,52 +158,9 @@ internal sealed class ClientStreamOwner : UntypedActor
     {
         switch (message)
         {
-            /* Memorization methods - need this data for reconnects */
-            
-            case ConnectPacket connectPacket:
-            {
-                _savedConnectPacket = connectPacket;
-                break;
-            }
-            case SubscribePacket subscribePacket:
-            {
-                foreach(var s in subscribePacket.Topics)
-                    _savedSubscriptions[s.Topic] = s;
-                break;
-            }
-            case UnsubscribePacket unsubscribePacket:
-            {
-                foreach(var s in unsubscribePacket.Topics)
-                    _savedSubscriptions.Remove(s);
-                break;
-            }
-            
-            /* Connection handling methods */
-            
-            case ServerDisconnect serverDisconnect:
-            {
-                _log.Info("Server disconnected the client. Reason: {0}", serverDisconnect.Reason);
-                _currentTransport = null; // null out the old transport
-
-                // TODO: determine if this is an irrecoverable broker error
-                // if it is, we need to shut down the client
-                // if it's not, we need to reconnect
-                
-                // time to recreate the transport
-                _currentTransport = _transportManager!.CreateTransportAsync().GetAwaiter().GetResult();
-                
-                // need to reconnect the streams
-                
-                break;
-            }
-            
-            case DoDisconnect doDisconnect: // explicit disconnect - no coming back from this
+            case DoDisconnect doDisconnect:
             {
                 _log.Info("Disconnecting client...");
-
-                _ = ExecDisconnect();
-                
-                break;
 
                 async Task ExecDisconnect()
                 {
@@ -251,6 +182,10 @@ internal sealed class ClientStreamOwner : UntypedActor
                     }
                     
                 }
+                
+                var _ = ExecDisconnect();
+                
+                break;
             }
             case CreateClient:
                 // Just resend the existing client
