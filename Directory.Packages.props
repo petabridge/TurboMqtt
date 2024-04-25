@@ -15,6 +15,12 @@
     <PackageVersion Include="OpenTelemetry.Extensions.Hosting" Version="1.8.1" />
     <PackageVersion Include="System.IO.Pipelines" Version="8.0.0" />
   </ItemGroup>
+
+  <!-- Utility Package Versions -->
+  <ItemGroup>
+    <PackageVersion Include="Microsoft.SourceLink.GitHub" Version="8.0.0"/>
+  </ItemGroup>
+
   <!-- Test Package Versions -->
   <ItemGroup>
     <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="17.9.0" />

@@ -1,35 +1,39 @@
 <Project>
-    <PropertyGroup>
-        <Copyright>Copyright © 2024 Petabridge, LLC</Copyright>
-        <NoWarn>$(NoWarn);CS1591</NoWarn>
-        <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
-        <VersionPrefix>1.0.0</VersionPrefix>
-    </PropertyGroup>
-
-    <PropertyGroup Label="Build">
-        <LangVersion>latest</LangVersion>
-        <ImplicitUsings>enable</ImplicitUsings>
-        <Nullable>enable</Nullable>
-
-    </PropertyGroup>
-
-    <PropertyGroup Label="NuGetMetaData">
-        <PackageLicenseFile>LICENSE.md</PackageLicenseFile>
-        <PackageReadmeFile>README.md</PackageReadmeFile>
-    </PropertyGroup>
-
-    <ItemGroup>
-        <None Include="$(MSBuildThisFileDirectory)\README.md" Pack="true" Visible="false" PackagePath="\"/>
-        <None Include="$(MSBuildThisFileDirectory)\LICENSE.md" Pack="true" Visible="false" PackagePath="\"/>
-    </ItemGroup>
-
-    <PropertyGroup>
-        <!--<PublishRepositoryUrl>true</PublishRepositoryUrl>-->
-        <RepositoryUrl>https://github.com/Aaronontheweb/TurboMqtt</RepositoryUrl>
-        <!-- Optional: Embed source files that are not tracked by the source control manager in the PDB -->
-        <EmbedUntrackedSources>true</EmbedUntrackedSources>
-        <!-- Optional: Build symbol package (.snupkg) to distribute the PDB containing Source Link -->
-        <IncludeSymbols>true</IncludeSymbols>
-        <SymbolPackageFormat>snupkg</SymbolPackageFormat>
-    </PropertyGroup>
+  <PropertyGroup>
+    <Copyright>Copyright © 2024 Petabridge, LLC</Copyright>
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <VersionPrefix>0.1.0-beta1</VersionPrefix>
+    <Authors>Petabridge</Authors>
+    <PackageReleaseNotes>* First release; fully-functioning MQTT 3.1.1 client over TCP, but we're missing TLS support still.</PackageReleaseNotes>
+  </PropertyGroup>
+  <PropertyGroup Label="Build">
+    <LangVersion>latest</LangVersion>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+  <PropertyGroup Label="NuGetMetaData">
+    <PackageProjectUrl>https://github.com/petabridge/TurboMqtt</PackageProjectUrl>
+    <PackageLicenseFile>LICENSE.md</PackageLicenseFile>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageIcon>logo.png</PackageIcon>
+  </PropertyGroup>
+  <ItemGroup>
+    <None Include="$(MSBuildThisFileDirectory)\README.md" Pack="true" Visible="false" PackagePath="\" />
+    <None Include="$(MSBuildThisFileDirectory)\LICENSE.md" Pack="true" Visible="false" PackagePath="\" />
+    <None Include="$(MSBuildThisFileDirectory)\docs\logo.png" Pack="true" Visible="false" PackagePath="\" />
+  </ItemGroup>
+  <!-- SourceLink support for all TurboMqtt projects -->
+  <ItemGroup>
+    <PackageReference Include="Microsoft.SourceLink.GitHub" PrivateAssets="All" />
+  </ItemGroup>
+  <PropertyGroup>
+    <!--<PublishRepositoryUrl>true</PublishRepositoryUrl>-->
+    <RepositoryUrl>https://github.com/petabridge/TurboMqtt</RepositoryUrl>
+    <!-- Optional: Embed source files that are not tracked by the source control manager in the PDB -->
+    <EmbedUntrackedSources>true</EmbedUntrackedSources>
+    <!-- Optional: Build symbol package (.snupkg) to distribute the PDB containing Source Link -->
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+  </PropertyGroup>
 </Project>
