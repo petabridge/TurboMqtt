@@ -98,8 +98,8 @@ internal class FakeMqtt311ServerHandle : IFakeServerHandle
 
     public virtual void HandlePacket(MqttPacket packet)
     {
-        if(Log.IsInfoEnabled)
-            Log.Info("Received packet of type {0}", packet.PacketType);
+        if(Log.IsDebugEnabled)
+            Log.Debug("Received packet of type {0}", packet.PacketType);
         switch (packet.PacketType)
         {
             case MqttPacketType.Publish:

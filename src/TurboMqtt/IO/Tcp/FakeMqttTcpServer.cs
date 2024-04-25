@@ -116,6 +116,7 @@ internal sealed class FakeMqttTcpServer
 
     public void Shutdown()
     {
+        _log.Info("Shutting down server.");
         try
         {
             _shutdownTcs.Cancel();
@@ -161,6 +162,10 @@ internal sealed class FakeMqttTcpServer
                     var bytesRead = await socket.ReceiveAsync(buffer, SocketFlags.None, linkedCts.Token);
                     if (bytesRead == 0)
                     {
+                        _log.Info("Client {0} disconnected from server.",
+                            handle.WhenClientIdAssigned.IsCompletedSuccessfully
+                                ? handle.WhenClientIdAssigned.Result
+                                : "unknown");
                         socket.Close();
                         return;
                     }
