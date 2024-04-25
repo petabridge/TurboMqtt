@@ -50,7 +50,7 @@ jobs:
       env:
         ENCODED_JSON: ${{ secrets.SIGNING_CONFIG }}
       run: |
-        echo "$ENCODED_JSON" | base64 --decode > ${{ runner.temp }}/signing-config.json
+        echo "${{ secrets.SIGNING_CONFIG }}" | base64 --decode > ${{ runner.temp }}/signing-config.json
 
         
     - name: Download build artifacts
