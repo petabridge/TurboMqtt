@@ -22,7 +22,7 @@ if (-Not (Test-Path $DirectoryPath)) {
 }
 
 # Loop over each .nupkg and .snupkg file in the directory
-Get-ChildItem -Path $DirectoryPath -Filter *.nupkg,*.snupkg -Recurse | ForEach-Object {
+Get-ChildItem -Path $DirectoryPath -Include *.nupkg,*.snupkg -Recurse | ForEach-Object {
     $filePath = $_.FullName
 
     Write-Output "Signing file: $filePath"
