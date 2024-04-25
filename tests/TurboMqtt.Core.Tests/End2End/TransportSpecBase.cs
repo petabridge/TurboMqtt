@@ -112,7 +112,7 @@ public abstract class TransportSpecBase : TestKit
         }
 
         await client.DisconnectAsync(cts.Token);
-        client.IsConnected.Should().BeFalse();
+        await AwaitAssertAsync(() => client.IsConnected.Should().BeFalse(), cancellationToken: cts.Token);
     }
 
     [Theory]
@@ -158,7 +158,7 @@ public abstract class TransportSpecBase : TestKit
         }
 
         await client.DisconnectAsync(cts.Token);
-        client.IsConnected.Should().BeFalse();
+        await AwaitAssertAsync(() => client.IsConnected.Should().BeFalse(), cancellationToken: cts.Token);
     }
     
     [Fact]
@@ -220,7 +220,7 @@ public abstract class TransportSpecBase : TestKit
         }
 
         await client.DisconnectAsync(cts.Token);
-        client.IsConnected.Should().BeFalse();
+        await AwaitAssertAsync(() => client.IsConnected.Should().BeFalse(), cancellationToken: cts.Token);
     }
     
     [Fact]
