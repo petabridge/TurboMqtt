@@ -33,9 +33,12 @@ jobs:
       - name: "Install .NET SDK"
         uses: actions/setup-dotnet@v4.0.0
         with:
-          dotnet-version: |
-            8.0.x
           global-json-file: "./global.json"
+
+      - name: "Update release notes"
+        shell: pwsh
+        run: |
+          ./build.ps1
 
       - name: "dotnet build"
         run: dotnet build -c Release
@@ -90,3 +93,6 @@ jobs:
         uses: EnricoMi/publish-unit-test-result-action@v2.16.1
         with:
           trx_files: "${{ github.workspace }}/**/*.trx"
+
+      - name: "dotnet pack"
+        run: dotnet pack -c Release
