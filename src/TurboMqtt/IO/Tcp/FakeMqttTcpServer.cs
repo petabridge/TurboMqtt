@@ -180,6 +180,14 @@ internal sealed class FakeMqttTcpServer
                             ? handle.WhenClientIdAssigned.Result
                             : "unknown");
                 }
+                catch (Exception ex)
+                {
+                    _log.Error(ex, "Error processing message from client {0}.",
+                        handle.WhenClientIdAssigned.IsCompletedSuccessfully
+                            ? handle.WhenClientIdAssigned.Result
+                            : "unknown");
+                    return;
+                }
             }
 
             // send a disconnect message
@@ -209,6 +217,11 @@ internal sealed class FakeMqttTcpServer
                         return true;
                     }
 
+                    return false;
+                }
+                catch (Exception ex)
+                {
+                    _log.Error(ex, "Error writing to client.");
                     return false;
                 }
                 finally
