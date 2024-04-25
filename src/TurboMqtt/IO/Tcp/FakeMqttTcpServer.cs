@@ -49,6 +49,8 @@ internal sealed class FakeMqttTcpServer
     private readonly TimeSpan _heatBeatDelay;
     private readonly IFakeServerHandleFactory _handleFactory;
     private Socket? _bindSocket;
+    
+    public int BoundPort { get; private set; }
 
     public FakeMqttTcpServer(MqttTcpServerOptions options, MqttProtocolVersion version, ILoggingAdapter log, TimeSpan heartbeatDelay, IFakeServerHandleFactory handleFactory)
     {
@@ -93,7 +95,9 @@ internal sealed class FakeMqttTcpServer
         var hostAddress = Dns.GetHostAddresses(_options.Host).First();
 
         _bindSocket.Bind(new IPEndPoint(hostAddress, _options.Port));
-        _bindSocket.Listen(10);
+        _bindSocket.Listen(100);
+        
+        BoundPort = _bindSocket!.LocalEndPoint is IPEndPoint ipEndPoint ? ipEndPoint.Port : 0;
 
         // begin the accept loop
         _ = BeginAcceptAsync();
