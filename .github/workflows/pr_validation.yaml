@@ -43,6 +43,9 @@ jobs:
       - name: "dotnet build"
         run: dotnet build -c Release
 
+      - name: "dotnet pack"
+        run: dotnet pack -c Release
+
       - name: "dotnet test"
         run: dotnet test --configuration Release --verbosity normal --logger trx --collect:"XPlat Code Coverage"
 
@@ -93,6 +96,3 @@ jobs:
         uses: EnricoMi/publish-unit-test-result-action@v2.16.1
         with:
           trx_files: "${{ github.workspace }}/**/*.trx"
-
-      - name: "dotnet pack"
-        run: dotnet pack -c Release
