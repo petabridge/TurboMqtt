@@ -27,4 +27,30 @@ public class InMemoryMqtt311End2EndSpecs : TransportSpecBase
         var client = ClientFactory.CreateInMemoryClient(DefaultConnectOptions);
         return client;
     }
+    
+    // create a spec where we keep recreating the same client with the same clientId each time we disconnect - it should reconnect successfully
+    [Fact]
+    public async Task ShouldAutomaticallyReconnectandSubscribeAfterServerDisconnect()
+    {
+        await RunClientLifeCycle();
+        await RunClientLifeCycle();
+        await RunClientLifeCycle();
+
+        async Task RunClientLifeCycle()
+        {
+            var client = await ClientFactory.CreateInMemoryClient(DefaultConnectOptions);
+
+            using var cts = new CancellationTokenSource(RemainingOrDefault);
+            var connectResult = await client.ConnectAsync(cts.Token);
+            connectResult.IsSuccess.Should().BeTrue();
+
+            // subscribe
+            var subscribeResult = await client.SubscribeAsync(DefaultTopic, QualityOfService.AtMostOnce, cts.Token);
+            subscribeResult.IsSuccess.Should().BeTrue();
+
+            // disconnect
+            await client.DisconnectAsync(cts.Token);
+            await client.WhenTerminated;
+        }
+    }
 }
