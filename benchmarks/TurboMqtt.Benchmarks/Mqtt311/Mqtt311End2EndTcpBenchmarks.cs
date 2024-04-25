@@ -41,7 +41,7 @@ public class Mqtt311EndToEndTcpBenchmarks
 
     private const string Topic = "test";
     private const string Host = "localhost";
-    private const int Port = 21892;
+    private int Port;
     
     private ReadOnlyMemory<byte> CreateMsgPayload()
     {
@@ -57,10 +57,12 @@ public class Mqtt311EndToEndTcpBenchmarks
     [GlobalSetup]
     public void StartFixture()
     {
-        _system = ActorSystem.Create("Mqtt311EndToEndTcpBenchmarks", "akka.loglevel=ERROR");
+        _system = ActorSystem.Create("Mqtt311EndToEndTcpBenchmarks", "akka.loglevel=INFO");
         var loggingAdapter = new BusLogging(_system.EventStream, "FakeMqttTcpServer", typeof(FakeMqttTcpServer),
             _system.Settings.LogFormatter);
-        _server = new FakeMqttTcpServer(new MqttTcpServerOptions(Host, Port), MqttProtocolVersion.V3_1_1, loggingAdapter,
+        
+        // bind to a random port
+        _server = new FakeMqttTcpServer(new MqttTcpServerOptions(Host, 0), MqttProtocolVersion.V3_1_1, loggingAdapter,
             TimeSpan.Zero, new DefaultFakeServerHandleFactory());
         
         _clientFactory = new MqttClientFactory(_system);
@@ -71,7 +73,10 @@ public class Mqtt311EndToEndTcpBenchmarks
             QoS = QoSLevel
         };
         
-        _defaultTcpOptions = new MqttClientTcpOptions(Host, Port);
+        _server.Bind();
+        Port = _server.BoundPort;
+
+        _defaultTcpOptions = new MqttClientTcpOptions(Host, Port) { MaxFrameSize = 16 * 1024 };
         _defaultConnectOptions = new MqttClientConnectOptions("test-subscriber", ProtocolVersion)
         {
             UserName = "testuser",
@@ -80,9 +85,6 @@ public class Mqtt311EndToEndTcpBenchmarks
             MaxReconnectAttempts = 10,
             PublishRetryInterval = TimeSpan.FromSeconds(5)
         };
-        
-        
-        _server.Bind();
     }
     
     [GlobalCleanup]
@@ -90,6 +92,8 @@ public class Mqtt311EndToEndTcpBenchmarks
     {
         _server?.Shutdown();
         _system?.Dispose();
+        _server = null;
+        _system = null;
     }
 
     [IterationSetup]
@@ -126,6 +130,7 @@ public class Mqtt311EndToEndTcpBenchmarks
             using var cts = new CancellationTokenSource(System.TimeSpan.FromSeconds(5));
             await _subscribeClient!.DisconnectAsync(cts.Token);
             await _subscribeClient!.WhenTerminated.WaitAsync(cts.Token);
+            await _subscribeClient!.DisposeAsync();
         }
     }
     
