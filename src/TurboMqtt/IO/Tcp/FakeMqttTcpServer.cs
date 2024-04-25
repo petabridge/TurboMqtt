@@ -48,7 +48,7 @@ internal sealed class FakeMqttTcpServer
     private readonly ConcurrentDictionary<string, CancellationTokenSource> _clientCts = new();
     private readonly TimeSpan _heatBeatDelay;
     private readonly IFakeServerHandleFactory _handleFactory;
-    private Socket? bindSocket;
+    private Socket? _bindSocket;
 
     public FakeMqttTcpServer(MqttTcpServerOptions options, MqttProtocolVersion version, ILoggingAdapter log, TimeSpan heartbeatDelay, IFakeServerHandleFactory handleFactory)
     {
@@ -64,12 +64,12 @@ internal sealed class FakeMqttTcpServer
 
     public void Bind()
     {
-        if (bindSocket != null)
+        if (_bindSocket != null)
             throw new InvalidOperationException("Cannot bind the same server twice.");
 
         if (_options.AddressFamily == AddressFamily.Unspecified) // allows use of dual mode IPv4 / IPv6
         {
-            bindSocket = new Socket(SocketType.Stream, ProtocolType.Tcp)
+            _bindSocket = new Socket(SocketType.Stream, ProtocolType.Tcp)
             {
                 ReceiveBufferSize = _options.MaxFrameSize * 2,
                 SendBufferSize = _options.MaxFrameSize * 2
@@ -77,7 +77,7 @@ internal sealed class FakeMqttTcpServer
         }
         else
         {
-            bindSocket = new Socket(_options.AddressFamily, SocketType.Stream, ProtocolType.Tcp)
+            _bindSocket = new Socket(_options.AddressFamily, SocketType.Stream, ProtocolType.Tcp)
             {
                 ReceiveBufferSize = _options.MaxFrameSize * 2,
                 SendBufferSize = _options.MaxFrameSize * 2
@@ -86,11 +86,11 @@ internal sealed class FakeMqttTcpServer
 
         var hostAddress = Dns.GetHostAddresses(_options.Host).First();
 
-        bindSocket.Bind(new IPEndPoint(hostAddress, _options.Port));
-        bindSocket.Listen(10);
+        _bindSocket.Bind(new IPEndPoint(hostAddress, _options.Port));
+        _bindSocket.Listen(10);
 
         // begin the accept loop
-        var _ = BeginAcceptAsync();
+        _ = BeginAcceptAsync();
     }
 
     public bool TryKickClient(string clientId)
@@ -109,7 +109,7 @@ internal sealed class FakeMqttTcpServer
         try
         {
             _shutdownTcs.Cancel();
-            bindSocket?.Close();
+            _bindSocket?.Close();
         }
         catch (Exception)
         {
@@ -121,7 +121,7 @@ internal sealed class FakeMqttTcpServer
     {
         while (!_shutdownTcs.IsCancellationRequested)
         {
-            var socket = await bindSocket!.AcceptAsync();
+            var socket = await _bindSocket!.AcceptAsync();
             _ = ProcessClientAsync(socket);
         }
     }

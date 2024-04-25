@@ -36,8 +36,8 @@ public class Mqtt311EndToEndTcpBenchmarks
 
     private MqttMessage? _testMessage;
     
-    private MqttClientConnectOptions? DefaultConnectOptions;
-    private MqttClientTcpOptions? DefaultTcpOptions;
+    private MqttClientConnectOptions? _defaultConnectOptions;
+    private MqttClientTcpOptions? _defaultTcpOptions;
 
     private const string Topic = "test";
     private const string Host = "localhost";
@@ -71,8 +71,8 @@ public class Mqtt311EndToEndTcpBenchmarks
             QoS = QoSLevel
         };
         
-        DefaultTcpOptions = new MqttClientTcpOptions(Host, Port);
-        DefaultConnectOptions = new MqttClientConnectOptions("test-subscriber", ProtocolVersion)
+        _defaultTcpOptions = new MqttClientTcpOptions(Host, Port);
+        _defaultConnectOptions = new MqttClientConnectOptions("test-subscriber", ProtocolVersion)
         {
             UserName = "testuser",
             Password = "testpassword",
@@ -101,7 +101,7 @@ public class Mqtt311EndToEndTcpBenchmarks
         async Task DoSetup()
         {
             using var cts = new CancellationTokenSource(System.TimeSpan.FromSeconds(5));
-            _subscribeClient = await _clientFactory!.CreateTcpClient(DefaultConnectOptions!, DefaultTcpOptions!);
+            _subscribeClient = await _clientFactory!.CreateTcpClient(_defaultConnectOptions!, _defaultTcpOptions!);
             var r = await _subscribeClient.ConnectAsync(cts.Token);
             if (!r.IsSuccess)
             {
