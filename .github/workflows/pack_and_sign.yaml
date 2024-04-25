@@ -23,15 +23,20 @@ jobs:
       uses: actions/setup-dotnet@v4.0.0
       with:
         global-json-file: "./global.json"
+
+    - name: "Update release notes"
+      shell: pwsh
+      run: |
+        ./build.ps1
         
     - name: Build Package
-      run: dotnet pack --configuration Release -o /bin/nuget
+      run: dotnet pack --configuration Release -o ./bin/nuget
         
     - name: Upload build artifacts
       uses: actions/upload-artifact@v3
       with:
         name: BuildArtifacts
-        path: bin/nuget/*.{nupkg,snupkg}
+        path: .bin/nuget/*.{nupkg,snupkg}
     
   sign:
     needs: build
