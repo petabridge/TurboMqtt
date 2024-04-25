@@ -9,6 +9,7 @@ The fastest MQTT client in .NET, written on top of [Akka.NET](https://getakka.ne
 * MQTT 3.1.1 support;
 * Extremely high performance;
 * Extremely resource-efficient - pools memory and leverages asynchronous I/O best practices;
+* Extremely robust fault tolerance - this is one of [Akka.NET's great strengths](https://petabridge.com/blog/akkadotnet-actors-restart/) and we've leveraged it in TurboMqtt;
 * Supports all MQTT quality of service levels, with automatic publishing retries for QoS 1 and 2;
 * Full [OpenTelemetry](https://opentelemetry.io/https://opentelemetry.io/) support;
 * Automatic retry-reconnect in broker disconnect scenarios;
