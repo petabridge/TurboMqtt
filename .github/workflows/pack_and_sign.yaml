@@ -1,0 +1,119 @@
+name: Build and Sign
+
+on:
+  push:
+    tags:
+      - '*'
+
+jobs:   
+  sign:
+    runs-on: windows-latest # Code signing must run on a Windows agent for Authenticode signing (dll/exe)
+      
+    steps:
+    - uses: actions/checkout@v4.1.4
+
+    - name: "Install .NET SDK"
+      uses: actions/setup-dotnet@v4.0.0
+      with:
+        global-json-file: "./global.json"
+
+    - name: "Update release notes"
+      shell: pwsh
+      run: |
+        ./build.ps1
+        
+    - name: Build Package
+      run: dotnet pack --configuration Release -o ./bin/nuget
+
+    - name: Write JSON File from Secret
+      env:
+        JSON_CONTENT: ${{ secrets.SIGNING_CONFIG }}
+      shell: powershell
+      run: |
+        $Env:JSON_CONTENT | Out-File -FilePath "${{ runner.temp }}\signing-config.json" -Encoding utf8
+
+    - name: Install SignClient
+      run: dotnet tool install --tool-path . SignClient
+
+    - name: Sign artifacts
+      shell: pwsh
+      run: >
+        ./scripts/signPackages.ps1 -ConfigPath "${{ runner.temp }}/signing-config.json" `
+          -UserName "${{ secrets.SIGNING_USER_NAME }}" `
+          -Password "${{ secrets.SIGNING_PASSWORD }}" `
+          -ProductName "TurboMqtt" `
+          -ProductDescription "TurboMqtt tools and drivers by Petabridge." `
+          -ProductUrl "https://turbomqtt.org" `
+          -DirectoryPath "./bin/nuget"
+    
+    - name: Upload build artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: SignedArtifacts
+        path: ./bin/nuget
+        retention-days: 5
+
+  deploy-nuget:
+    needs: sign
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4.1.4
+
+    - name: Download artifacts
+      uses: actions/download-artifact@v3
+      with:
+        name: SignedArtifacts
+        path: ./bin/nuget
+
+    - name: Setup .NET Core
+      uses: actions/setup-dotnet@v4.0.0
+
+    - name: Push to NuGet
+      run: dotnet nuget push "./bin/nuget/*.nupkg" --api-key ${{ secrets.NUGET_KEY }} --source https://api.nuget.org/v3/index.json
+
+  deploy-sdkbin:
+    needs: sign
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4.1.4
+
+    - name: Download artifacts
+      uses: actions/download-artifact@v3
+      with:
+        name: SignedArtifacts
+        path: ./bin/nuget
+
+    - name: Setup .NET Core
+      uses: actions/setup-dotnet@v4.0.0
+
+    - name: Push to NuGet
+      run: dotnet nuget push "./bin/nuget/*.nupkg" --api-key ${{ secrets.SDKBIN_KEY }} --source ${{ secrets.SDKBIN_URL }}
+
+  gh-release:
+    needs: deploy-nuget, deploy-sdkbin
+    runs-on: ubuntu-latest
+
+    - name: Download artifacts
+      uses: actions/download-artifact@v3
+      with:
+        name: SignedArtifacts
+        path: ./bin/nuget
+
+    - name: release
+      uses: actions/create-release@v1
+      id: create_release
+      with:
+        draft: false
+        prerelease: false
+        release_name: 'TurboMqtt ${{ github.ref_name }}'
+        tag_name: ${{ github.ref }}
+        body_path: RELEASE_NOTES.md
+      env:
+        GITHUB_TOKEN: ${{ github.token }}
+
+    - name: Upload Release Asset
+      uses: AButler/upload-release-assets@v3.0
+      with:
+          repo-token: ${{ github.token }}
+          release-tag: ${{ github.ref_name }}
+          files: 'output/*.nupkg'
