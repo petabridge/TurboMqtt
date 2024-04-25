@@ -49,7 +49,7 @@ jobs:
     - name: Sign artifacts
       shell: pwsh
       run: >
-        ./scripts/sign-packages.ps1 -ConfigPath "${{ runner.temp }}/signing-config.json" `
+        ./scripts/signPackages.ps1 -ConfigPath "${{ runner.temp }}/signing-config.json" `
           -UserName "${{ secrets.SIGNING_USER_NAME }}" `
           -Password "${{ secrets.SIGNING_PASSWORD }}" `
           -ProductName "TurboMqtt" `
