@@ -18,11 +18,43 @@ public interface IAckResponse
 }
 
 /// <summary>
+/// Top-level interface for all connect responses.
+/// </summary>
+public interface IConnectResponse : IAckResponse
+{
+    
+}
+
+/// <summary>
+/// Top-level interface for all disconnect responses.
+/// </summary>
+public interface IDisconnectResponse : IAckResponse
+{
+    
+}
+
+/// <summary>
+/// Top-level interface for all subscribe responses.
+/// </summary>
+public interface ISubscribeResponse : IAckResponse
+{
+    
+}
+
+/// <summary>
+/// Top-level interface for all unsubscribe responses.
+/// </summary>
+public interface IUnsubscribeResponse : IAckResponse
+{
+    
+}
+
+/// <summary>
 /// Responses to the various client-side messages that require an acknowledgment from the broker.
 /// </summary>
 public static class AckProtocol
 {
-    public sealed class SubscribeSuccess : IAckResponse
+    public sealed class SubscribeSuccess : ISubscribeResponse
     {
         public SubscribeSuccess(SubAckPacket subAck)
         {
@@ -35,7 +67,7 @@ public static class AckProtocol
         public string? Reason => SubAck.ReasonString;
     }
 
-    public sealed class SubscribeFailure : IAckResponse
+    public sealed class SubscribeFailure : ISubscribeResponse
     {
         public SubscribeFailure(string reason)
         {
@@ -54,7 +86,7 @@ public static class AckProtocol
         public string Reason { get; }
     }
 
-    public sealed class ConnectSuccess : IAckResponse
+    public sealed class ConnectSuccess : IConnectResponse
     {
         public ConnectSuccess(ConnAckPacket connAck)
         {
@@ -72,7 +104,7 @@ public static class AckProtocol
         public string Reason { get; }
     }
 
-    public sealed class ConnectFailure : IAckResponse
+    public sealed class ConnectFailure : IConnectResponse
     {
         public ConnectFailure(ConnAckPacket connAck)
         {
@@ -91,7 +123,7 @@ public static class AckProtocol
         public string Reason { get; }
     }
 
-    public sealed class DisconnectSuccess : IAckResponse
+    public sealed class DisconnectSuccess : IDisconnectResponse
     {
         public static readonly DisconnectSuccess Instance = new DisconnectSuccess();
 
@@ -103,7 +135,7 @@ public static class AckProtocol
         public string? Reason => null;
     }
 
-    public sealed class UnsubscribeSuccess : IAckResponse
+    public sealed class UnsubscribeSuccess : IUnsubscribeResponse
     {
         public UnsubscribeSuccess(UnsubAckPacket unsubAck)
         {
@@ -115,7 +147,7 @@ public static class AckProtocol
         public string? Reason => UnsubAck.ReasonString;
     }
 
-    public sealed class UnsubscribeFailure : IAckResponse
+    public sealed class UnsubscribeFailure : IUnsubscribeResponse
     {
         public UnsubscribeFailure(string reason)
         {
