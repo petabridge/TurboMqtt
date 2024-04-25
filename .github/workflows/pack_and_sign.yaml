@@ -36,7 +36,7 @@ jobs:
       uses: actions/upload-artifact@v3
       with:
         name: BuildArtifacts
-        path: .bin/nuget/*.{nupkg,snupkg}
+        path: ./bin/nuget/*.{nupkg,snupkg}
     
   sign:
     needs: build
@@ -50,7 +50,7 @@ jobs:
       env:
         ENCODED_JSON: ${{ secrets.SIGNING_CONFIG }}
       run: |
-        echo "${{ secrets.SIGNING_CONFIG }}" | base64 --decode > ${{ runner.temp }}/signing-config.json
+        echo "${{ env.ENCODED_JSON }}" > "${{ runner.temp }}/signing-config.json"
 
         
     - name: Download build artifacts
