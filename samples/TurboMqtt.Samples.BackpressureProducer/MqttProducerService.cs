@@ -101,7 +101,7 @@ public sealed class MqttProducerService : BackgroundService
                 // }
 
                 await client.PublishAsync(msg, stoppingToken);
-                //if(i % 1000 == 0)
+                if(i % 1000 == 0)
                 {
                     _logger.LogInformation("Published {0} messages", i);
                 }

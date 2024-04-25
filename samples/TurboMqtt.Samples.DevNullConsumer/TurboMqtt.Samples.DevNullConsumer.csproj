@@ -11,6 +11,7 @@
     <ItemGroup>
       <PackageReference Include="Akka.Hosting" />
       <PackageReference Include="OpenTelemetry.Exporter.Console" />
+      <PackageReference Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" />
       <PackageReference Include="OpenTelemetry.Extensions.Hosting" />
     </ItemGroup>
 
