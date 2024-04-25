@@ -90,9 +90,9 @@ jobs:
       run: dotnet nuget push "./bin/nuget/*.nupkg" --api-key ${{ secrets.SDKBIN_KEY }} --source ${{ secrets.SDKBIN_URL }}
 
   gh-release:
-    needs: deploy-nuget, deploy-sdkbin
+    needs: sign
     runs-on: ubuntu-latest
-
+    steps:
     - name: Download artifacts
       uses: actions/download-artifact@v3
       with:
