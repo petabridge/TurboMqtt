@@ -8,6 +8,7 @@ using Akka.Configuration;
 using Akka.Event;
 using Akka.TestKit.Xunit2;
 using TurboMqtt.Client;
+using TurboMqtt.IO;
 using TurboMqtt.IO.Tcp;
 using TurboMqtt.Protocol;
 using Xunit.Abstractions;
@@ -23,7 +24,7 @@ public class TcpMqtt311HeartbeatFailureEnd2EndSpecs : TestKit
             Sys.Settings.LogFormatter);
         
         _server = new FakeMqttTcpServer(new MqttTcpServerOptions("localhost", Port), MqttProtocolVersion.V3_1_1, logger, 
-            TimeSpan.FromMinutes(1));
+            TimeSpan.FromMinutes(1), new DefaultFakeServerHandleFactory());
         _server.Bind();
     }
 

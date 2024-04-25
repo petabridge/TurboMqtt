@@ -47,14 +47,16 @@ internal sealed class FakeMqttTcpServer
     private readonly ILoggingAdapter _log;
     private readonly ConcurrentDictionary<string, CancellationTokenSource> _clientCts = new();
     private readonly TimeSpan _heatBeatDelay;
+    private readonly IFakeServerHandleFactory _handleFactory;
     private Socket? bindSocket;
 
-    public FakeMqttTcpServer(MqttTcpServerOptions options, MqttProtocolVersion version, ILoggingAdapter log, TimeSpan heartbeatDelay)
+    public FakeMqttTcpServer(MqttTcpServerOptions options, MqttProtocolVersion version, ILoggingAdapter log, TimeSpan heartbeatDelay, IFakeServerHandleFactory handleFactory)
     {
         _options = options;
         _version = version;
         _log = log;
         _heatBeatDelay = heartbeatDelay;
+        _handleFactory = handleFactory;
 
         if (_version == MqttProtocolVersion.V5_0)
             throw new NotSupportedException("V5.0 not supported.");
@@ -130,7 +132,7 @@ internal sealed class FakeMqttTcpServer
         {
             Memory<byte> buffer = new byte[_options.MaxFrameSize];
 
-            var handle = new FakeMqtt311ServerHandle(PushMessage, ClosingAction, _log, _heatBeatDelay);
+            var handle = _handleFactory.CreateServerHandle(PushMessage, ClosingAction, _log, _version, _heatBeatDelay);
             var clientShutdownCts = new CancellationTokenSource();
             _ = handle.WhenClientIdAssigned.ContinueWith(t =>
             {
