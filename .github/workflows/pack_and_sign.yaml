@@ -62,4 +62,5 @@ jobs:
       uses: actions/upload-artifact@v3
       with:
         name: SignedArtifacts
-        path: BuildArtifacts
+        path: ./bin/nuget
+        retention-days: 5
