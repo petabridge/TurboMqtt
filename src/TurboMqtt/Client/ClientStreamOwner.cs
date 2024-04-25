@@ -228,9 +228,7 @@ internal sealed class ClientStreamOwner : UntypedActor
             {
                 _log.Info("Server disconnected the client. Reason: {0}", serverDisconnect.Reason);
                 _log.Info("Client has exhausted all reconnect attempts. Shutting down.");
-                Context.Stop(Self);
-
-                _trueDeath.TrySetResult(DisconnectReasonCode.UnspecifiedError);
+                Context.Stop(Self); 
                 break;
             }
 
@@ -357,6 +355,12 @@ internal sealed class ClientStreamOwner : UntypedActor
 
     protected override void PostStop()
     {
+        // subtle race condition - if someone immediately tries to recreate a failed client, our parent
+        // might yell at them and say "client already exists" - this is because DeathWatch runs slightly
+        // behind the _trueDeath task completion even when it runs only in our PostStop routine.
+        // Thus, we're going to front-run DeathWatch here and tell our parent that we're dead.
+        Context.Parent.Tell(new ClientManagerActor.ClientDied(_connectOptions!.ClientId));
+        
         // force both channels to complete - this will shut down the streams and the transport
         _outboundChannel?.Writer.TryComplete();
         _inboundChannel?.Writer.TryComplete();

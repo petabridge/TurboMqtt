@@ -47,14 +47,18 @@ internal sealed class FakeMqttTcpServer
     private readonly ILoggingAdapter _log;
     private readonly ConcurrentDictionary<string, CancellationTokenSource> _clientCts = new();
     private readonly TimeSpan _heatBeatDelay;
-    private Socket? bindSocket;
+    private readonly IFakeServerHandleFactory _handleFactory;
+    private Socket? _bindSocket;
+    
+    public int BoundPort { get; private set; }
 
-    public FakeMqttTcpServer(MqttTcpServerOptions options, MqttProtocolVersion version, ILoggingAdapter log, TimeSpan heartbeatDelay)
+    public FakeMqttTcpServer(MqttTcpServerOptions options, MqttProtocolVersion version, ILoggingAdapter log, TimeSpan heartbeatDelay, IFakeServerHandleFactory handleFactory)
     {
         _options = options;
         _version = version;
         _log = log;
         _heatBeatDelay = heartbeatDelay;
+        _handleFactory = handleFactory;
 
         if (_version == MqttProtocolVersion.V5_0)
             throw new NotSupportedException("V5.0 not supported.");
@@ -62,33 +66,41 @@ internal sealed class FakeMqttTcpServer
 
     public void Bind()
     {
-        if (bindSocket != null)
+        if (_bindSocket != null)
             throw new InvalidOperationException("Cannot bind the same server twice.");
 
         if (_options.AddressFamily == AddressFamily.Unspecified) // allows use of dual mode IPv4 / IPv6
         {
-            bindSocket = new Socket(SocketType.Stream, ProtocolType.Tcp)
+            _bindSocket = new Socket(SocketType.Stream, ProtocolType.Tcp)
             {
                 ReceiveBufferSize = _options.MaxFrameSize * 2,
-                SendBufferSize = _options.MaxFrameSize * 2
+                SendBufferSize = _options.MaxFrameSize * 2,
+                DualMode = true,
+                NoDelay = true,
+                LingerState = new LingerOption(false, 0)
             };
         }
         else
         {
-            bindSocket = new Socket(_options.AddressFamily, SocketType.Stream, ProtocolType.Tcp)
+            _bindSocket = new Socket(_options.AddressFamily, SocketType.Stream, ProtocolType.Tcp)
             {
                 ReceiveBufferSize = _options.MaxFrameSize * 2,
-                SendBufferSize = _options.MaxFrameSize * 2
+                SendBufferSize = _options.MaxFrameSize * 2,
+                DualMode = true,
+                NoDelay = true,
+                LingerState = new LingerOption(false, 0)
             };
         }
 
         var hostAddress = Dns.GetHostAddresses(_options.Host).First();
 
-        bindSocket.Bind(new IPEndPoint(hostAddress, _options.Port));
-        bindSocket.Listen(10);
+        _bindSocket.Bind(new IPEndPoint(hostAddress, _options.Port));
+        _bindSocket.Listen(100);
+        
+        BoundPort = _bindSocket!.LocalEndPoint is IPEndPoint ipEndPoint ? ipEndPoint.Port : 0;
 
         // begin the accept loop
-        var _ = BeginAcceptAsync();
+        _ = BeginAcceptAsync();
     }
 
     public bool TryKickClient(string clientId)
@@ -104,10 +116,11 @@ internal sealed class FakeMqttTcpServer
 
     public void Shutdown()
     {
+        _log.Info("Shutting down server.");
         try
         {
             _shutdownTcs.Cancel();
-            bindSocket?.Close();
+            _bindSocket?.Close();
         }
         catch (Exception)
         {
@@ -119,7 +132,7 @@ internal sealed class FakeMqttTcpServer
     {
         while (!_shutdownTcs.IsCancellationRequested)
         {
-            var socket = await bindSocket!.AcceptAsync();
+            var socket = await _bindSocket!.AcceptAsync();
             _ = ProcessClientAsync(socket);
         }
     }
@@ -130,7 +143,7 @@ internal sealed class FakeMqttTcpServer
         {
             Memory<byte> buffer = new byte[_options.MaxFrameSize];
 
-            var handle = new FakeMqtt311ServerHandle(PushMessage, ClosingAction, _log, _heatBeatDelay);
+            var handle = _handleFactory.CreateServerHandle(PushMessage, ClosingAction, _log, _version, _heatBeatDelay);
             var clientShutdownCts = new CancellationTokenSource();
             _ = handle.WhenClientIdAssigned.ContinueWith(t =>
             {
@@ -149,6 +162,10 @@ internal sealed class FakeMqttTcpServer
                     var bytesRead = await socket.ReceiveAsync(buffer, SocketFlags.None, linkedCts.Token);
                     if (bytesRead == 0)
                     {
+                        _log.Info("Client {0} disconnected from server.",
+                            handle.WhenClientIdAssigned.IsCompletedSuccessfully
+                                ? handle.WhenClientIdAssigned.Result
+                                : "unknown");
                         socket.Close();
                         return;
                     }
@@ -162,6 +179,14 @@ internal sealed class FakeMqttTcpServer
                         handle.WhenClientIdAssigned.IsCompletedSuccessfully
                             ? handle.WhenClientIdAssigned.Result
                             : "unknown");
+                }
+                catch (Exception ex)
+                {
+                    _log.Error(ex, "Error processing message from client {0}.",
+                        handle.WhenClientIdAssigned.IsCompletedSuccessfully
+                            ? handle.WhenClientIdAssigned.Result
+                            : "unknown");
+                    return;
                 }
             }
 
@@ -192,6 +217,11 @@ internal sealed class FakeMqttTcpServer
                         return true;
                     }
 
+                    return false;
+                }
+                catch (Exception ex)
+                {
+                    _log.Error(ex, "Error writing to client.");
                     return false;
                 }
                 finally
