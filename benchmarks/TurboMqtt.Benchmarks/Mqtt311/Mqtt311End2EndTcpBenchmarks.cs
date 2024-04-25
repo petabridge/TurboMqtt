@@ -17,6 +17,7 @@ using TurboMqtt.Protocol;
 namespace TurboMqtt.Benchmarks.Mqtt311;
 
 [SimpleJob(RunStrategy.Monitoring, launchCount: 10, warmupCount: 10)]
+[Config(typeof(MonitoringConfig))]
 public class Mqtt311EndToEndTcpBenchmarks
 {
     [Params(QualityOfService.AtMostOnce, QualityOfService.AtLeastOnce, QualityOfService.ExactlyOnce)]
