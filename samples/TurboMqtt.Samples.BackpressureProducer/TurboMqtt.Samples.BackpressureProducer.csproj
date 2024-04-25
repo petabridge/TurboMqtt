@@ -9,20 +9,21 @@
     </PropertyGroup>
 
     <ItemGroup>
-      <ProjectReference Include="..\..\src\TurboMqtt\TurboMqtt.csproj" />
+        <ProjectReference Include="..\..\src\TurboMqtt\TurboMqtt.csproj"/>
     </ItemGroup>
 
     <ItemGroup>
-      <None Remove="appsettings.json" />
-      <Content Include="appsettings.json">
-        <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-      </Content>
+        <None Remove="appsettings.json"/>
+        <Content Include="appsettings.json">
+            <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+        </Content>
     </ItemGroup>
 
     <ItemGroup>
-      <PackageReference Include="Akka.Hosting" />
-      <PackageReference Include="OpenTelemetry.Exporter.Console" />
-      <PackageReference Include="OpenTelemetry.Extensions.Hosting" />
+        <PackageReference Include="Akka.Hosting"/>
+        <PackageReference Include="OpenTelemetry.Exporter.Console"/>
+        <PackageReference Include="OpenTelemetry.Exporter.OpenTelemetryProtocol"/>
+        <PackageReference Include="OpenTelemetry.Extensions.Hosting"/>
     </ItemGroup>
 
 </Project>
