@@ -1,0 +1,92 @@
+name: Build and Sign
+
+on:
+  push:
+    branches:
+      - master
+      - dev
+      - main
+  pull_request:
+    branches:
+      - master
+      - dev
+      - main
+
+jobs:
+  build:    
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4.1.4
+    
+    # Build steps  
+    - name: "Install .NET SDK"
+      uses: actions/setup-dotnet@v4.0.0
+      with:
+        global-json-file: "./global.json"
+        
+    - name: Build Package
+      run: dotnet pack --configuration Release -o /bin/nuget
+        
+    - name: Upload build artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: BuildArtifacts
+        path: bin/nuget/*.{nupkg,snupkg}
+    
+  sign:
+    needs: build
+    runs-on: windows-latest # Code signing must run on a Windows agent for Authenticode signing (dll/exe)
+    #if: ${{ github.ref == 'refs/heads/main' }} # Only run this job on pushes to the main branch
+      
+    steps:
+
+    # Download signing configuration and artifacts
+    - name: Decode and Write JSON File
+      env:
+        ENCODED_JSON: ${{ secrets.SIGNING_CONFIG }}
+      run: |
+        echo "$ENCODED_JSON" | base64 --decode > ${{ runner.temp }}/signing-config.json
+
+        
+    - name: Download build artifacts
+      uses: actions/download-artifact@v3
+      with:
+        name: BuildArtifacts
+        path: BuildArtifacts
+    
+    # .NET is required on the agent for the tool to run
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v3
+      with:
+        global-json-file: "./global.json"
+
+    # Install the code signing tool    
+    - name: Install SignClient
+      run: dotnet tool install --tool-path . SignClient
+
+    # Run the signing command
+    - name: Sign artifacts
+      shell: pwsh
+      run: >
+        ./scripts/signPack --config ${{ runner.temp }}/signing-config.json 
+        -r ${{ secrets.SIGNING_USER_NAME }}
+        -s ${{ secrets.SIGNING_PASSWORD }}
+        -n "TurboMqtt"
+        -d "TurboMqtt tools and drivers by Petabridge."
+        -u "https://turbomqtt.org"
+        .\sign-packages.ps1 -ConfigPath "${{ runner.temp }}/signing-config.json" `
+          -UserName "${{ secrets.SIGNING_USER_NAME }}" `
+          -Password "${{ secrets.SIGNING_PASSWORD }}" `
+          -ProductName "TurboMqtt" `
+          -ProductDescription "TurboMqtt tools and drivers by Petabridge." `
+          -ProductUrl "https://turbomqtt.org" `
+          -DirectoryPath "BuildArtifacts"
+
+        
+    
+    # Publish the signed packages
+    - name: Upload build artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: SignedArtifacts
+        path: BuildArtifacts
