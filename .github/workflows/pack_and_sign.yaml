@@ -36,7 +36,7 @@ jobs:
       uses: actions/upload-artifact@v3
       with:
         name: BuildArtifacts
-        path: ./bin/nuget/*.{nupkg,snupkg}
+        path: ./bin/nuget/**/*.nupkg
     
   sign:
     needs: build
@@ -44,7 +44,7 @@ jobs:
     #if: ${{ github.ref == 'refs/heads/main' }} # Only run this job on pushes to the main branch
       
     steps:
-      
+
     - name: Write JSON File from Secret
       env:
         JSON_CONTENT: ${{ secrets.SIGNING_CONFIG }}
