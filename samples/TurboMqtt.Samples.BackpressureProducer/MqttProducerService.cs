@@ -8,9 +8,9 @@ using System.Text;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
-using TurboMqtt.Core;
-using TurboMqtt.Core.Client;
-using TurboMqtt.Core.Protocol;
+using TurboMqtt;
+using TurboMqtt.Client;
+using TurboMqtt.Protocol;
 
 namespace TurboMqtt.Samples.BackpressureProducer;
 

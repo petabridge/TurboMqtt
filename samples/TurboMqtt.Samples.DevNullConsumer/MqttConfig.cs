@@ -4,7 +4,7 @@
 // </copyright>
 // -----------------------------------------------------------------------
 
-using TurboMqtt.Core;
+using TurboMqtt;
 
 namespace TurboMqtt.Samples.DevNullConsumer;
 
