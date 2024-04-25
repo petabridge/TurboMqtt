@@ -106,4 +106,19 @@ public class TcpMqtt311End2EndSpecs : TransportSpecBase
         await client.WhenTerminated.WaitAsync(cts.Token);
         client.WhenTerminated.IsCompleted.Should().BeTrue();
     }
+    
+    // test case where we attempt to connect to non-existent server. ConnectAsync should fail
+    [Fact]
+    public async Task ShouldFailToConnectToNonExistentServer()
+    {
+        var updatedTcpOptions = new MqttClientTcpOptions("localhost", 21884);
+        var client = await ClientFactory.CreateTcpClient(DefaultConnectOptions, updatedTcpOptions);
+
+        var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+        var connectResult = await client.ConnectAsync(cts.Token);
+        connectResult.IsSuccess.Should().BeFalse();
+
+        client.IsConnected.Should().BeFalse();
+        client.WhenTerminated.IsCompleted.Should().BeTrue();
+    }
 }

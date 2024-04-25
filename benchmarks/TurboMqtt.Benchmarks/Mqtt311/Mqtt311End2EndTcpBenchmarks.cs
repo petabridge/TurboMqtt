@@ -27,7 +27,7 @@ public class Mqtt311EndToEndTcpBenchmarks
 
     [Params(MqttProtocolVersion.V3_1_1)] public MqttProtocolVersion ProtocolVersion { get; set; }
 
-    public const int PacketCount = 100_000;
+    public const int PacketCount = 1_000;
 
     private ActorSystem? _system;
     private FakeMqttTcpServer? _server;
