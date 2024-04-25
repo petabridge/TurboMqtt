@@ -67,11 +67,11 @@ public sealed class MqttConsumerService : BackgroundService
             var receivedMessage = client.ReceivedMessages;
             while (await receivedMessage.WaitToReadAsync(stoppingToken))
             {
-                while (receivedMessage.TryRead(out _))
+                while (receivedMessage.TryRead(out var m))
                 {
                     if (++received % 1000 == 0)
                     {
-                        _logger.LogInformation("Received {0} messages", received);
+                        _logger.LogInformation("Received {0} messages", m.Payload, m.Topic);
                     }
                 }
             }
