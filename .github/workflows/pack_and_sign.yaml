@@ -44,13 +44,14 @@ jobs:
     #if: ${{ github.ref == 'refs/heads/main' }} # Only run this job on pushes to the main branch
       
     steps:
-
-    # Download signing configuration and artifacts
-    - name: Decode and Write JSON File
+      
+    - name: Write JSON File from Secret
       env:
-        ENCODED_JSON: ${{ secrets.SIGNING_CONFIG }}
+        JSON_CONTENT: ${{ secrets.SIGNING_CONFIG }}
+      shell: powershell
       run: |
-        echo "${{ env.ENCODED_JSON }}" > "${{ runner.temp }}/signing-config.json"
+        $Env:JSON_CONTENT | Out-File -FilePath "${{ runner.temp }}\signing-config.json" -Encoding utf8
+
 
         
     - name: Download build artifacts
