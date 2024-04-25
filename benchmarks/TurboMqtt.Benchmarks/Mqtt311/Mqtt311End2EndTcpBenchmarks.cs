@@ -8,7 +8,7 @@ using BenchmarkDotNet.Attributes;
 
 namespace TurboMqtt.Benchmarks.Mqtt311;
 
-public class Mqtt311End2EndTcpBenchmarks
+public class Mqtt311PublishTcpBenchmarks
 {
     [Params(QualityOfService.AtMostOnce, QualityOfService.AtLeastOnce, QualityOfService.ExactlyOnce)]
     public QualityOfService QoSLevel { get; set; }

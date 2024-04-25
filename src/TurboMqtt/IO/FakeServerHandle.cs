@@ -6,7 +6,6 @@
 
 using System.Buffers;
 using Akka.Event;
-using Akka.Streams.Implementation.Fusing;
 using TurboMqtt.PacketTypes;
 using TurboMqtt.Protocol;
 
@@ -42,7 +41,7 @@ internal class FakeMqtt311ServerHandle : IFakeServerHandle
         _heartbeatDelay = heartbeatDelay ?? TimeSpan.Zero;
     }
 
-    public void TryPush(MqttPacket packet)
+    public virtual void TryPush(MqttPacket packet)
     {
         Log.Debug("Sending packet of type {0} using {1}", packet.PacketType, ProtocolVersion);
         var estimatedSize = MqttPacketSizeEstimator.EstimateMqtt3PacketSize(packet);
@@ -93,7 +92,7 @@ internal class FakeMqtt311ServerHandle : IFakeServerHandle
         }
     }
 
-    public void HandlePacket(MqttPacket packet)
+    public virtual void HandlePacket(MqttPacket packet)
     {
         Log.Info("Received packet of type {0}", packet.PacketType);
         switch (packet.PacketType)
