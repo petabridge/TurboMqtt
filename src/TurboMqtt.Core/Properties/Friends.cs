@@ -1,4 +1,0 @@
-using System.Runtime.CompilerServices;
-
-[assembly: InternalsVisibleTo("TurboMqtt.Core.Tests")]
-[assembly: InternalsVisibleTo("TurboMqtt.Core.Benchmarks")]

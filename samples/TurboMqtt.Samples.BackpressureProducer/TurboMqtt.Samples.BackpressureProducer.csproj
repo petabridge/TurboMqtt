@@ -9,7 +9,7 @@
     </PropertyGroup>
 
     <ItemGroup>
-      <ProjectReference Include="..\..\src\TurboMqtt.Core\TurboMqtt.Core.csproj" />
+      <ProjectReference Include="..\..\src\TurboMqtt\TurboMqtt.csproj" />
     </ItemGroup>
 
     <ItemGroup>

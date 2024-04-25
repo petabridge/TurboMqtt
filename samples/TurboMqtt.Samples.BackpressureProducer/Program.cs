@@ -6,8 +6,8 @@ using Microsoft.Extensions.Logging;
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
-using TurboMqtt.Core;
-using TurboMqtt.Core.Telemetry;
+using TurboMqtt;
+using TurboMqtt.Telemetry;
 using TurboMqtt.Samples.BackpressureProducer;
 
 var builder = new HostBuilder();
