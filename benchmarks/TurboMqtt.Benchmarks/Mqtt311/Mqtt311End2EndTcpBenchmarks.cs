@@ -17,7 +17,7 @@ using TurboMqtt.Protocol;
 namespace TurboMqtt.Benchmarks.Mqtt311;
 
 [SimpleJob(RunStrategy.Monitoring, launchCount: 10, warmupCount: 10)]
-public class Mqtt311PublishTcpBenchmarks
+public class Mqtt311EndToEndTcpBenchmarks
 {
     [Params(QualityOfService.AtMostOnce, QualityOfService.AtLeastOnce, QualityOfService.ExactlyOnce)]
     public QualityOfService QoSLevel { get; set; }
@@ -56,7 +56,7 @@ public class Mqtt311PublishTcpBenchmarks
     [GlobalSetup]
     public void StartFixture()
     {
-        _system = ActorSystem.Create("Mqtt311PublishTcpBenchmarks");
+        _system = ActorSystem.Create("Mqtt311EndToEndTcpBenchmarks", "akka.loglevel=ERROR");
         var loggingAdapter = new BusLogging(_system.EventStream, "FakeMqttTcpServer", typeof(FakeMqttTcpServer),
             _system.Settings.LogFormatter);
         _server = new FakeMqttTcpServer(new MqttTcpServerOptions(Host, Port), MqttProtocolVersion.V3_1_1, loggingAdapter,

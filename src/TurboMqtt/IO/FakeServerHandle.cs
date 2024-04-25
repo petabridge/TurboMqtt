@@ -6,6 +6,7 @@
 
 using System.Buffers;
 using Akka.Event;
+using Akka.Streams.Implementation.Fusing;
 using TurboMqtt.PacketTypes;
 using TurboMqtt.Protocol;
 
@@ -43,7 +44,8 @@ internal class FakeMqtt311ServerHandle : IFakeServerHandle
 
     public virtual void TryPush(MqttPacket packet)
     {
-        Log.Debug("Sending packet of type {0} using {1}", packet.PacketType, ProtocolVersion);
+        if(Log.IsDebugEnabled)
+            Log.Debug("Sending packet of type {0} using {1}", packet.PacketType, ProtocolVersion);
         var estimatedSize = MqttPacketSizeEstimator.EstimateMqtt3PacketSize(packet);
         var headerSize = MqttPacketSizeEstimator.GetPacketLengthHeaderSize(estimatedSize) + 1;
         var buffer = new Memory<byte>(new byte[estimatedSize + headerSize]);
@@ -80,7 +82,8 @@ internal class FakeMqtt311ServerHandle : IFakeServerHandle
     {
         if (_decoder.TryDecode(bytes, out var packets))
         {
-            Log.Debug("Decoded {0} packets from transport.", packets.Count);
+            if(Log.IsDebugEnabled)
+                Log.Debug("Decoded {0} packets from transport.", packets.Count);
             foreach (var packet in packets)
             {
                 HandlePacket(packet);
@@ -88,13 +91,15 @@ internal class FakeMqtt311ServerHandle : IFakeServerHandle
         }
         else
         {
-            Log.Debug("Didn't have enough bytes to decode a packet. Waiting for more.");
+            if(Log.IsDebugEnabled)
+                Log.Debug("Didn't have enough bytes to decode a packet. Waiting for more.");
         }
     }
 
     public virtual void HandlePacket(MqttPacket packet)
     {
-        Log.Info("Received packet of type {0}", packet.PacketType);
+        if(Log.IsInfoEnabled)
+            Log.Info("Received packet of type {0}", packet.PacketType);
         switch (packet.PacketType)
         {
             case MqttPacketType.Publish:
