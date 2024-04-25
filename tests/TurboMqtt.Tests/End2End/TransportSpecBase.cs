@@ -125,7 +125,7 @@ public abstract class TransportSpecBase : TestKit
         var connectResult = await client.ConnectAsync(cts.Token);
         connectResult.IsSuccess.Should().BeTrue();
 
-        var subscribeResult = await client.SubscribeAsync(DefaultTopic, QualityOfService.AtLeastOnce, cts.Token);
+        var subscribeResult = await client.SubscribeAsync(DefaultTopic, QualityOfService.ExactlyOnce, cts.Token);
         subscribeResult.IsSuccess.Should().BeTrue();
 
         var receivedMessages = new List<MqttMessage>();
