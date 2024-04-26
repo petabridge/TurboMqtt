@@ -24,19 +24,6 @@ jobs:
     steps:
     - uses: actions/checkout@v4.1.4
 
-    - name: "Install .NET SDK"
-      uses: actions/setup-dotnet@v4.0.0
-      with:
-        global-json-file: "./global.json"
-
-    - name: "Update release notes"
-      shell: pwsh
-      run: |
-        ./build.ps1
-        
-    - name: Build Package
-      run: dotnet pack --configuration Release -o ./bin/nuget
-
     - name: Write JSON File from Secret
       id: signing-config
       env:
@@ -50,8 +37,21 @@ jobs:
          Write-Output "::set-output name=SECRET_FILE::$secretFile";
          Write-Output "::set-output name=SECRET_FILE_HASH::$($secretFileHash.Hash)";
          Write-Output "Secret file $secretFile has hash $($secretFileHash.Hash)";
-         $expectedHash = "C115E84FD7BBDD4A453A3DD842959C7A14478F35422F50B7D8D82234CD0B1C33"; # Set to output when generating the Base64 string (and hash)
+         $expectedHash = "020ACBCDEBB40532019E4211A047DEB1AFF3616C67BBFBBEFB6B419EDC898C6B"; # Set to output when generating the Base64 string (and hash)
          if ($secretFileHash.Hash -ne $expectedHash) { Write-Output "::error file=$($secretFile)::Hash doesn't match"; Write-Output "Hash doesn't match"; exit 10; } 
+
+    - name: "Install .NET SDK"
+      uses: actions/setup-dotnet@v4.0.0
+      with:
+        global-json-file: "./global.json"
+
+    - name: "Update release notes"
+      shell: pwsh
+      run: |
+        ./build.ps1
+        
+    - name: Build Package
+      run: dotnet pack --configuration Release -o ./bin/nuget
 
     - name: Install SignClient
       run: dotnet tool install -g SignClient
