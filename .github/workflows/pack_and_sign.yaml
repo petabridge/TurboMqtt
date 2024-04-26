@@ -1,21 +1,10 @@
 name: Build and Sign
 
-#on:
-#  push:
-#    tags:
-#      - '*'
-
 on:
   push:
-    branches:
-      - master
-      - dev
-      - main
-  pull_request:
-    branches:
-      - master
-      - dev
-      - main
+    tags:
+      - '*'
+
 
 jobs:   
   sign:
