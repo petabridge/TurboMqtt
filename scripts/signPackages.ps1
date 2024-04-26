@@ -39,7 +39,7 @@ Get-ChildItem -Path $DirectoryPath -Include *.nupkg,*.snupkg -Recurse | ForEach-
 
     # Execute SignClient and capture the output directly
     try {
-        & $command $arguments
+        SignClient sign $arguments
         if ($LASTEXITCODE -ne 0) {
             Write-Error "Failed to sign $filePath."
         }
