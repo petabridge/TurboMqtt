@@ -119,6 +119,6 @@ public class TcpMqtt311End2EndSpecs : TransportSpecBase
         connectResult.IsSuccess.Should().BeFalse();
 
         client.IsConnected.Should().BeFalse();
-        client.WhenTerminated.IsCompleted.Should().BeTrue();
+        await AwaitAssertAsync(() => client.WhenTerminated.IsCompleted.Should().BeTrue(), cancellationToken: cts.Token);
     }
 }
