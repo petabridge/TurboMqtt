@@ -43,8 +43,11 @@ internal sealed class TcpTransportActor : UntypedActor
             MaxFrameSize = maxFrameSize;
             WaitForPendingWrites = waitForPendingWrites;
         }
+        
+        private volatile ConnectionStatus _status = ConnectionStatus.NotStarted;
 
-        public ConnectionStatus Status { get; set; } = ConnectionStatus.NotStarted;
+        public ConnectionStatus Status { get => _status; 
+            set => _status = value; }
 
         public CancellationTokenSource ShutDownCts { get; set; } = new();
 
@@ -223,11 +226,11 @@ internal sealed class TcpTransportActor : UntypedActor
                     _log.Info("Attempting to connect to [{0}:{1}]", TcpOptions.Host, TcpOptions.Port);
 
                     var sender = Sender;
-
-                    await ResolveAndConnect(connect.Cancel);
-
+                    
                     // set status to connecting
                     State.Status = ConnectionStatus.Connecting;
+
+                    await ResolveAndConnect(connect.Cancel);
                     return;
 
                     // need to resolve DNS to an IP address

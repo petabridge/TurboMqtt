@@ -86,7 +86,7 @@ internal sealed class InMemoryMqttTransport : IMqttTransport
     
 
 
-    public async Task CloseAsync(CancellationToken ct = default)
+    public async Task<bool> CloseAsync(CancellationToken ct = default)
     {
         Status = ConnectionStatus.Disconnected;
         _writesToTransport.Writer.TryComplete();
@@ -94,6 +94,7 @@ internal sealed class InMemoryMqttTransport : IMqttTransport
         await _shutdownTokenSource.CancelAsync();
         _readsFromTransport.Writer.TryComplete();
         _terminationSource.TrySetResult(DisconnectReasonCode.NormalDisconnection);
+        return true;
     }
 
     public Task AbortAsync(CancellationToken ct = default)
@@ -105,7 +106,7 @@ internal sealed class InMemoryMqttTransport : IMqttTransport
         return Task.CompletedTask;
     }
 
-    public Task ConnectAsync(CancellationToken ct = default)
+    public Task<bool> ConnectAsync(CancellationToken ct = default)
     {
         if (Status == ConnectionStatus.NotStarted)
         {
@@ -116,7 +117,7 @@ internal sealed class InMemoryMqttTransport : IMqttTransport
 #pragma warning restore CS4014 // Because this call is not awaited, execution of the current method continues before the call is completed
         }
 
-        return Task.CompletedTask;
+        return Task.FromResult(true);
     }
 
     /// <summary>
