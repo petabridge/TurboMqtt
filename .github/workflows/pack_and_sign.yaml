@@ -1,9 +1,21 @@
 name: Build and Sign
 
+#on:
+#  push:
+#    tags:
+#      - '*'
+
 on:
   push:
-    tags:
-      - '*'
+    branches:
+      - master
+      - dev
+      - main
+  pull_request:
+    branches:
+      - master
+      - dev
+      - main
 
 jobs:   
   sign:
@@ -93,6 +105,7 @@ jobs:
     needs: sign
     runs-on: ubuntu-latest
     steps:
+    - uses: actions/checkout@v4.1.4
     - name: Download artifacts
       uses: actions/download-artifact@v3
       with:
