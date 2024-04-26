@@ -84,9 +84,11 @@ public sealed class MqttProducerService : BackgroundService
             _logger.LogInformation("Connected to MQTT broker at {0}:{1}", config.Host, config.Port);
             foreach (var i in Enumerable.Range(0, config.MessageCount))
             {
-                MqttMessage msg;
-                msg = new MqttMessage(config.Topic, CreatePayload(i, TargetMessageSize.EightKb));
-                
+                var msg = new MqttMessage(config.Topic, CreatePayload(i, TargetMessageSize.EightKb))
+                {
+                    QoS = QualityOfService.AtLeastOnce
+                };
+
                 // if(i % 3 == 0)
                 // {
                 //     msg = new MqttMessage(config.Topic, CreatePayload(i, TargetMessageSize.OneKb));
@@ -99,8 +101,7 @@ public sealed class MqttProducerService : BackgroundService
                 // {
                 //     msg = new MqttMessage(config.Topic, CreatePayload(i, TargetMessageSize.Tiny));
                 // }
-
-                await client.PublishAsync(msg, stoppingToken);
+                var pb = await client.PublishAsync(msg, stoppingToken);
                 if(i % 1000 == 0)
                 {
                     _logger.LogInformation("Published {0} messages", i);
