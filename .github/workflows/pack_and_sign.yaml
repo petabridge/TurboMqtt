@@ -45,7 +45,7 @@ jobs:
         $Env:JSON_CONTENT | Out-File -FilePath "${{ runner.temp }}\signing-config.json" -Encoding utf8
 
     - name: Install SignClient
-      run: dotnet tool install --tool-path . SignClient
+      run: dotnet tool install -g SignClient
 
     - name: Sign artifacts
       shell: pwsh

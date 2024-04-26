@@ -29,7 +29,7 @@ Get-ChildItem -Path $DirectoryPath -Include *.nupkg,*.snupkg -Recurse | ForEach-
 
     # Command to execute SignClient for each file
     $command = @"
-./SignClient --config $ConfigPath -r $UserName -s $Password -n $ProductName -d $ProductDescription -u $ProductUrl -i $filePath
+SignClient --config $ConfigPath -r $UserName -s $Password -n $ProductName -d $ProductDescription -u $ProductUrl -i $filePath
 "@
 
     # Execute SignClient and capture the output directly
