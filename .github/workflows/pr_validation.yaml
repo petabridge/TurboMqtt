@@ -80,6 +80,13 @@ jobs:
           output: both
           thresholds: "10 30"
 
+      - name: Add Coverage PR Comment
+        if: github.event_name == 'pull_request' && runner.os == 'Linux'
+        uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          recreate: true
+          path: code-coverage-results.md
+
       - name: Upload Test Result Files
         if: runner.os == 'Linux'
         uses: actions/upload-artifact@v4
