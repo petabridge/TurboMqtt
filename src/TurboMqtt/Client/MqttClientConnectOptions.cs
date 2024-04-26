@@ -70,7 +70,7 @@ public sealed record MqttClientConnectOptions
     public bool CleanSession { get; init; } = true;
     public ushort KeepAliveSeconds { get; init; } = 60;
 
-    public uint MaximumPacketSize { get; set; } = 1024 * 8;
+    public uint MaximumPacketSize { get; init; } = 1024 * 32;
     
     /// <summary>
     /// Used for de-duplication across all clients.
@@ -98,15 +98,15 @@ public sealed record MqttClientConnectOptions
     /// </summary>
     public TimeSpan PublishRetryInterval { get; init; } = TimeSpan.FromSeconds(5);
 
-    public ushort ReceiveMaximum { get; set; }
+    public ushort ReceiveMaximum { get; init; }
     
     /// <summary>
     /// When set to <c>true</c> (default), causes each <see cref="IMqttClient"/> to emit OpenTelemetry metrics.
     /// </summary>
-    public bool EnableOpenTelemetry { get; set; } = true;
+    public bool EnableOpenTelemetry { get; init; } = true;
 
     /// <summary>
     /// Maximum number of consecutive times we should attempt to reconnect to the broker before giving up.
     /// </summary>
-    public int MaxReconnectAttempts { get; set; } = 3;
+    public int MaxReconnectAttempts { get; init; } = 3;
 }

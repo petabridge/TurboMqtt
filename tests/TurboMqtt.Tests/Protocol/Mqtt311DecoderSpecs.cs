@@ -4,6 +4,7 @@
 // </copyright>
 // -----------------------------------------------------------------------
 
+using FsCheck;
 using TurboMqtt.PacketTypes;
 using TurboMqtt.Protocol;
 using TurboMqtt.Tests.Packets;
@@ -33,6 +34,12 @@ public class Mqtt311DecoderSpecs
     public class CanHandlePartialMessages
     {
         private readonly Mqtt311Decoder _decoder = new();
+        
+        public  CanHandlePartialMessages()
+        {
+            Arb.Register<PacketGenerators>();
+        }
+
 
         [Fact]
         public void ShouldHandlePartialFrameHeader()
@@ -196,6 +203,37 @@ public class Mqtt311DecoderSpecs
             decodedPackets3.Count.Should().Be(2);
             decodedPackets3[0].Should().BeEquivalentTo(pingRespPacket);
             decodedPackets3[1].Should().BeEquivalentTo(publishPacket3, options => options.Excluding(x => x.Payload));
+        }
+
+        [FsCheck.Xunit.Property(MaxTest = 1000)]
+        public Property TestPacketReassembly(MqttPacket packet)
+        {
+            var decoder = new Mqtt311Decoder();
+
+            var fragmentedPackets = PacketGenerators.FragmentedPackets(Arb.From(Gen.Constant(packet))).Generator
+                .Sample(0, 1).First();
+            
+            var estimatedSize = MqttPacketSizeEstimator.EstimateMqtt3PacketSize(packet);
+            // need to add the 1 byte for the fixed header, plus the variable length header size
+            var fullSize = MqttPacketSizeEstimator.GetPacketLengthHeaderSize(estimatedSize) + estimatedSize + 1;
+            
+            fragmentedPackets.Sum(x => x.Length).Should().Be(fullSize);
+
+            try
+            {
+                // Assuming you have a method to handle fragments
+                var decoded = false;
+                foreach (var fragment in fragmentedPackets)
+                {
+                    decoded = decoder.TryDecode(fragment, out var packets);
+                }
+
+                return decoded.Label($"Should be able to reassemble published packets");
+            }
+            catch (Exception ex)
+            {
+                return false.Label("Exception thrown during packet reassembly").Classify(false, ex.Message);
+            }
         }
     }
 }
