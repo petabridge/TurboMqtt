@@ -24,6 +24,27 @@ jobs:
     steps:
     - uses: actions/checkout@v4.1.4
 
+    - name: Populate signsettings.json
+      env:
+        SIGNING_AAD_CLIENTID: ${{ secrets.SIGNING_AAD_CLIENTID }}
+        SIGNING_AAD_TENANTID: ${{ secrets.SIGNING_AAD_TENANTID }}
+        SIGNING_VAULT_URI: ${{ secrets.SIGNING_VAULT_URI }}
+        SIGNING_VAULT_RESOURCEID: ${{ secrets.SIGNING_VAULT_RESOURCEID }}
+      run: |
+          $path = "scripts/signsettings.json"
+          # Read the JSON file into a PowerShell object
+          $jsonContent = Get-Content $path | Out-String | ConvertFrom-Json
+
+          # Update the JSON object with the secret values
+          $jsonContent.SignClient.AzureAd.ClientId = $env:SIGNING_AAD_CLIENTID
+          $jsonContent.SignClient.AzureAd.TenantId = $env:SIGNING_AAD_TENANTID
+          $jsonContent.SignClient.Service.Url = $env:SIGNING_VAULT_URI
+          $jsonContent.SignClient.Service.ResourceId = $env:SIGNING_VAULT_RESOURCEID
+
+          # Convert the updated JSON object back to a JSON string and save it
+          $jsonContent | ConvertTo-Json -Depth 100 | Set-Content $path
+
+
     - name: "Install .NET SDK"
       uses: actions/setup-dotnet@v4.0.0
       with:
