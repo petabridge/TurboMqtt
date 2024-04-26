@@ -111,14 +111,54 @@ public class TcpMqtt311End2EndSpecs : TransportSpecBase
     [Fact]
     public async Task ShouldFailToConnectToNonExistentServer()
     {
-        var updatedTcpOptions = new MqttClientTcpOptions("localhost", 21884);
+        var updatedTcpOptions = new MqttClientTcpOptions("localhost", 21884)
+        {
+            MaxReconnectAttempts = 0
+        };
         var client = await ClientFactory.CreateTcpClient(DefaultConnectOptions, updatedTcpOptions);
-
-        var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
-        var connectResult = await client.ConnectAsync(cts.Token);
+        
+        // we are going to do this, intentionally, without a CTS here - this operation MUST FAIL if we are unable to connect
+        var connectResult = await client.ConnectAsync();
         connectResult.IsSuccess.Should().BeFalse();
 
         client.IsConnected.Should().BeFalse();
-        client.WhenTerminated.IsCompleted.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task ShouldSuccessFullyConnectWhenBrokerAvailableAfterFailedConnectionAttempt()
+    {
+        var updatedTcpOptions = new MqttClientTcpOptions("localhost", 21889)
+        {
+            MaxReconnectAttempts = 0
+        };
+        var client = await ClientFactory.CreateTcpClient(DefaultConnectOptions, updatedTcpOptions);
+        
+        // we are going to do this, intentionally, without a CTS here - this operation MUST FAIL if we are unable to connect
+        var connectResult = await client.ConnectAsync();
+        connectResult.IsSuccess.Should().BeFalse();
+
+        client.IsConnected.Should().BeFalse();
+        
+        // start up a new server
+        var newServer = new FakeMqttTcpServer(new MqttTcpServerOptions("localhost", 21889), MqttProtocolVersion.V3_1_1,
+            Sys.Log, TimeSpan.Zero, new DefaultFakeServerHandleFactory());
+        try
+        {
+            newServer.Bind();
+
+            // now we should be able to connect
+            var connectResult2 = await client.ConnectAsync();
+            connectResult2.IsSuccess.Should().BeTrue();
+            
+            client.IsConnected.Should().BeTrue();
+            await client.DisconnectAsync();
+
+            // ReSharper disable once MethodSupportsCancellation
+            await AwaitAssertAsync(() => client.WhenTerminated.IsCompleted.Should().BeTrue());
+        }
+        finally
+        {
+            newServer.Shutdown();
+        }
     }
 }
