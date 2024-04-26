@@ -27,12 +27,23 @@ Get-ChildItem -Path $DirectoryPath -Include *.nupkg,*.snupkg -Recurse | ForEach-
 
     Write-Output "Signing file: $filePath"
 
-    # Command to execute SignClient for each file
-    ./SignClient --config $ConfigPath `
-        -r $UserName `
-        -s $Password `
-        -n $ProductName `
-        -d $ProductDescription `
-        -u $ProductUrl `
-        -i $filePath
+    # Define the command and parameters
+    $command = "SignClient"
+    $arguments = "--config", $ConfigPath, 
+                 "-r", $UserName, 
+                 "-s", $Password, 
+                 "-n", $ProductName, 
+                 "-d", $ProductDescription, 
+                 "-u", $ProductUrl, 
+                 "-i", $filePath
+
+    # Execute SignClient and capture the output directly
+    try {
+        SignClient sign $arguments
+        if ($LASTEXITCODE -ne 0) {
+            Write-Error "Failed to sign $filePath."
+        }
+    } catch {
+        Write-Error "An error occurred: $_"
+    }
 }

@@ -1,9 +1,21 @@
 name: Build and Sign
 
+#on:
+#  push:
+#    tags:
+#      - '*'
+
 on:
   push:
-    tags:
-      - '*'
+    branches:
+      - master
+      - dev
+      - main
+  pull_request:
+    branches:
+      - master
+      - dev
+      - main
 
 jobs:   
   sign:
@@ -25,26 +37,29 @@ jobs:
     - name: Build Package
       run: dotnet pack --configuration Release -o ./bin/nuget
 
-    - name: Write JSON File from Secret
-      env:
-        JSON_CONTENT: ${{ secrets.SIGNING_CONFIG }}
-      shell: powershell
-      run: |
-        $Env:JSON_CONTENT | Out-File -FilePath "${{ runner.temp }}\signing-config.json" -Encoding utf8
-
     - name: Install SignClient
-      run: dotnet tool install --tool-path . SignClient
+      run: dotnet tool install -g SignClient --version 1.2.109
 
     - name: Sign artifacts
       shell: pwsh
-      run: >
-        ./scripts/signPackages.ps1 -ConfigPath "${{ runner.temp }}/signing-config.json" `
-          -UserName "${{ secrets.SIGNING_USER_NAME }}" `
-          -Password "${{ secrets.SIGNING_PASSWORD }}" `
+      env:
+        USERNAME: ${{ secrets.SIGNING_USER_NAME }}
+        PASSWORD: ${{ secrets.SIGNING_PASSWORD }}
+      run: |
+        echo "Starting the signing process..."
+        # Debug: Check if environment variables are set
+        $userName = "$env:USERNAME"
+        echo "Username length: $($userName.Length)"
+        echo "Password length: $($env:PASSWORD.Length)"
+
+        ./scripts/signPackages.ps1 -ConfigPath "./scripts/signsettings.json" `
+          -UserName "$env:USERNAME" `
+          -Password "$env:PASSWORD" `
           -ProductName "TurboMqtt" `
           -ProductDescription "TurboMqtt tools and drivers by Petabridge." `
           -ProductUrl "https://turbomqtt.org" `
           -DirectoryPath "./bin/nuget"
+
     
     - name: Upload build artifacts
       uses: actions/upload-artifact@v3
@@ -93,6 +108,7 @@ jobs:
     needs: sign
     runs-on: ubuntu-latest
     steps:
+    - uses: actions/checkout@v4.1.4
     - name: Download artifacts
       uses: actions/download-artifact@v3
       with:
