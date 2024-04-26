@@ -42,16 +42,18 @@ jobs:
 
     - name: Sign artifacts
       shell: pwsh
+      env:
+        USERNAME: ${{ secrets.SIGNING_USER_NAME }}
+        PASSWORD: ${{ secrets.SIGNING_PASSWORD }}
       run: |
         echo "Starting the signing process..."
-        $username = "${{ secrets.SIGNING_USER_NAME }}"
-        $password = "${{ secrets.SIGNING_PASSWORD }}"
-        echo "Username length: $($username.Length)"
-        echo "Password length: $($password.Length)"
+        # Debug: Check if environment variables are set
+        echo "Username length: $($env:USERNAME.Length)"
+        echo "Password length: $($env:PASSWORD.Length)"
 
         ./scripts/signPackages.ps1 -ConfigPath "./scripts/signsettings.json" `
-          -UserName $username `
-          -Password $password `
+          -UserName "$env:USERNAME" `
+          -Password "$env:PASSWORD" `
           -ProductName "TurboMqtt" `
           -ProductDescription "TurboMqtt tools and drivers by Petabridge." `
           -ProductUrl "https://turbomqtt.org" `
