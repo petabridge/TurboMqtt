@@ -48,7 +48,8 @@ jobs:
       run: |
         echo "Starting the signing process..."
         # Debug: Check if environment variables are set
-        echo "Username length: $($env:USERNAME.Length)"
+        $userName = "$env:USERNAME"
+        echo "Username length: $($userName.Length)"
         echo "Password length: $($env:PASSWORD.Length)"
 
         ./scripts/signPackages.ps1 -ConfigPath "./scripts/signsettings.json" `
