@@ -5,8 +5,6 @@
 // -----------------------------------------------------------------------
 
 using Akka.Actor;
-using TurboMqtt.IO;
-using TurboMqtt.Streams;
 using TurboMqtt.IO.Tcp;
 
 namespace TurboMqtt.Client;
