@@ -170,6 +170,7 @@ public sealed class MqttClient : IInternalMqttClient
     void IInternalMqttClient.SwapTransport(IMqttTransport newTransport)
     {
         _transport = newTransport;
+        var a = _transport;
     }
 
     public MqttProtocolVersion ProtocolVersion => _options.ProtocolVersion;

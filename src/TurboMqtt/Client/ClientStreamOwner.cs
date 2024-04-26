@@ -274,8 +274,30 @@ internal sealed class ClientStreamOwner : UntypedActor
                     Context.Stop(_streamInstanceOwner); // terminate previous stream
                     
                     await ReplaceTransport();
+                    
+                    var requiredActors = new MqttRequiredActors(_exactlyOnceActor!, _atLeastOnceActor!,
+                        _clientAckActor!,
+                        _heartBeatActor!);
+
+                    // need to reconnect the streams
+                    var streamCreateResult = await PrepareStreamAsync(_connectOptions!, _currentTransport!,
+                        _outboundChannel!, _inboundChannel!, requiredActors, Self);
+
+                    if (!streamCreateResult.IsSuccess) // should never happen
+                    {
+                        var errMsg = $"Failed to recreate stream. Reason: {streamCreateResult.ReasonString}";
+                        _log.Error(errMsg);
+                        Self.Tell(PoisonPill.Instance);
+                        return;
+                    }
+                    
                     sender.Tell(TransportResetComplete.Instance);
                 });
+                break;
+            }
+            case ServerDisconnect when !_successfullyConnected:
+            {
+                // ignore - we haven't even connected yet
                 break;
             }
             case ServerDisconnect serverDisconnect when _remainingReconnectAttempts > 0:
