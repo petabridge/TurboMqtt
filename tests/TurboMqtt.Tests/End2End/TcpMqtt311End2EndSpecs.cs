@@ -111,7 +111,10 @@ public class TcpMqtt311End2EndSpecs : TransportSpecBase
     [Fact]
     public async Task ShouldFailToConnectToNonExistentServer()
     {
-        var updatedTcpOptions = new MqttClientTcpOptions("localhost", 21884);
+        var updatedTcpOptions = new MqttClientTcpOptions("localhost", 21884)
+        {
+            MaxReconnectAttempts = 0
+        };
         var client = await ClientFactory.CreateTcpClient(DefaultConnectOptions, updatedTcpOptions);
 
         var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
@@ -119,6 +122,7 @@ public class TcpMqtt311End2EndSpecs : TransportSpecBase
         connectResult.IsSuccess.Should().BeFalse();
 
         client.IsConnected.Should().BeFalse();
-        await AwaitAssertAsync(() => client.WhenTerminated.IsCompleted.Should().BeTrue(), cancellationToken: cts.Token);
+        // ReSharper disable once MethodSupportsCancellation
+        await AwaitAssertAsync(() => client.WhenTerminated.IsCompleted.Should().BeTrue());
     }
 }
