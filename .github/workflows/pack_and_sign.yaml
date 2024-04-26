@@ -59,7 +59,7 @@ jobs:
       run: dotnet pack --configuration Release -o ./bin/nuget
 
     - name: Install SignClient
-      run: dotnet tool install -g SignClient
+      run: dotnet tool install -g SignClient --version 1.2.109
 
     - name: Sign artifacts
       shell: pwsh
