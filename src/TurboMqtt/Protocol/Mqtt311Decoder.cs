@@ -57,9 +57,18 @@ public class Mqtt311Decoder
             packetType = (MqttPacketType)(currentPacket[0] >> 4);
             currentPacket = currentPacket.Slice(1);
             
-            // extract packet size (the packet span will automatically advance past the size header)
-            if (!TryGetPacketLength(ref currentPacket, out packetSize))
-                return rValue; // we need more data to decode the packet size
+            try
+            {
+                // extract packet size (the packet span will automatically advance past the size header)
+                if (!TryGetPacketLength(ref currentPacket, out packetSize))
+                {
+                    return rValue; // we need more data to decode the packet size
+                }
+            }
+            catch (Exception e)
+            {
+                throw new Exception($"Decoded: {packets.Count}, Failing header: {BitConverter.ToString(workingBuffer[..6].ToArray())}", e);
+            }
             
             // check to see if we have enough data to decode the packet
             if (currentPacket.Length < packetSize)
@@ -417,15 +426,19 @@ public class Mqtt311Decoder
         
         bodyLength = 0;
 
+        var encoded = new byte[5];
         byte encodedByte;
         do
         {
             if (byteCount >= span.Length) return false;
 
-            encodedByte = span[byteCount++];
+            encodedByte = span[byteCount];
+            encoded[byteCount] = encodedByte;
+            byteCount++;
+            
             value += (encodedByte & 0x7F) * multiplier;
             if (multiplier > 128 * 128 * 128) // 128 * 128 * 128
-                return false;
+                throw new Exception($"Malformed remaining length. Value = {value}, encoded: {BitConverter.ToString(encoded)}");
 
             multiplier *= 128;
         } while ((encodedByte & 128) != 0);

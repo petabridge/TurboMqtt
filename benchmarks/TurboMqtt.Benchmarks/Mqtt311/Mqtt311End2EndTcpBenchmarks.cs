@@ -23,7 +23,7 @@ public class Mqtt311EndToEndTcpBenchmarks
     [Params(QualityOfService.AtMostOnce, QualityOfService.AtLeastOnce, QualityOfService.ExactlyOnce)]
     public QualityOfService QoSLevel { get; set; }
 
-    [Params(10, 1024, 8 * 1024)] public int PayloadSizeBytes { get; set; }
+    [Params(8 * 1024)] public int PayloadSizeBytes { get; set; }
 
     [Params(MqttProtocolVersion.V3_1_1)] public MqttProtocolVersion ProtocolVersion { get; set; }
 
@@ -83,7 +83,8 @@ public class Mqtt311EndToEndTcpBenchmarks
             Password = "testpassword",
             KeepAliveSeconds = 60,
             MaxReconnectAttempts = 10,
-            PublishRetryInterval = TimeSpan.FromSeconds(5)
+            PublishRetryInterval = TimeSpan.FromSeconds(5), 
+            MaximumPacketSize = 16 * 1024
         };
     }
     

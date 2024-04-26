@@ -143,6 +143,7 @@ internal sealed class FakeMqttTcpServer
         {
             Memory<byte> buffer = new byte[_options.MaxFrameSize];
 
+            var closed = false;
             var handle = _handleFactory.CreateServerHandle(PushMessage, ClosingAction, _log, _version, _heatBeatDelay);
             var clientShutdownCts = new CancellationTokenSource();
             _ = handle.WhenClientIdAssigned.ContinueWith(t =>
@@ -157,6 +158,8 @@ internal sealed class FakeMqttTcpServer
                 CancellationTokenSource.CreateLinkedTokenSource(clientShutdownCts.Token, _shutdownTcs.Token);
             while (!linkedCts.IsCancellationRequested)
             {
+                if (closed)
+                    break;
                 try
                 {
                     var bytesRead = await socket.ReceiveAsync(buffer, SocketFlags.None, linkedCts.Token);
@@ -190,8 +193,9 @@ internal sealed class FakeMqttTcpServer
                 }
             }
 
-            // send a disconnect message
-            handle.DisconnectFromServer();
+            if(!closed)
+                // send a disconnect message
+                handle.DisconnectFromServer();
 
             return;
 
@@ -232,7 +236,9 @@ internal sealed class FakeMqttTcpServer
 
             Task ClosingAction()
             {
-                if (socket.Connected) socket.Close();
+                if (socket.Connected) 
+                    socket.Close();
+                closed = true;
                 return Task.CompletedTask;
             }
         }
