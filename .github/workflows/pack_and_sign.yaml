@@ -24,21 +24,26 @@ jobs:
     steps:
     - uses: actions/checkout@v4.1.4
 
-    - name: Write JSON File from Secret
-      id: signing-config
+    - name: Populate signsettings.json
       env:
-        SECRET_DATA1: ${{ secrets.SIGNING_CONFIG }}
-      shell: pwsh
+        SIGNING_AAD_CLIENTID: ${{ secrets.SIGNING_AAD_CLIENTID }}
+        SIGNING_AAD_TENANTID: ${{ secrets.SIGNING_AAD_TENANTID }}
+        SIGNING_VAULT_URI: ${{ secrets.SIGNING_VAULT_URI }}
+        SIGNING_VAULT_RESOURCEID: ${{ secrets.SIGNING_VAULT_RESOURCEID }}
       run: |
-         $secretFile = Join-Path -Path $env:RUNNER_TEMP -ChildPath "signing-config.json"; 
-         $encodedBytes = [System.Convert]::FromBase64String($env:SECRET_DATA1); 
-         Set-Content $secretFile -Value $encodedBytes -AsByteStream;
-         $secretFileHash = Get-FileHash $secretFile;
-         Write-Output "::set-output name=SECRET_FILE::$secretFile";
-         Write-Output "::set-output name=SECRET_FILE_HASH::$($secretFileHash.Hash)";
-         Write-Output "Secret file $secretFile has hash $($secretFileHash.Hash)";
-         $expectedHash = "020ACBCDEBB40532019E4211A047DEB1AFF3616C67BBFBBEFB6B419EDC898C6B"; # Set to output when generating the Base64 string (and hash)
-         if ($secretFileHash.Hash -ne $expectedHash) { Write-Output "::error file=$($secretFile)::Hash doesn't match"; Write-Output "Hash doesn't match"; exit 10; } 
+          $path = "scripts/signsettings.json"
+          # Read the JSON file into a PowerShell object
+          $jsonContent = Get-Content $path | Out-String | ConvertFrom-Json
+
+          # Update the JSON object with the secret values
+          $jsonContent.SignClient.AzureAd.ClientId = $env:SIGNING_AAD_CLIENTID
+          $jsonContent.SignClient.AzureAd.TenantId = $env:SIGNING_AAD_TENANTID
+          $jsonContent.SignClient.Service.Url = $env:SIGNING_VAULT_URI
+          $jsonContent.SignClient.Service.ResourceId = $env:SIGNING_VAULT_RESOURCEID
+
+          # Convert the updated JSON object back to a JSON string and save it
+          $jsonContent | ConvertTo-Json -Depth 100 | Set-Content $path
+
 
     - name: "Install .NET SDK"
       uses: actions/setup-dotnet@v4.0.0
@@ -59,7 +64,7 @@ jobs:
     - name: Sign artifacts
       shell: pwsh
       run: >
-        ./scripts/signPackages.ps1 -ConfigPath "${{ steps.secret-file1.outputs.SECRET_FILE }}" `
+        ./scripts/signPackages.ps1 -ConfigPath "./scripts/signsettings.json" `
           -UserName "${{ secrets.SIGNING_USER_NAME }}" `
           -Password "${{ secrets.SIGNING_PASSWORD }}" `
           -ProductName "TurboMqtt" `

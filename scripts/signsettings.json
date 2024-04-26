@@ -1,0 +1,13 @@
+{
+  "SignClient": {
+    "AzureAd": {
+      "AADInstance": "https://login.microsoftonline.com/",
+      "ClientId": "{{ SIGNING_AAD_CLIENTID }}",
+      "TenantId": "{{ SIGNING_AAD_TENANTID }}"
+    },
+    "Service": {
+      "Url": "{{ SIGNING_VAULT_URI }}",
+      "ResourceId": "{{ SIGNING_VAULT_RESOURCEID }}"
+    }
+  }
+}
