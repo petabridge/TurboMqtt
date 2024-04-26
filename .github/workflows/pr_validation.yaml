@@ -12,10 +12,15 @@ on:
       - dev
       - main
 
+permissions:
+  checks: write
+  pull-requests: write
+  issues: write
+  contents: read
+
 jobs:
   test:
     # Permissions this GitHub Action needs for other things in GitHub
-    permissions: write-all
     name: Test-${{matrix.os}}
     runs-on: ${{matrix.os}}
 
@@ -77,7 +82,7 @@ jobs:
           thresholds: "10 30"
 
       - name: Add Coverage PR Comment
-        if: github.event_name == 'pull_request' && runner.os == 'Linux'
+        if: github.event_name == 'pull_request_target' && runner.os == 'Linux'
         uses: marocchino/sticky-pull-request-comment@v2
         with:
           recreate: true
@@ -96,3 +101,50 @@ jobs:
         uses: EnricoMi/publish-unit-test-result-action@v2.16.1
         with:
           trx_files: "${{ github.workspace }}/**/*.trx"
+
+  check_and_report:
+    needs: test
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push'
+    steps:
+      - name: Download Test Results
+        uses: actions/download-artifact@v3
+        with:
+          name: test-results
+
+      - name: Download Code Coverage Report
+        uses: actions/download-artifact@v3
+        with:
+          name: code-coverage-report
+
+      - name: Check Test Results
+        id: check
+        run: |
+          if grep -q "failed" test-results/*.trx; then
+            echo "::set-output name=failed::true"
+          fi
+
+      - name: Open GitHub Issue on Test Failure
+        if: steps.check.outputs.failed == 'true'
+        id: create-issue
+        uses: imjohnbo/issue-bot@v3
+        with:
+          title: "Test Failures Detected"
+          body: |
+            Tests have failed. Please review the attached reports.
+            - **Commit**: ${{ github.sha }}
+            - **Branch**: ${{ github.ref }}
+            - [Test Results](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})
+            - [Code Coverage Report](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})
+          labels: 'bug, test failure'
+
+      - name: Add Issue Comment with Artifact Links
+        if: steps.check.outputs.failed == 'true'
+        uses: peter-evans/create-or-update-comment@v1
+        with:
+          issue-number: ${{ steps.create-issue.outputs.issue-number }}
+          body: |
+            ### Detailed Reports
+            - [Download Test Results](https://github.com/${{ github.repository }}/suites/${{ github.run_id }}/artifacts/${{ needs.test.outputs.test-results-id }})
+            - [Download Code Coverage Report](https://github.com/${{ github.repository }}/suites/${{ github.run_id }}/artifacts/${{ needs.test.outputs.code-coverage-report-id }})
+          reactions: '+1'
