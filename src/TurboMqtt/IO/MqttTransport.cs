@@ -55,7 +55,10 @@ internal interface IMqttTransport
     ///
     /// Also, this method is idempotent - it can be called multiple times without any side effects after the first call.
     /// </remarks>
-    public Task CloseAsync(CancellationToken ct = default);
+    /// <returns>
+    /// <c>true</c> if the disconnect completed gracefully, <c>false</c> otherwise.
+    /// </returns>
+    public Task<bool> CloseAsync(CancellationToken ct = default);
     
     /// <summary>
     /// Force an immediate, unclean shutdown of the transport.
@@ -70,7 +73,10 @@ internal interface IMqttTransport
     /// <remarks>
     /// The connection information is passed into the implementation's constructor, so no need to specify here.
     /// </remarks>
-    public Task ConnectAsync(CancellationToken ct = default);
+    /// <returns>
+    /// <c>true</c> if the connection was successful, <c>false</c> otherwise.
+    /// </returns>
+    public Task<bool> ConnectAsync(CancellationToken ct = default);
     
     /// <summary>
     /// Maximum packet size that can be sent or received over the wire.

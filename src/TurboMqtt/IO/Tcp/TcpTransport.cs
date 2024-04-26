@@ -69,7 +69,7 @@ internal sealed class TcpTransport : IMqttTransport
     
     public Task WaitForPendingWrites => State.WaitForPendingWrites;
 
-    public Task CloseAsync(CancellationToken ct = default)
+    public Task<bool> CloseAsync(CancellationToken ct = default)
     {
         var watch = _connectionActor.WatchAsync(ct);
          // mark the writer as complete
@@ -85,9 +85,12 @@ internal sealed class TcpTransport : IMqttTransport
         return watch;
     }
 
-    public Task ConnectAsync(CancellationToken ct = default)
+    public async Task<bool> ConnectAsync(CancellationToken ct = default)
     {
-        return _connectionActor.Ask<TcpTransportActor.ConnectResult>(new TcpTransportActor.DoConnect(ct), ct);
+        var result = await _connectionActor.Ask<TcpTransportActor.ConnectResult>(new TcpTransportActor.DoConnect(ct), ct)
+            .ConfigureAwait(false);
+        
+        return result.Status == ConnectionStatus.Connected;
     }
 
     public int MaxFrameSize { get; }
