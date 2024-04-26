@@ -64,7 +64,7 @@ public class PacketGenerators
             from topicName in
                 Arb.Generate<string>()
                     .Where(s => !string.IsNullOrWhiteSpace(s) && s.Length > 0 && MqttTopicValidator.ValidatePublishTopic(s).IsValid) // ensure topicName is not null or whitespace
-            from payloadLength in Gen.Choose(0, 16 * 1024) // You can adjust the max size as needed
+            from payloadLength in Gen.Choose(0, 32 * 1024) // You can adjust the max size as needed
             from bytes in Gen.ArrayOf(payloadLength, Arb.Generate<byte>())
             from packetId in Arb.Generate<ushort>()
             select (MqttPacket)new PublishPacket(qos, duplicate, retainRequested, topicName)

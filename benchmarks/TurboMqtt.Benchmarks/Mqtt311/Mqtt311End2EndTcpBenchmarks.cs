@@ -23,7 +23,7 @@ public class Mqtt311EndToEndTcpBenchmarks
     [Params(QualityOfService.AtMostOnce, QualityOfService.AtLeastOnce, QualityOfService.ExactlyOnce)]
     public QualityOfService QoSLevel { get; set; }
 
-    [Params(10, 1024, 8 * 1024)] public int PayloadSizeBytes { get; set; }
+    [Params(10, 1024, 2 * 1024)] public int PayloadSizeBytes { get; set; }
 
     [Params(MqttProtocolVersion.V3_1_1)] public MqttProtocolVersion ProtocolVersion { get; set; }
 
@@ -57,7 +57,7 @@ public class Mqtt311EndToEndTcpBenchmarks
     [GlobalSetup]
     public void StartFixture()
     {
-        _system = ActorSystem.Create("Mqtt311EndToEndTcpBenchmarks", "akka.loglevel=INFO");
+        _system = ActorSystem.Create("Mqtt311EndToEndTcpBenchmarks", "akka.loglevel=ERROR");
         var loggingAdapter = new BusLogging(_system.EventStream, "FakeMqttTcpServer", typeof(FakeMqttTcpServer),
             _system.Settings.LogFormatter);
         
