@@ -86,8 +86,8 @@ public class TcpMqtt311End2EndSpecs : TransportSpecBase
     [Fact]
     public async Task ShouldTerminateClientAfterMultipleFailedConnectionAttempts()
     {
-        var updatedOptions = DefaultConnectOptions;
-        updatedOptions.MaxReconnectAttempts = 1; // allow 1 reconnection attempt
+        // allow 1 reconnection attempt
+        var updatedOptions = DefaultConnectOptions with { MaxReconnectAttempts = 1 };
         var client = await ClientFactory.CreateTcpClient(updatedOptions, DefaultTcpOptions);
 
         var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));

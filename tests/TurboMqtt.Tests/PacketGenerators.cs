@@ -88,7 +88,9 @@ public class PacketGenerators
         var serializedPackets = packetArb.Generator.Select(packet =>
         {
             var estimatedSize = MqttPacketSizeEstimator.EstimateMqtt3PacketSize(packet);
-            var fullSize = MqttPacketSizeEstimator.GetPacketLengthHeaderSize(estimatedSize) + estimatedSize;
+            
+            // need to always add 1 for the fixed byte
+            var fullSize = MqttPacketSizeEstimator.GetPacketLengthHeaderSize(estimatedSize) + estimatedSize + 1;
             Memory<byte> bytes = new byte[fullSize];
             var serializedPacket = Mqtt311Encoder.EncodePacket(packet, ref bytes, estimatedSize);
 

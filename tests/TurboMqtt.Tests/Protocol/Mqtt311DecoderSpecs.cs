@@ -214,7 +214,8 @@ public class Mqtt311DecoderSpecs
                 .Sample(0, 1).First();
             
             var estimatedSize = MqttPacketSizeEstimator.EstimateMqtt3PacketSize(packet);
-            var fullSize = MqttPacketSizeEstimator.GetPacketLengthHeaderSize(estimatedSize) + estimatedSize;
+            // need to add the 1 byte for the fixed header, plus the variable length header size
+            var fullSize = MqttPacketSizeEstimator.GetPacketLengthHeaderSize(estimatedSize) + estimatedSize + 1;
             
             fragmentedPackets.Sum(x => x.Length).Should().Be(fullSize);
 
