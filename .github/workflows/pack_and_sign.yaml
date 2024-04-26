@@ -42,7 +42,7 @@ jobs:
         JSON_CONTENT: ${{ secrets.SIGNING_CONFIG }}
       shell: powershell
       run: |
-        $Env:JSON_CONTENT | Out-File -FilePath "${{ runner.temp }}\signing-config.json" -Encoding utf8
+        $Env:JSON_CONTENT | Out-File -FilePath "${{ runner.temp }}/signing-config.json" -Encoding utf8
 
     - name: Install SignClient
       run: dotnet tool install -g SignClient
