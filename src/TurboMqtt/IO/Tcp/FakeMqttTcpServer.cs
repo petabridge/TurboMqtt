@@ -172,8 +172,10 @@ internal sealed class FakeMqttTcpServer
                         return;
                     }
 
+                    Memory<byte> newBuffer = new byte[bytesRead];
+                    buffer.Slice(0, bytesRead).CopyTo(newBuffer);
                     // process the incoming message, send any necessary replies back
-                    handle.HandleBytes(buffer.Slice(0, bytesRead));
+                    handle.HandleBytes(newBuffer);
                 }
                 catch (OperationCanceledException)
                 {
