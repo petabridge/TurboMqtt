@@ -3,9 +3,9 @@
     <Copyright>Copyright © 2024 Petabridge, LLC</Copyright>
     <NoWarn>$(NoWarn);CS1591</NoWarn>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
-    <VersionPrefix>0.1.0-beta1</VersionPrefix>
+    <VersionPrefix>0.1.0-beta2</VersionPrefix>
     <Authors>Petabridge</Authors>
-    <PackageReleaseNotes>* First release; fully-functioning MQTT 3.1.1 client over TCP, but we're missing TLS support still.</PackageReleaseNotes>
+    <PackageReleaseNotes>First release; fully-functioning MQTT 3.1.1 client over TCP, but we're missing TLS support still.</PackageReleaseNotes>
   </PropertyGroup>
   <PropertyGroup Label="Build">
     <LangVersion>latest</LangVersion>
