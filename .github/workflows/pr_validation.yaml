@@ -12,6 +12,12 @@ on:
       - dev
       - main
 
+permissions:
+  checks: write
+  pull-requests: write
+  issues: write
+  contents: read
+
 jobs:
   test:
     # Permissions this GitHub Action needs for other things in GitHub
