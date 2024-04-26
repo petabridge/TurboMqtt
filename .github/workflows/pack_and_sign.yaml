@@ -38,11 +38,20 @@ jobs:
       run: dotnet pack --configuration Release -o ./bin/nuget
 
     - name: Write JSON File from Secret
+      id: signing-config
       env:
-        JSON_CONTENT: ${{ secrets.SIGNING_CONFIG }}
-      shell: powershell
+        SECRET_DATA1: ${{ secrets.SIGNING_CONFIG }}
+      shell: pwsh
       run: |
-        $Env:JSON_CONTENT | Out-File -FilePath "${{ runner.temp }}/signing-config.json" -Encoding utf8
+         $secretFile = Join-Path -Path $env:RUNNER_TEMP -ChildPath "signing-config.json"; 
+         $encodedBytes = [System.Convert]::FromBase64String($env:SECRET_DATA1); 
+         Set-Content $secretFile -Value $encodedBytes -AsByteStream;
+         $secretFileHash = Get-FileHash $secretFile;
+         Write-Output "::set-output name=SECRET_FILE::$secretFile";
+         Write-Output "::set-output name=SECRET_FILE_HASH::$($secretFileHash.Hash)";
+         Write-Output "Secret file $secretFile has hash $($secretFileHash.Hash)";
+         $expectedHash = "C115E84FD7BBDD4A453A3DD842959C7A14478F35422F50B7D8D82234CD0B1C33"; # Set to output when generating the Base64 string (and hash)
+         if ($secretFileHash.Hash -ne $expectedHash) { Write-Output "::error file=$($secretFile)::Hash doesn't match"; Write-Output "Hash doesn't match"; exit 10; } 
 
     - name: Install SignClient
       run: dotnet tool install -g SignClient
@@ -50,7 +59,7 @@ jobs:
     - name: Sign artifacts
       shell: pwsh
       run: >
-        ./scripts/signPackages.ps1 -ConfigPath "${{ runner.temp }}/signing-config.json" `
+        ./scripts/signPackages.ps1 -ConfigPath "${{ steps.secret-file1.outputs.SECRET_FILE }}" `
           -UserName "${{ secrets.SIGNING_USER_NAME }}" `
           -Password "${{ secrets.SIGNING_PASSWORD }}" `
           -ProductName "TurboMqtt" `
