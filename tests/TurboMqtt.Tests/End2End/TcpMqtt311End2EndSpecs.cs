@@ -116,13 +116,11 @@ public class TcpMqtt311End2EndSpecs : TransportSpecBase
             MaxReconnectAttempts = 0
         };
         var client = await ClientFactory.CreateTcpClient(DefaultConnectOptions, updatedTcpOptions);
-
-        var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
-        var connectResult = await client.ConnectAsync(cts.Token);
+        
+        // we are going to do this, intentionally, without a CTS here - this operation MUST FAIL if we are unable to connect
+        var connectResult = await client.ConnectAsync();
         connectResult.IsSuccess.Should().BeFalse();
 
         client.IsConnected.Should().BeFalse();
-        // ReSharper disable once MethodSupportsCancellation
-        await AwaitAssertAsync(() => client.WhenTerminated.IsCompleted.Should().BeTrue());
     }
 }

@@ -191,7 +191,19 @@ public sealed class MqttClient : IInternalMqttClient
                 return new AckProtocol.ConnectFailure($"Already in state [{_transport.Status}]");
 
         // this will blow up if there's a problem with the connection
-        await _transport.ConnectAsync(cancellationToken);
+        var connectionResult = await _transport.ConnectAsync(cancellationToken);
+        
+        if (!connectionResult)
+        {
+            _log.Error("Failed to connect to MQTT broker");
+            var result = await _clientOwner.Ask<ClientStreamOwner.TransportResetComplete>(ClientStreamOwner.TransportFailedToConnect
+                .Instance, cancellationToken);
+            return new AckProtocol.ConnectFailure("Failed to connect to MQTT broker.");
+        }
+        
+        // let it know we've connected successfully at least once
+        _clientOwner.Tell(ClientStreamOwner.TransportConnectedSuccessfully.Instance);
+        
 
         var connectFlags = new ConnectFlags
         {
