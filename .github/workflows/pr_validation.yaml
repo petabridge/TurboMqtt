@@ -12,11 +12,6 @@ on:
       - dev
       - main
 
-permissions:
-  pull-requests: write
-  actions: write
-  contents: read
-
 jobs:
   test:
     # Permissions this GitHub Action needs for other things in GitHub
@@ -81,7 +76,7 @@ jobs:
           thresholds: "10 30"
 
       - name: Add Coverage PR Comment
-        if: github.event_name == 'pull_request' && runner.os == 'Linux'
+        if: github.event_name == 'pull_request_target' && runner.os == 'Linux'
         uses: marocchino/sticky-pull-request-comment@v2
         with:
           recreate: true
