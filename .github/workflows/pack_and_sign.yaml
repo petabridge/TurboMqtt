@@ -63,14 +63,23 @@ jobs:
 
     - name: Sign artifacts
       shell: pwsh
-      run: >
+      env:
+        USERNAME: ${{ secrets.SIGNING_USER_NAME }}
+        PASSWORD: ${{ secrets.SIGNING_PASSWORD }}
+      run: |
+        echo "Starting the signing process..."
+        # Debug: Check if environment variables are set
+        echo "Username length: $($env:USERNAME.Length)"
+        echo "Password length: $($env:PASSWORD.Length)"
+
         ./scripts/signPackages.ps1 -ConfigPath "./scripts/signsettings.json" `
-          -UserName "${{ secrets.SIGNING_USER_NAME }}" `
-          -Password "${{ secrets.SIGNING_PASSWORD }}" `
+          -UserName $env:USERNAME `
+          -Password $env:PASSWORD `
           -ProductName "TurboMqtt" `
           -ProductDescription "TurboMqtt tools and drivers by Petabridge." `
           -ProductUrl "https://turbomqtt.org" `
           -DirectoryPath "./bin/nuget"
+
     
     - name: Upload build artifacts
       uses: actions/upload-artifact@v3
