@@ -43,6 +43,8 @@ public class Mqtt311EndToEndTcpBenchmarks
     private const string Host = "localhost";
     private int Port;
     
+    private List<Task> _writeTasks = new();
+    
     private ReadOnlyMemory<byte> CreateMsgPayload()
     {
         var payload = new byte[PayloadSizeBytes];
@@ -57,12 +59,15 @@ public class Mqtt311EndToEndTcpBenchmarks
     [GlobalSetup]
     public void StartFixture()
     {
+        _writeTasks = new List<Task>(PacketCount);
         _system = ActorSystem.Create("Mqtt311EndToEndTcpBenchmarks", "akka.loglevel=ERROR");
         var loggingAdapter = new BusLogging(_system.EventStream, "FakeMqttTcpServer", typeof(FakeMqttTcpServer),
             _system.Settings.LogFormatter);
         
         // bind to a random port
-        _server = new FakeMqttTcpServer(new MqttTcpServerOptions(Host, 0), MqttProtocolVersion.V3_1_1, loggingAdapter,
+        // set max frame size to 1mb
+        
+        _server = new FakeMqttTcpServer(new MqttTcpServerOptions(Host, 0){ MaxFrameSize = 1024*1024}, MqttProtocolVersion.V3_1_1, loggingAdapter,
             TimeSpan.Zero, new DefaultFakeServerHandleFactory());
         
         _clientFactory = new MqttClientFactory(_system);
@@ -76,7 +81,7 @@ public class Mqtt311EndToEndTcpBenchmarks
         _server.Bind();
         Port = _server.BoundPort;
 
-        _defaultTcpOptions = new MqttClientTcpOptions(Host, Port) { MaxFrameSize = 16 * 1024 };
+        _defaultTcpOptions = new MqttClientTcpOptions(Host, Port) { MaxFrameSize = 256 * 1024 };
         _defaultConnectOptions = new MqttClientConnectOptions("test-subscriber", ProtocolVersion)
         {
             UserName = "testuser",
@@ -99,6 +104,7 @@ public class Mqtt311EndToEndTcpBenchmarks
     [IterationSetup]
     public void SetupPerIteration()
     {
+        _writeTasks.Clear();
         DoSetup().Wait();
         return;
 
@@ -140,7 +146,7 @@ public class Mqtt311EndToEndTcpBenchmarks
         using var cts = new CancellationTokenSource(System.TimeSpan.FromMinutes(2));
         for (var i = 0; i < PacketCount; i++)
         {
-            _ = _subscribeClient!.PublishAsync(_testMessage!, cts.Token);
+            _writeTasks.Add(_subscribeClient!.PublishAsync(_testMessage!, cts.Token));
         }
 
         var processedMessages = PacketCount;
@@ -153,6 +159,8 @@ public class Mqtt311EndToEndTcpBenchmarks
                     return 0;
             }
         }
+
+        await Task.WhenAll(_writeTasks).WaitAsync(cts.Token);
         
         return processedMessages;
     }
