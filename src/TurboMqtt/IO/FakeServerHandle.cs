@@ -14,11 +14,13 @@ namespace TurboMqtt.IO;
 internal interface IFakeServerHandle
 {
     public Task<string> WhenClientIdAssigned { get; }
+    
+    public Task WhenTerminated { get; }
     MqttProtocolVersion ProtocolVersion { get; }
     ILoggingAdapter Log { get; }
     void HandleBytes(in ReadOnlyMemory<byte> bytes);
     void HandlePacket(MqttPacket packet);
-    void TryPush(MqttPacket outboundPacket);
+    bool TryPush(MqttPacket outboundPacket);
     void DisconnectFromServer();
 }
 
@@ -30,6 +32,7 @@ internal class FakeMqtt311ServerHandle : IFakeServerHandle
     private readonly Func<Task> _closingAction;
     private readonly HashSet<string> _subscribedTopics = [];
     private readonly TimeSpan _heartbeatDelay;
+    private readonly TaskCompletionSource _terminated = new();
 
 
     public FakeMqtt311ServerHandle(Func<(IMemoryOwner<byte> buffer, int estimatedSize), bool> pushMessage,
@@ -41,7 +44,7 @@ internal class FakeMqtt311ServerHandle : IFakeServerHandle
         _heartbeatDelay = heartbeatDelay ?? TimeSpan.Zero;
     }
 
-    public virtual void TryPush(MqttPacket packet)
+    public virtual bool TryPush(MqttPacket packet)
     {
         if(Log.IsDebugEnabled)
             Log.Debug("Sending packet of type {0} using {1}", packet.PacketType, ProtocolVersion);
@@ -65,15 +68,25 @@ internal class FakeMqtt311ServerHandle : IFakeServerHandle
             Log.Debug("Successfully wrote packet of type {0} [{1} bytes] to transport.", packet.PacketType,
                 estimatedSize + headerSize);
         }
+
+        return didWrite;
     }
 
     public void DisconnectFromServer()
     {
         // use this to tell the client we're disconnecting
-        TryPush(DisconnectPacket.Instance);
+        var pushed = TryPush(DisconnectPacket.Instance);
+        if (!pushed)
+        {
+            Log.Warning("Failed to write DISCONNECT packet to transport.");
+        }
+
+        _closingAction();
+        _terminated.TrySetResult();
     }
 
     public Task<string> WhenClientIdAssigned => _clientIdAssigned.Task;
+    public Task WhenTerminated => _terminated.Task;
     public MqttProtocolVersion ProtocolVersion => MqttProtocolVersion.V3_1_1;
     public ILoggingAdapter Log { get; }
 
@@ -222,6 +235,7 @@ internal class FakeMqtt311ServerHandle : IFakeServerHandle
             case MqttPacketType.Disconnect:
                 // shut it down
                 _ = _closingAction();
+                _terminated.TrySetResult();
                 break;
             default:
                 var ex = new NotSupportedException($"Packet type {packet.PacketType} is not supported by this flow.");

@@ -46,7 +46,7 @@ internal sealed class FakeMqttTcpServer
     private readonly MqttTcpServerOptions _options;
     private readonly CancellationTokenSource _shutdownTcs = new();
     private readonly ILoggingAdapter _log;
-    private readonly ConcurrentDictionary<string, CancellationTokenSource> _clientCts = new();
+    private readonly ConcurrentDictionary<string, (CancellationTokenSource ct, Task shutdown)> _clientCts = new();
     private readonly TimeSpan _heatBeatDelay;
     private readonly IFakeServerHandleFactory _handleFactory;
     private Socket? _bindSocket;
@@ -108,7 +108,7 @@ internal sealed class FakeMqttTcpServer
     {
         if (_clientCts.TryRemove(clientId, out var cts))
         {
-            cts.Cancel();
+            cts.ct.Cancel();
             return true;
         }
 
@@ -121,6 +121,13 @@ internal sealed class FakeMqttTcpServer
         try
         {
             _shutdownTcs.Cancel();
+            var shutdowns = _clientCts.Values.Select(x => x.shutdown);
+            foreach (var cts in _clientCts.Values)
+            {
+                cts.ct.Cancel();
+            }
+
+            Task.WhenAll(shutdowns).Wait();
             _bindSocket?.Close();
         }
         catch (Exception)
@@ -187,7 +194,7 @@ internal sealed class FakeMqttTcpServer
             {
                 if (t.IsCompletedSuccessfully)
                 {
-                    _clientCts.TryAdd(t.Result, clientShutdownCts);
+                    _clientCts.TryAdd(t.Result, (clientShutdownCts, handle.WhenTerminated));
                 }
             }, clientShutdownCts.Token);
            
