@@ -25,6 +25,11 @@ public interface IMqttClient : IAsyncDisposable
     /// The version of the MQTT protocol that this client is using.
     /// </summary>
     public MqttProtocolVersion ProtocolVersion { get; }
+    
+    /// <summary>
+    /// The client ID used to connect to the MQTT broker.
+    /// </summary>
+    public string ClientId { get; }
 
     /// <summary>
     /// The state of the connection to the MQTT broker.
@@ -174,6 +179,7 @@ public sealed class MqttClient : IInternalMqttClient
     }
 
     public MqttProtocolVersion ProtocolVersion => _options.ProtocolVersion;
+    public string ClientId => _options.ClientId;
     public bool IsConnected => _transport.Status == ConnectionStatus.Connected;
 
     public async Task AbortConnectionAsync()
