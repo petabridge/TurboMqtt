@@ -62,7 +62,9 @@ public class Mqtt311EndToEndTcpBenchmarks
             _system.Settings.LogFormatter);
         
         // bind to a random port
-        _server = new FakeMqttTcpServer(new MqttTcpServerOptions(Host, 0), MqttProtocolVersion.V3_1_1, loggingAdapter,
+        // set max frame size to 1mb
+        
+        _server = new FakeMqttTcpServer(new MqttTcpServerOptions(Host, 0){ MaxFrameSize = 1024*1024}, MqttProtocolVersion.V3_1_1, loggingAdapter,
             TimeSpan.Zero, new DefaultFakeServerHandleFactory());
         
         _clientFactory = new MqttClientFactory(_system);
@@ -76,7 +78,7 @@ public class Mqtt311EndToEndTcpBenchmarks
         _server.Bind();
         Port = _server.BoundPort;
 
-        _defaultTcpOptions = new MqttClientTcpOptions(Host, Port) { MaxFrameSize = 16 * 1024 };
+        _defaultTcpOptions = new MqttClientTcpOptions(Host, Port) { MaxFrameSize = 256 * 1024 };
         _defaultConnectOptions = new MqttClientConnectOptions("test-subscriber", ProtocolVersion)
         {
             UserName = "testuser",

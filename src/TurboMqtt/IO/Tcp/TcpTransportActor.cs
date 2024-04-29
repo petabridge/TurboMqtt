@@ -141,8 +141,6 @@ internal sealed class TcpTransportActor : UntypedActor
      * Running --> DoWriteToPipeAsync --> Running (read data from socket) --> DoWriteToSocketAsync --> Running (write data to socket)
      */
     
-    private const int ScalingFactor = 6;
-
     /// <summary>
     /// Performs the max buffer size scaling for the socket.
     /// </summary>
@@ -324,7 +322,7 @@ internal sealed class TcpTransportActor : UntypedActor
                     try
                     {
                         var workingBuffer = buffer.Memory;
-                        while (readableBytes > 0)
+                        while (readableBytes > 0 && _tcpClient != null) // so we can avoid NREs on shutdown
                         {
                             var sent = await _tcpClient!.SendAsync(workingBuffer.Slice(0, readableBytes), ct)
                                 .ConfigureAwait(false);
