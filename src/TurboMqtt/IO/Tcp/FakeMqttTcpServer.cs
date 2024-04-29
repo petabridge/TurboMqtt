@@ -73,8 +73,8 @@ internal sealed class FakeMqttTcpServer
         {
             _bindSocket = new Socket(SocketType.Stream, ProtocolType.Tcp)
             {
-                ReceiveBufferSize = _options.MaxFrameSize * 2,
-                SendBufferSize = _options.MaxFrameSize * 2,
+                ReceiveBufferSize = TcpTransportActor.ScaleBufferSize(_options.MaxFrameSize),
+                SendBufferSize = TcpTransportActor.ScaleBufferSize(_options.MaxFrameSize),
                 DualMode = true,
                 NoDelay = true,
                 LingerState = new LingerOption(false, 0)
@@ -84,8 +84,8 @@ internal sealed class FakeMqttTcpServer
         {
             _bindSocket = new Socket(_options.AddressFamily, SocketType.Stream, ProtocolType.Tcp)
             {
-                ReceiveBufferSize = _options.MaxFrameSize * 2,
-                SendBufferSize = _options.MaxFrameSize * 2,
+                ReceiveBufferSize = TcpTransportActor.ScaleBufferSize(_options.MaxFrameSize),
+                SendBufferSize = TcpTransportActor.ScaleBufferSize(_options.MaxFrameSize),
                 DualMode = true,
                 NoDelay = true,
                 LingerState = new LingerOption(false, 0)

@@ -130,7 +130,7 @@ internal sealed class TcpTransportActor : UntypedActor
         State = new ConnectionState(_writesToTransport.Writer, _readsFromTransport.Reader, _whenTerminated.Task,
             MaxFrameSize, _writesToTransport.Reader.Completion); // we signal completion when _writesToTransport is done
 
-        _pipe = new Pipe(new PipeOptions(pauseWriterThreshold: MaxFrameSize, resumeWriterThreshold: MaxFrameSize / 2,
+        _pipe = new Pipe(new PipeOptions(pauseWriterThreshold: ScaleBufferSize(MaxFrameSize), resumeWriterThreshold: ScaleBufferSize(MaxFrameSize) / 2,
             useSynchronizationContext: false));
     }
 
@@ -140,6 +140,26 @@ internal sealed class TcpTransportActor : UntypedActor
      * Connecting --> DoConnect --> Connecting (already connecting) --> ConnectResult (Connected) BECOME Running
      * Running --> DoWriteToPipeAsync --> Running (read data from socket) --> DoWriteToSocketAsync --> Running (write data to socket)
      */
+    
+    private const int ScalingFactor = 6;
+
+    /// <summary>
+    /// Performs the max buffer size scaling for the socket.
+    /// </summary>
+    /// <param name="maxFrameSize">The maximum size of a single frame.</param>
+    internal static int ScaleBufferSize(int maxFrameSize)
+    {
+        // if the max frame size is under 128kb, scale it up to 512kb
+        if (maxFrameSize <= 128 * 1024)
+            return 512 * 1024;
+        
+        // between 128kb and 1mb, scale it up to 2mb
+        if (maxFrameSize <= 1024 * 1024)
+            return 2 * 1024 * 1024;
+        
+        // if the max frame size is above 1mb, 2x it
+        return maxFrameSize * 2;
+    }
 
     protected override void OnReceive(object message)
     {
@@ -176,14 +196,14 @@ internal sealed class TcpTransportActor : UntypedActor
             {
                 NoDelay = true,
                 LingerState = new LingerOption(true, 2), // give us a little time to flush the socket
-                ReceiveBufferSize = TcpOptions.MaxFrameSize * 2,
-                SendBufferSize = TcpOptions.MaxFrameSize * 2
+                ReceiveBufferSize = ScaleBufferSize(TcpOptions.MaxFrameSize),
+                SendBufferSize = ScaleBufferSize(TcpOptions.MaxFrameSize)
             };
         else
             _tcpClient = new Socket(TcpOptions.AddressFamily, SocketType.Stream, ProtocolType.Tcp)
             {
-                ReceiveBufferSize = TcpOptions.MaxFrameSize * 2,
-                SendBufferSize = TcpOptions.MaxFrameSize * 2,
+                ReceiveBufferSize = ScaleBufferSize(TcpOptions.MaxFrameSize),
+                SendBufferSize = ScaleBufferSize(TcpOptions.MaxFrameSize),
                 NoDelay = true,
                 LingerState = new LingerOption(true, 2) // give us a little time to flush the socket
             };
