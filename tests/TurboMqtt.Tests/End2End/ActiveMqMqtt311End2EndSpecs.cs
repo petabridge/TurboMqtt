@@ -13,6 +13,8 @@ namespace TurboMqtt.Tests.End2End;
 
 public class ActiveMqMqtt311End2EndSpecs: TransportSpecBase, IAsyncLifetime
 {
+    protected override bool SkipOnWindows => true;
+
     public static readonly Config DebugLogging = 
         """
         akka.loglevel = DEBUG
