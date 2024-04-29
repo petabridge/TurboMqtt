@@ -6,7 +6,6 @@
 
 using System.Buffers;
 using Akka.Event;
-using Akka.Streams.Implementation.Fusing;
 using TurboMqtt.PacketTypes;
 using TurboMqtt.Protocol;
 

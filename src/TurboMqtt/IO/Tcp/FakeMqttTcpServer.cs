@@ -210,6 +210,7 @@ internal sealed class FakeMqttTcpServer
                                 : "unknown");
                         break;
                     }
+
                     pipe.Writer.Advance(bytesRead);
 
                     var flushResult = await pipe.Writer.FlushAsync(linkedCts.Token);
@@ -236,6 +237,7 @@ internal sealed class FakeMqttTcpServer
                         handle.WhenClientIdAssigned.IsCompletedSuccessfully
                             ? handle.WhenClientIdAssigned.Result
                             : "unknown");
+                    break;
                 }
             }
 
@@ -250,7 +252,7 @@ internal sealed class FakeMqttTcpServer
             {
                 try
                 {
-                    if (socket.Connected && linkedCts.Token is { CanBeCanceled: true, IsCancellationRequested: false })
+                    if (socket.Connected && linkedCts.Token is { IsCancellationRequested: false })
                     {
                         var sent = socket.Send(msg.buffer.Memory.Span.Slice(0, msg.estimatedSize));
                         while (sent < msg.estimatedSize)
