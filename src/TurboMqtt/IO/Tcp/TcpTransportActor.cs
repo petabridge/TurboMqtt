@@ -43,8 +43,11 @@ internal sealed class TcpTransportActor : UntypedActor
             MaxFrameSize = maxFrameSize;
             WaitForPendingWrites = waitForPendingWrites;
         }
+        
+        private volatile ConnectionStatus _status = ConnectionStatus.NotStarted;
 
-        public ConnectionStatus Status { get; set; } = ConnectionStatus.NotStarted;
+        public ConnectionStatus Status { get => _status; 
+            set => _status = value; }
 
         public CancellationTokenSource ShutDownCts { get; set; } = new();
 
@@ -218,29 +221,32 @@ internal sealed class TcpTransportActor : UntypedActor
         {
             case DoConnect connect when State.Status == ConnectionStatus.NotStarted:
             {
-                _log.Info("Attempting to connect to [{0}:{1}]", TcpOptions.Host, TcpOptions.Port);
-
-                var sender = Sender;
-
-                // need to resolve DNS to an IP address
-                async Task ResolveAndConnect(CancellationToken ct)
+                RunTask(async () =>
                 {
-                    var resolved = await Dns.GetHostAddressesAsync(TcpOptions.Host, ct).ConfigureAwait(false);
+                    _log.Info("Attempting to connect to [{0}:{1}]", TcpOptions.Host, TcpOptions.Port);
 
-                    if (_log.IsDebugEnabled)
-                        _log.Debug("Attempting to connect to [{0}:{1}] - resolved to [{2}]", TcpOptions.Host,
-                            TcpOptions.Port,
-                            string.Join(", ", resolved.Select(c => c.ToString())));
+                    var sender = Sender;
+                    
+                    // set status to connecting
+                    State.Status = ConnectionStatus.Connecting;
 
-                    await DoConnectAsync(resolved, TcpOptions.Port, sender, ct).ConfigureAwait(false);
-                }
+                    await ResolveAndConnect(connect.Cancel);
+                    return;
 
-#pragma warning disable CS4014 // Because this call is not awaited, execution of the current method continues before the call is completed
-                ResolveAndConnect(connect.Cancel);
-#pragma warning restore CS4014 // Because this call is not awaited, execution of the current method continues before the call is completed
+                    // need to resolve DNS to an IP address
+                    async Task ResolveAndConnect(CancellationToken ct)
+                    {
+                        var resolved = await Dns.GetHostAddressesAsync(TcpOptions.Host, ct).ConfigureAwait(false);
 
-                // set status to connecting
-                State.Status = ConnectionStatus.Connecting;
+                        if (_log.IsDebugEnabled)
+                            _log.Debug("Attempting to connect to [{0}:{1}] - resolved to [{2}]", TcpOptions.Host,
+                                TcpOptions.Port,
+                                string.Join(", ", resolved.Select(c => c.ToString())));
+
+                        await DoConnectAsync(resolved, TcpOptions.Port, sender, ct).ConfigureAwait(false);
+                    }
+                });
+                
                 break;
             }
             case DoConnect:

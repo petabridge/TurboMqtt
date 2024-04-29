@@ -8,7 +8,7 @@ using Akka.Actor;
 
 namespace TurboMqtt.Protocol.Pub;
 
-public interface IPublishControlMessage : INoSerializationVerificationNeeded
+public interface IPublishResult : INoSerializationVerificationNeeded
 {
     public PublishingStatus Status { get; }
     
@@ -52,7 +52,7 @@ public static class PublishingProtocol{
     /// <summary>
     /// Message was successfully published and fully received.
     /// </summary>
-    public sealed class PublishSuccess : IPublishControlMessage
+    public sealed class PublishSuccess : IPublishResult
     {
         public static readonly PublishSuccess Instance = new();
         private PublishSuccess(){}
@@ -60,7 +60,7 @@ public static class PublishingProtocol{
         public string Reason => string.Empty;
     }
     
-    public sealed class PublishFailure(string reason) : IPublishControlMessage
+    public sealed class PublishFailure(string reason) : IPublishResult
     {
         public string Reason { get; } = reason;
         public PublishingStatus Status => PublishingStatus.Failed;
@@ -75,7 +75,7 @@ public static class PublishingProtocol{
     /// Sent implicitly by the end-user when a <see cref="CancellationToken"/> expires
     /// on a publish operation.
     /// </summary>
-    public sealed class PublishCancelled : IPublishControlMessage
+    public sealed class PublishCancelled : IPublishResult
     {
         public PublishCancelled(NonZeroUInt16 packetId)
         {
