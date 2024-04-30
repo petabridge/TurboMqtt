@@ -316,7 +316,7 @@ internal sealed class ClientStreamOwner : UntypedActor
             {
                 _log.Info("Server disconnected the client. Reason: {0}", serverDisconnect.Reason);
                 _log.Info("Client has exhausted all reconnect attempts. Shutting down.");
-                Context.Stop(Self);
+                Self.Tell(PoisonPill.Instance);
                 break;
             }
 
@@ -448,7 +448,7 @@ internal sealed class ClientStreamOwner : UntypedActor
                 _log.Error(
                     "One of the required actors [{0}] has terminated. This is an unexpected and fatal error. Shutting down the client.",
                     t.ActorRef);
-                Context.Stop(Self);
+                Self.Tell(PoisonPill.Instance);
                 break;
             }
             default:
@@ -470,6 +470,9 @@ internal sealed class ClientStreamOwner : UntypedActor
 
     protected override void PostStop()
     {
+        // force the transport to close - usually it will already be dead by now
+        _currentTransport?.AbortAsync();
+        
         // subtle race condition - if someone immediately tries to recreate a failed client, our parent
         // might yell at them and say "client already exists" - this is because DeathWatch runs slightly
         // behind the _trueDeath task completion even when it runs only in our PostStop routine.

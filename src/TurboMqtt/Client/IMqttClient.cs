@@ -290,7 +290,8 @@ public sealed class MqttClient : IInternalMqttClient
 
     public async Task DisconnectAsync(CancellationToken cancellationToken = default)
     {
-        if (_transport.Status != ConnectionStatus.Connected)
+        // already disconnected
+        if (_transport.Status is ConnectionStatus.Disconnected or ConnectionStatus.Aborted or ConnectionStatus.NotStarted)
             return;
 
         var disconnectPacket = new DisconnectPacket();
