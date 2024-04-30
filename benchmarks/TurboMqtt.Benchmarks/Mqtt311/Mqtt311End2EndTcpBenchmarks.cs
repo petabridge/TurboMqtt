@@ -30,7 +30,6 @@ public class Mqtt311EndToEndTcpBenchmarks
     public const int PacketCount = 1_000;
 
     private ActorSystem? _system;
-    private FakeMqttTcpServer? _server;
     private IMqttClientFactory? _clientFactory;
     private IMqttClient? _subscribeClient;
 
@@ -41,7 +40,7 @@ public class Mqtt311EndToEndTcpBenchmarks
 
     private const string Topic = "test";
     private const string Host = "localhost";
-    private int Port;
+    private const int Port = 1883;
     
     private List<Task> _writeTasks = new();
     
@@ -61,14 +60,6 @@ public class Mqtt311EndToEndTcpBenchmarks
     {
         _writeTasks = new List<Task>(PacketCount);
         _system = ActorSystem.Create("Mqtt311EndToEndTcpBenchmarks", "akka.loglevel=ERROR");
-        var loggingAdapter = new BusLogging(_system.EventStream, "FakeMqttTcpServer", typeof(FakeMqttTcpServer),
-            _system.Settings.LogFormatter);
-        
-        // bind to a random port
-        // set max frame size to 1mb
-        
-        _server = new FakeMqttTcpServer(new MqttTcpServerOptions(Host, 0){ MaxFrameSize = 1024*1024}, MqttProtocolVersion.V3_1_1, loggingAdapter,
-            TimeSpan.Zero, new DefaultFakeServerHandleFactory());
         
         _clientFactory = new MqttClientFactory(_system);
         _testMessage = new MqttMessage(Topic, CreateMsgPayload())
@@ -77,9 +68,6 @@ public class Mqtt311EndToEndTcpBenchmarks
             ContentType = "application/binary",
             QoS = QoSLevel
         };
-        
-        _server.Bind();
-        Port = _server.BoundPort;
 
         _defaultTcpOptions = new MqttClientTcpOptions(Host, Port) { MaxFrameSize = 256 * 1024 };
         _defaultConnectOptions = new MqttClientConnectOptions("test-subscriber", ProtocolVersion)
@@ -95,9 +83,7 @@ public class Mqtt311EndToEndTcpBenchmarks
     [GlobalCleanup]
     public void StopFixture()
     {
-        _server?.Shutdown();
         _system?.Dispose();
-        _server = null;
         _system = null;
     }
 
