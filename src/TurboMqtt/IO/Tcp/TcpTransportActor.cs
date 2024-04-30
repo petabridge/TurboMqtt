@@ -477,6 +477,8 @@ internal sealed class TcpTransportActor : UntypedActor
     {
         // add a simulated DisconnectPacket to help ensure the stream gets terminated
         _readsFromTransport.Writer.TryWrite(DisconnectToBinary.NormalDisconnectPacket.ToBinary(MqttProtocolVersion.V3_1_1));
+
+        State.Status = ConnectionStatus.Disconnected;
         
         // no more writes to transport
         _writesToTransport.Writer.TryComplete();
