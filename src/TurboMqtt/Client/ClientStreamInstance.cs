@@ -93,40 +93,41 @@ internal sealed class ClientStreamInstance : UntypedActor
         Channel<MqttMessage> inboundPackets,
         MqttRequiredActors requiredActors, IActorRef notifier)
     {
+        var disconnectPromise = new TaskCompletionSource<DisconnectPacket>();
         var (inboundStream, outboundStream) = 
             ConfigureMqttStreams(clientConnectOptions, transport,
-                outboundPackets, requiredActors, transport.MaxFrameSize);
+                outboundPackets, requiredActors, transport.MaxFrameSize, disconnectPromise);
 
         // begin outbound stream
         ChannelSource.FromReader(outboundPackets.Reader)
             .To(outboundStream)
             .Run(_materializer);
 
-        // check for streams termination
-        var watchTermination = Flow.Create<MqttMessage>()
-            .WatchTermination((_, done) =>
-            {
-                done.ContinueWith(t =>
-                {
-                    // TODO: replace this with recreating the transport
-                    _log.Warning("Transport was terminated by broker. Shutting down client.");
-                    transport.AbortAsync();
-                    notifier.Tell(new ClientStreamOwner.ServerDisconnect(DisconnectReasonCode.NormalDisconnection));
-                }, TaskContinuationOptions.ExecuteSynchronously);
-                return NotUsed.Instance;
-            });
+        _ = NotifyOnDisconnect();
 
         // begin inbound stream
         inboundStream
-            .Via(watchTermination)
             // setting IsOwner to false here is crucial - otherwise, we can't reboot the client after broker disconnects
             .To(ChannelSink.FromWriter(inboundPackets.Writer, false))
             .Run(_materializer);
+        return;
+
+        // check for streams termination
+        async Task NotifyOnDisconnect()
+        {
+            var disconnectPacket = await disconnectPromise.Task;
+            _log.Info("Transport was terminated by broker.");
+            
+            // send the disconnect packet to the notifier first
+            notifier.Tell(new ClientStreamOwner.ServerDisconnect(disconnectPacket));
+            await transport.AbortAsync();
+            
+        }
     }
     
     private static (Source<MqttMessage, NotUsed> inbound, Sink<MqttPacket, NotUsed> outbound) ConfigureMqttStreams(
         MqttClientConnectOptions clientConnectOptions, IMqttTransport transport,
-        ChannelWriter<MqttPacket> outboundPackets, MqttRequiredActors requiredActors, int maxFrameSize)
+        ChannelWriter<MqttPacket> outboundPackets, MqttRequiredActors requiredActors, int maxFrameSize, TaskCompletionSource<DisconnectPacket> disconnectPromise)
     {
         switch (clientConnectOptions.ProtocolVersion)
         {
@@ -138,6 +139,7 @@ internal sealed class ClientStreamInstance : UntypedActor
                     outboundPackets,
                     requiredActors,
                     clientConnectOptions.MaxRetainedPacketIds, clientConnectOptions.MaxPacketIdRetentionTime,
+                    disconnectPromise,
                     clientConnectOptions.EnableOpenTelemetry);
 
                 var outboundMessages = MqttClientStreams.Mqtt311OutboundPacketSink(

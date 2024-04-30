@@ -40,7 +40,7 @@ internal static class MqttClientStreams
 
     public static Source<MqttMessage, NotUsed> Mqtt311InboundMessageSource(string clientId, IMqttTransport transport,
         ChannelWriter<MqttPacket> outboundPackets,
-        MqttRequiredActors actors, int maxRememberedPacketIds, TimeSpan packetIdExpiry, bool withTelemetry = true)
+        MqttRequiredActors actors, int maxRememberedPacketIds, TimeSpan packetIdExpiry, TaskCompletionSource<DisconnectPacket> disconnectPromise, bool withTelemetry = true)
 
     {
         if (withTelemetry)
@@ -51,13 +51,13 @@ internal static class MqttClientStreams
                 .Via(OpenTelemetryFlows.MqttPacketRateTelemetryFlow(MqttProtocolVersion.V3_1_1, clientId,
                     OpenTelemetrySupport.Direction.Inbound))
                 .Via(MqttReceiverFlows.ClientAckingFlow(maxRememberedPacketIds, packetIdExpiry, outboundPackets,
-                    actors))
+                    actors, disconnectPromise))
                 .Where(c => c.PacketType == MqttPacketType.Publish)
                 .Select(c => ((PublishPacket)c).FromPacket()));
 
         return (ChannelSource.FromReader(transport.Reader)
             .Via(MqttDecodingFlows.Mqtt311Decoding())
-            .Via(MqttReceiverFlows.ClientAckingFlow(maxRememberedPacketIds, packetIdExpiry, outboundPackets, actors))
+            .Via(MqttReceiverFlows.ClientAckingFlow(maxRememberedPacketIds, packetIdExpiry, outboundPackets, actors, disconnectPromise))
             .Where(c => c.PacketType == MqttPacketType.Publish)
             .Select(c => ((PublishPacket)c).FromPacket()));
     }
