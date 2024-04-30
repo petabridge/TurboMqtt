@@ -68,7 +68,7 @@ public sealed record MqttClientConnectOptions
     public string? Password { get; init; }
     public LastWillAndTestament? LastWill { get; init; }
     public bool CleanSession { get; init; } = true;
-    public ushort KeepAliveSeconds { get; init; } = 60;
+    public ushort KeepAliveSeconds { get; init; } = 5;
 
     public uint MaximumPacketSize { get; init; } = 1024 * 32;
     

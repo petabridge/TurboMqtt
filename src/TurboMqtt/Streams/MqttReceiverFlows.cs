@@ -16,9 +16,9 @@ namespace TurboMqtt.Streams;
 /// </summary>
 internal static class MqttReceiverFlows
 {
-    public static IGraph<FlowShape<MqttPacket, MqttPacket>, NotUsed> ClientAckingFlow(int bufferSize, TimeSpan bufferExpiry, ChannelWriter<MqttPacket> outboundPackets, MqttRequiredActors actors)
+    public static IGraph<FlowShape<MqttPacket, MqttPacket>, NotUsed> ClientAckingFlow(int bufferSize, TimeSpan bufferExpiry, ChannelWriter<MqttPacket> outboundPackets, MqttRequiredActors actors, TaskCompletionSource<DisconnectPacket> disconnectPromise)
     {
-        var g = new ClientAckingFlow(bufferSize, bufferExpiry, outboundPackets, actors);
+        var g = new ClientAckingFlow(bufferSize, bufferExpiry, outboundPackets, actors, disconnectPromise);
         return g;
     }
 }

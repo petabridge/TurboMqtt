@@ -332,8 +332,8 @@ public sealed class MqttClient : IInternalMqttClient
     public async Task<IPublishResult> PublishAsync(MqttMessage message,
         CancellationToken cancellationToken = default)
     {
-        // if (_transport.Status != ConnectionStatus.Connected)
-        //     return new PublishingProtocol.PublishFailure("Not connected to broker.");
+        if (_transport.Status != ConnectionStatus.Connected)
+            return new PublishingProtocol.PublishFailure("Not connected to broker.");
 
         var publishPacket = message.ToPacket();
 

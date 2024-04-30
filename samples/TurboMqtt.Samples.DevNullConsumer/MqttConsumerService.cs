@@ -39,7 +39,8 @@ public sealed class MqttConsumerService : BackgroundService
             var clientConnectOptions = new MqttClientConnectOptions(config.ClientId, MqttProtocolVersion.V3_1_1)
             {
                 UserName = config.User,
-                Password = config.Password
+                Password = config.Password,
+                KeepAliveSeconds = 5
             };
 
             var client = await _clientFactory.CreateTcpClient(clientConnectOptions, tcpClientOptions);
