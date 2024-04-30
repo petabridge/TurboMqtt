@@ -256,6 +256,7 @@ internal sealed class ClientStreamOwner : UntypedActor
             case TransportConnectedSuccessfully:
             {
                 // this is used to determine if we should attempt to reconnect
+                _remainingReconnectAttempts = _connectOptions!.MaxReconnectAttempts; // reset the connect attempts
                 _successfullyConnected = true;
                 break;
             }
@@ -392,6 +393,9 @@ internal sealed class ClientStreamOwner : UntypedActor
                             self.Tell(new ServerDisconnect(new DisconnectPacket()
                                 { ReasonCode = DisconnectReasonCode.UnspecifiedError }));
                         }
+                        
+                        // reset the reconnect attempts
+                        self.Tell(TransportConnectedSuccessfully.Instance);
 
                         // requeue all the packets that were preserved
                         foreach (var p in preserved)
@@ -401,7 +405,7 @@ internal sealed class ClientStreamOwner : UntypedActor
                     {
                         _log.Warning("Reconnect operation timed out. Aborting transport.");
                         // ReSharper disable once MethodSupportsCancellation
-                        _ = _currentTransport!.AbortAsync();
+                        _ = _currentTransport!.AbortAsync(ct);
                     }
                 }
             }
