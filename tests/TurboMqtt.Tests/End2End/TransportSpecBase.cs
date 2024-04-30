@@ -19,7 +19,7 @@ namespace TurboMqtt.Tests.End2End;
 /// </summary>
 public abstract class TransportSpecBase : TestKit
 {
-    private static readonly Lazy<bool> IsOnWindows =
+    protected static readonly Lazy<bool> IsOnWindows =
         new Lazy<bool>(() => RuntimeInformation.IsOSPlatform(OSPlatform.Windows));
     
     protected virtual bool SkipOnWindows => false;

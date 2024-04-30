@@ -20,16 +20,17 @@ public class ActiveMqMqtt311End2EndSpecs: TransportSpecBase, IAsyncLifetime
         akka.loglevel = DEBUG
         """;
     
-    private readonly ArtemisContainer _container;
+    private readonly ArtemisContainer? _container;
     
     public ActiveMqMqtt311End2EndSpecs(ITestOutputHelper output, Config? config = null) : base(output, config)
     {
-        _container = new ArtemisBuilder()
-            .WithImage("apache/activemq-artemis:2.31.2")
-            .WithUsername("test")
-            .WithPassword("test")
-            .WithPortBinding(21883, 1883)
-            .Build();
+        if(!IsOnWindows.Value)
+            _container = new ArtemisBuilder()
+                .WithImage("apache/activemq-artemis:2.31.2")
+                .WithUsername("test")
+                .WithPassword("test")
+                .WithPortBinding(21883, 1883)
+                .Build();
     }
 
     public override async Task<IMqttClient> CreateClient()
@@ -39,11 +40,13 @@ public class ActiveMqMqtt311End2EndSpecs: TransportSpecBase, IAsyncLifetime
 
     public async Task InitializeAsync()
     {
-        await _container.StartAsync();
+        if(_container is not null)
+            await _container.StartAsync();
     }
 
     public async Task DisposeAsync()
     {
-        await _container.StopAsync();
+        if(_container is not null)
+            await _container.StopAsync();
     }
 }
