@@ -1,0 +1,13 @@
+﻿// -----------------------------------------------------------------------
+// <copyright file="Usings.cs" company="Petabridge, LLC">
+//      Copyright (C) 2024 - 2024 Petabridge, LLC <https://petabridge.com>
+// </copyright>
+// -----------------------------------------------------------------------
+
+global using System;
+global using Docker.DotNet.Models;
+global using DotNet.Testcontainers;
+global using DotNet.Testcontainers.Builders;
+global using DotNet.Testcontainers.Configurations;
+global using DotNet.Testcontainers.Containers;
+global using JetBrains.Annotations;
