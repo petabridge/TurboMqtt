@@ -51,8 +51,13 @@ jobs:
       - name: "dotnet pack"
         run: dotnet pack -c Release
 
-      - name: "dotnet test"
+      - name: "dotnet test (Linux)"
+        if: runner.os == 'Linux'
         run: dotnet test --configuration Release --verbosity normal --logger trx --collect:"XPlat Code Coverage"
+        
+      - name: "dotnet test (Windows)"
+        if: runner.os == 'Windows'
+        run: dotnet test --configuration Release --verbosity normal --logger trx --collect:"XPlat Code Coverage" ./tests/TurboMqtt.Tests/TurboMqtt.Tests.csproj
 
       - name: Combine Coverage Reports
         if: runner.os == 'Linux'
