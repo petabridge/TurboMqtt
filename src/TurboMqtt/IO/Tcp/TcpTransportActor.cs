@@ -459,7 +459,7 @@ internal sealed class TcpTransportActor : UntypedActor
             }
             case ReadFinished: // server closed us
             {
-                _ = CleanUpGracefully(); // idempotent
+                _ = CleanUpGracefully(true); // idempotent
                 break;
             }
             case ConnectionUnexpectedlyClosed closed:
@@ -467,7 +467,7 @@ internal sealed class TcpTransportActor : UntypedActor
                 // we got aborted
                 _log.Warning("Connection to [{0}:{1}] was unexpectedly closed: {2}", TcpOptions.Host, TcpOptions.Port,
                     closed.ReasonMessage);
-                Context.Stop(Self);
+                _ = CleanUpGracefully(true); // idempotent
                 break;
             }
         }

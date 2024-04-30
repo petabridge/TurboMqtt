@@ -253,6 +253,9 @@ internal sealed class FakeMqttTcpServer
                 // send a disconnect message
                 handle.DisconnectFromServer();
 
+            // ensure we've cleaned up all resources
+            await handle.WhenTerminated;
+
             return;
 
             bool PushMessage((IMemoryOwner<byte> buffer, int estimatedSize) msg)
