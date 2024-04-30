@@ -6,6 +6,7 @@
 
 using System.Buffers;
 using System.Collections.Concurrent;
+using System.IO.Pipelines;
 using System.Net;
 using System.Net.Sockets;
 using Akka.Event;
@@ -45,14 +46,14 @@ internal sealed class FakeMqttTcpServer
     private readonly MqttTcpServerOptions _options;
     private readonly CancellationTokenSource _shutdownTcs = new();
     private readonly ILoggingAdapter _log;
-    private readonly ConcurrentDictionary<string, CancellationTokenSource> _clientCts = new();
+    private readonly ConcurrentDictionary<string, (CancellationTokenSource ct, Task shutdown)> _clientCts = new();
     private readonly TimeSpan _heatBeatDelay;
     private readonly IFakeServerHandleFactory _handleFactory;
     private Socket? _bindSocket;
-    
     public int BoundPort { get; private set; }
 
-    public FakeMqttTcpServer(MqttTcpServerOptions options, MqttProtocolVersion version, ILoggingAdapter log, TimeSpan heartbeatDelay, IFakeServerHandleFactory handleFactory)
+    public FakeMqttTcpServer(MqttTcpServerOptions options, MqttProtocolVersion version, ILoggingAdapter log,
+        TimeSpan heartbeatDelay, IFakeServerHandleFactory handleFactory)
     {
         _options = options;
         _version = version;
@@ -73,8 +74,8 @@ internal sealed class FakeMqttTcpServer
         {
             _bindSocket = new Socket(SocketType.Stream, ProtocolType.Tcp)
             {
-                ReceiveBufferSize = _options.MaxFrameSize * 2,
-                SendBufferSize = _options.MaxFrameSize * 2,
+                ReceiveBufferSize = TcpTransportActor.ScaleBufferSize(_options.MaxFrameSize),
+                SendBufferSize = TcpTransportActor.ScaleBufferSize(_options.MaxFrameSize),
                 DualMode = true,
                 NoDelay = true,
                 LingerState = new LingerOption(false, 0)
@@ -84,8 +85,8 @@ internal sealed class FakeMqttTcpServer
         {
             _bindSocket = new Socket(_options.AddressFamily, SocketType.Stream, ProtocolType.Tcp)
             {
-                ReceiveBufferSize = _options.MaxFrameSize * 2,
-                SendBufferSize = _options.MaxFrameSize * 2,
+                ReceiveBufferSize = TcpTransportActor.ScaleBufferSize(_options.MaxFrameSize),
+                SendBufferSize = TcpTransportActor.ScaleBufferSize(_options.MaxFrameSize),
                 DualMode = true,
                 NoDelay = true,
                 LingerState = new LingerOption(false, 0)
@@ -96,7 +97,7 @@ internal sealed class FakeMqttTcpServer
 
         _bindSocket.Bind(new IPEndPoint(hostAddress, _options.Port));
         _bindSocket.Listen(100);
-        
+
         BoundPort = _bindSocket!.LocalEndPoint is IPEndPoint ipEndPoint ? ipEndPoint.Port : 0;
 
         // begin the accept loop
@@ -107,7 +108,7 @@ internal sealed class FakeMqttTcpServer
     {
         if (_clientCts.TryRemove(clientId, out var cts))
         {
-            cts.Cancel();
+            cts.ct.Cancel();
             return true;
         }
 
@@ -120,6 +121,13 @@ internal sealed class FakeMqttTcpServer
         try
         {
             _shutdownTcs.Cancel();
+            var shutdowns = _clientCts.Values.Select(x => x.shutdown);
+            foreach (var cts in _clientCts.Values)
+            {
+                cts.ct.Cancel();
+            }
+
+            Task.WhenAll(shutdowns).Wait();
             _bindSocket?.Close();
         }
         catch (Exception)
@@ -137,45 +145,90 @@ internal sealed class FakeMqttTcpServer
         }
     }
 
+    private static async Task ReadFromPipeAsync(PipeReader reader, IFakeServerHandle handle, CancellationToken ct)
+    {
+        while (!ct.IsCancellationRequested)
+        {
+            try
+            {
+                var result = await reader.ReadAsync(ct);
+                var buffer = result.Buffer;
+
+                // consume this entire sequence by copying it into a new buffer
+                // have to copy because there's no guarantee we can safely release a shared buffer
+                // once we hand the message over to the end-user.
+                var newMemory = new Memory<byte>(new byte[buffer.Length]);
+                buffer.CopyTo(newMemory.Span);
+
+                // tell the pipe we're done with this data
+                reader.AdvanceTo(buffer.End);
+
+                handle.HandleBytes(newMemory);
+                
+                if(result.IsCompleted || result.IsCanceled)
+                    break;
+            }
+            catch (OperationCanceledException)
+            {
+                return;
+            }
+        }
+    }
+
     private async Task ProcessClientAsync(Socket socket)
     {
         using (socket)
         {
-            Memory<byte> buffer = new byte[_options.MaxFrameSize];
             var closed = false;
-            var handle = _handleFactory.CreateServerHandle(PushMessage, ClosingAction, _log, _version, _heatBeatDelay);
+            var pipe = new Pipe(new PipeOptions(
+                pauseWriterThreshold: TcpTransportActor.ScaleBufferSize(_options.MaxFrameSize),
+                resumeWriterThreshold: TcpTransportActor.ScaleBufferSize(_options.MaxFrameSize) / 2,
+                useSynchronizationContext: false));
             var clientShutdownCts = new CancellationTokenSource();
+            var linkedCts =
+                CancellationTokenSource.CreateLinkedTokenSource(clientShutdownCts.Token, _shutdownTcs.Token);
+            
+            var handle = _handleFactory.CreateServerHandle(PushMessage, ClosingAction, _log, _version, _heatBeatDelay);
+            
             _ = handle.WhenClientIdAssigned.ContinueWith(t =>
             {
                 if (t.IsCompletedSuccessfully)
                 {
-                    _clientCts.TryAdd(t.Result, clientShutdownCts);
+                    _clientCts.TryAdd(t.Result, (clientShutdownCts, handle.WhenTerminated));
                 }
             }, clientShutdownCts.Token);
+           
 
-            var linkedCts =
-                CancellationTokenSource.CreateLinkedTokenSource(clientShutdownCts.Token, _shutdownTcs.Token);
+            _ = ReadFromPipeAsync(pipe.Reader, handle, linkedCts.Token);
+
             while (!linkedCts.IsCancellationRequested)
             {
                 if (closed)
                     break;
                 try
                 {
-                    var bytesRead = await socket.ReceiveAsync(buffer, SocketFlags.None, linkedCts.Token);
+                    var memory = pipe.Writer.GetMemory(_options.MaxFrameSize / 4);
+                    var bytesRead = await socket.ReceiveAsync(memory, SocketFlags.None, linkedCts.Token);
                     if (bytesRead == 0)
                     {
                         _log.Info("Client {0} disconnected from server.",
                             handle.WhenClientIdAssigned.IsCompletedSuccessfully
                                 ? handle.WhenClientIdAssigned.Result
                                 : "unknown");
-                        socket.Close();
-                        return;
+                        break;
                     }
 
-                    Memory<byte> newBuffer = new byte[bytesRead];
-                    buffer.Slice(0, bytesRead).CopyTo(newBuffer);
-                    // process the incoming message, send any necessary replies back
-                    handle.HandleBytes(newBuffer);
+                    pipe.Writer.Advance(bytesRead);
+
+                    var flushResult = await pipe.Writer.FlushAsync(linkedCts.Token);
+                    if (flushResult.IsCompleted)
+                    {
+                        _log.Info("Done reading from client {0}.",
+                            handle.WhenClientIdAssigned.IsCompletedSuccessfully
+                                ? handle.WhenClientIdAssigned.Result
+                                : "unknown");
+                        break;
+                    }
                 }
                 catch (OperationCanceledException)
                 {
@@ -183,6 +236,7 @@ internal sealed class FakeMqttTcpServer
                         handle.WhenClientIdAssigned.IsCompletedSuccessfully
                             ? handle.WhenClientIdAssigned.Result
                             : "unknown");
+                    break;
                 }
                 catch (Exception ex)
                 {
@@ -190,12 +244,12 @@ internal sealed class FakeMqttTcpServer
                         handle.WhenClientIdAssigned.IsCompletedSuccessfully
                             ? handle.WhenClientIdAssigned.Result
                             : "unknown");
-                    return;
+                    break;
                 }
             }
 
             // send a disconnect message
-            if(!closed)
+            if (!closed)
                 // send a disconnect message
                 handle.DisconnectFromServer();
 
@@ -205,7 +259,7 @@ internal sealed class FakeMqttTcpServer
             {
                 try
                 {
-                    if (socket.Connected)
+                    if (socket.Connected && linkedCts.Token is { IsCancellationRequested: false })
                     {
                         var sent = socket.Send(msg.buffer.Memory.Span.Slice(0, msg.estimatedSize));
                         while (sent < msg.estimatedSize)
@@ -236,11 +290,14 @@ internal sealed class FakeMqttTcpServer
                 }
             }
 
-            Task ClosingAction()
+            async Task ClosingAction()
             {
-                if (socket.Connected) socket.Close();
                 closed = true;
-                return Task.CompletedTask;
+                await pipe.Writer.CompleteAsync();
+                await pipe.Reader.CompleteAsync();
+                // ReSharper disable once AccessToModifiedClosure
+                clientShutdownCts.Cancel(false);
+                if (socket.Connected) socket.Close();
             }
         }
     }
