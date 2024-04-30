@@ -30,7 +30,6 @@ public class Mqtt311EndToEndTcpBenchmarks
     public const int PacketCount = 1_000;
 
     private ActorSystem? _system;
-    private FakeMqttTcpServer? _server;
     private IMqttClientFactory? _clientFactory;
     private IMqttClient? _subscribeClient;
 
@@ -41,7 +40,9 @@ public class Mqtt311EndToEndTcpBenchmarks
 
     private const string Topic = "test";
     private const string Host = "localhost";
-    private int Port;
+    private const int Port = 1883;
+    
+    private List<Task> _writeTasks = new();
     
     private ReadOnlyMemory<byte> CreateMsgPayload()
     {
@@ -57,13 +58,8 @@ public class Mqtt311EndToEndTcpBenchmarks
     [GlobalSetup]
     public void StartFixture()
     {
+        _writeTasks = new List<Task>(PacketCount);
         _system = ActorSystem.Create("Mqtt311EndToEndTcpBenchmarks", "akka.loglevel=ERROR");
-        var loggingAdapter = new BusLogging(_system.EventStream, "FakeMqttTcpServer", typeof(FakeMqttTcpServer),
-            _system.Settings.LogFormatter);
-        
-        // bind to a random port
-        _server = new FakeMqttTcpServer(new MqttTcpServerOptions(Host, 0), MqttProtocolVersion.V3_1_1, loggingAdapter,
-            TimeSpan.Zero, new DefaultFakeServerHandleFactory());
         
         _clientFactory = new MqttClientFactory(_system);
         _testMessage = new MqttMessage(Topic, CreateMsgPayload())
@@ -72,11 +68,8 @@ public class Mqtt311EndToEndTcpBenchmarks
             ContentType = "application/binary",
             QoS = QoSLevel
         };
-        
-        _server.Bind();
-        Port = _server.BoundPort;
 
-        _defaultTcpOptions = new MqttClientTcpOptions(Host, Port) { MaxFrameSize = 16 * 1024 };
+        _defaultTcpOptions = new MqttClientTcpOptions(Host, Port) { MaxFrameSize = 256 * 1024 };
         _defaultConnectOptions = new MqttClientConnectOptions("test-subscriber", ProtocolVersion)
         {
             UserName = "testuser",
@@ -90,15 +83,14 @@ public class Mqtt311EndToEndTcpBenchmarks
     [GlobalCleanup]
     public void StopFixture()
     {
-        _server?.Shutdown();
         _system?.Dispose();
-        _server = null;
         _system = null;
     }
 
     [IterationSetup]
     public void SetupPerIteration()
     {
+        _writeTasks.Clear();
         DoSetup().Wait();
         return;
 
@@ -140,7 +132,7 @@ public class Mqtt311EndToEndTcpBenchmarks
         using var cts = new CancellationTokenSource(System.TimeSpan.FromMinutes(2));
         for (var i = 0; i < PacketCount; i++)
         {
-            _ = _subscribeClient!.PublishAsync(_testMessage!, cts.Token);
+            _writeTasks.Add(_subscribeClient!.PublishAsync(_testMessage!, cts.Token));
         }
 
         var processedMessages = PacketCount;
@@ -153,6 +145,8 @@ public class Mqtt311EndToEndTcpBenchmarks
                     return 0;
             }
         }
+
+        await Task.WhenAll(_writeTasks).WaitAsync(cts.Token);
         
         return processedMessages;
     }
