@@ -8,7 +8,6 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using TurboMqtt.Client;
-using TurboMqtt.IO;
 using TurboMqtt.Protocol;
 
 namespace TurboMqtt.Samples.DevNullConsumer;
