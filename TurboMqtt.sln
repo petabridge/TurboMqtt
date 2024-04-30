@@ -23,7 +23,7 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TurboMqtt.Samples.DevNullCo
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TurboMqtt.Samples.BackpressureProducer", "samples\TurboMqtt.Samples.BackpressureProducer\TurboMqtt.Samples.BackpressureProducer.csproj", "{B3A2A6E9-DF52-4CFA-8F53-C9878525C2E0}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TestContainers.NanoMq", "tests\TestContainers.NanoMq\TestContainers.NanoMq.csproj", "{CC7C2D64-7C40-4676-A32A-0F2ECDE99BDF}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TestContainers.TurboMqtt", "tests\TestContainers.TurboMqtt\TestContainers.TurboMqtt.csproj", "{CC7C2D64-7C40-4676-A32A-0F2ECDE99BDF}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

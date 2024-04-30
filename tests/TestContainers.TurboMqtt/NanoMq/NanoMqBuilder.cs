@@ -16,10 +16,6 @@ public class NanoMqBuilder: ContainerBuilder<NanoMqBuilder, NanoMqContainer, Nan
 
     public const ushort NanoMqWebSocketPort = 8883;
 
-    public const string DefaultUsername = "admin";
-
-    public const string DefaultPassword = "public";
-
     /// <summary>
     /// Initializes a new instance of the <see cref="NanoMqBuilder" /> class.
     /// </summary>

@@ -22,15 +22,9 @@ public class NanoMqContainer: DockerContainer
         _configuration = configuration;
     }
 
-    public string UserName => "admin";
-    public string Password => "public";
+    public string DefaultUserName => "admin";
+    public string DefaultPassword => "public";
 
-    public Uri BrokerTcpAddress =>
-        new UriBuilder("nmq-tcp", Hostname, GetMappedPublicPort(NanoMqBuilder.NanoMqTcpPort)).Uri;
-
-    public Uri BrokerWebSocketAddress =>
-        new UriBuilder("nmq-ws", Hostname, GetMappedPublicPort(NanoMqBuilder.NanoMqWebSocketPort))
-        {
-            Path = "mqtt"
-        }.Uri;
+    public int BrokerTcpPort => GetMappedPublicPort(NanoMqBuilder.NanoMqTcpPort);
+    public int BrokerWebSocketPort => GetMappedPublicPort(NanoMqBuilder.NanoMqWebSocketPort);
 }
