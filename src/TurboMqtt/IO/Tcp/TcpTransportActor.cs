@@ -322,7 +322,6 @@ internal sealed class TcpTransportActor : UntypedActor
         {
             try
             {
-                var debug = _writesToTransport.Reader.TryPeek(out var item);
                 // TODO: believe a hang is happening here
                 while (debug || await _writesToTransport.Reader.WaitToReadAsync(ct).ConfigureAwait(false))
                 while (_writesToTransport.Reader.TryRead(out var item))
@@ -331,7 +330,7 @@ internal sealed class TcpTransportActor : UntypedActor
                     try
                     {
                         var workingBuffer = buffer.Memory;
-                        while (readableBytes > 0 && _tcpClient is { Connected: true })
+                        while (readableBytes > 0)
                         {
                             var sent = await _tcpClient!.SendAsync(workingBuffer.Slice(0, readableBytes), ct)
                                 .ConfigureAwait(false);
