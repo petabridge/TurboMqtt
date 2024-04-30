@@ -12,6 +12,7 @@
     </PropertyGroup>
 
     <ItemGroup>
+      <PackageReference Include="Akka" />
       <PackageReference Include="Akka.Streams" />
       <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
       <PackageReference Include="OpenTelemetry.Api.ProviderBuilderExtensions" />
