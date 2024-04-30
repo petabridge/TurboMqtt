@@ -316,7 +316,7 @@ internal sealed class ClientStreamOwner : UntypedActor
             {
                 _log.Info("Server disconnected the client. Reason: {0}", serverDisconnect.Reason);
                 _log.Info("Client has exhausted all reconnect attempts. Shutting down.");
-                Context.Stop(Self);
+                Self.Tell(PoisonPill.Instance);
                 break;
             }
 
@@ -448,7 +448,7 @@ internal sealed class ClientStreamOwner : UntypedActor
                 _log.Error(
                     "One of the required actors [{0}] has terminated. This is an unexpected and fatal error. Shutting down the client.",
                     t.ActorRef);
-                Context.Stop(Self);
+                Self.Tell(PoisonPill.Instance);
                 break;
             }
             default:
