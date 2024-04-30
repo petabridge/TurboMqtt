@@ -7,7 +7,6 @@
 using System.Threading.Channels;
 using Akka.Actor;
 using Akka.Event;
-using Akka.Streams;
 using TurboMqtt.IO;
 using TurboMqtt.IO.Tcp;
 using TurboMqtt.PacketTypes;
@@ -336,6 +335,19 @@ internal sealed class ClientStreamOwner : UntypedActor
                     var requiredActors = new MqttRequiredActors(_exactlyOnceActor!, _atLeastOnceActor!,
                         _clientAckActor!,
                         _heartBeatActor!);
+                    
+                    // the transport should be at rest now, no longer being written to - clear out all the old data\
+                    HashSet<MqttPacket> preservedPackets = new();
+                    while (_outboundChannel!.Reader.TryRead(out var p))
+                    {
+                        if(p.PacketType == MqttPacketType.Disconnect)
+                            continue; // don't bother resending disconnect packets
+                        preservedPackets.Add(p);
+                    }
+                    
+                    _log.Debug("Preserved {0} packets for retransmission.", preservedPackets.Count);
+                    
+                    // NOTE: inbound channel does not need to be drained - it's a one-way channel
 
                     // need to reconnect the streams
                     var streamCreateResult = await PrepareStreamAsync(_connectOptions!, _currentTransport!,
@@ -350,13 +362,13 @@ internal sealed class ClientStreamOwner : UntypedActor
                     }
 
                     var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
-                    _ = DoReconnect(cts.Token);
+                    _ = DoReconnect(preservedPackets, cts.Token);
                 });
 
                 break;
 
                 // reconnect the client using the client with the new transport
-                async Task DoReconnect(CancellationToken ct)
+                async Task DoReconnect(HashSet<MqttPacket> preserved, CancellationToken ct)
                 {
                     var self = Self;
                     try
@@ -375,6 +387,10 @@ internal sealed class ClientStreamOwner : UntypedActor
                             _log.Warning("Failed to resubscribe to topics. Reason: {0}", subscribeResp.Reason);
                             self.Tell(new ServerDisconnect(DisconnectReasonCode.UnspecifiedError));
                         }
+                        
+                        // requeue all the packets that were preserved
+                        foreach (var p in preserved)
+                            _outboundChannel.Writer.TryWrite(p);
                     }
                     catch (OperationCanceledException)
                     {
