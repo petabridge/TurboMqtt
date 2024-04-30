@@ -414,6 +414,15 @@ internal sealed class TcpTransportActor : UntypedActor
                 }
 
                 _pipe.Writer.Advance(bytesRead);
+                
+                // make data available to PipeReader
+                var result = await _pipe.Writer.FlushAsync(ct);
+                _log.Info("Flushed {0} bytes to pipe.", bytesRead);
+                if (result.IsCompleted)
+                {
+                    _closureSelf.Tell(ReadFinished.Instance);
+                    return;
+                }
             }
             catch (OperationCanceledException)
             {
@@ -432,13 +441,7 @@ internal sealed class TcpTransportActor : UntypedActor
                 return;
             }
 
-            // make data available to PipeReader
-            var result = await _pipe.Writer.FlushAsync(ct);
-            if (result.IsCompleted)
-            {
-                _closureSelf.Tell(ReadFinished.Instance);
-                return;
-            }
+           
         }
 
         await _pipe.Writer.CompleteAsync();
