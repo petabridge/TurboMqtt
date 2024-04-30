@@ -26,12 +26,12 @@ internal sealed class PublishOnlyMqtt311ServerHandler : FakeMqtt311ServerHandle
     {
     }
 
-    public override void TryPush(MqttPacket packet)
+    public override bool TryPush(MqttPacket packet)
     {
         if (packet.PacketType == MqttPacketType.Publish)
-            return; // don't bother writing
+            return false; // don't bother writing
         
-        base.TryPush(packet);
+        return base.TryPush(packet);
     }
 }
 
@@ -43,11 +43,11 @@ internal sealed class ReceiveOnlyMqtt311ServerHandler : FakeMqtt311ServerHandle
     {
     }
 
-    public override void TryPush(MqttPacket packet)
+    public override bool TryPush(MqttPacket packet)
     {
         if (packet.PacketType == MqttPacketType.Publish)
-            return; // don't bother writing
+            return false; // don't bother writing
         
-        base.TryPush(packet);
+        return base.TryPush(packet);
     }
 }
