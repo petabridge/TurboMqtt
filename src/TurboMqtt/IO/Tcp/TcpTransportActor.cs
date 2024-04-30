@@ -44,11 +44,14 @@ internal sealed class TcpTransportActor : UntypedActor
             MaxFrameSize = maxFrameSize;
             WaitForPendingWrites = waitForPendingWrites;
         }
-        
+
         private volatile ConnectionStatus _status = ConnectionStatus.NotStarted;
 
-        public ConnectionStatus Status { get => _status; 
-            set => _status = value; }
+        public ConnectionStatus Status
+        {
+            get => _status;
+            set => _status = value;
+        }
 
         public CancellationTokenSource ShutDownCts { get; set; } = new();
 
@@ -131,7 +134,8 @@ internal sealed class TcpTransportActor : UntypedActor
         State = new ConnectionState(_writesToTransport.Writer, _readsFromTransport.Reader, _whenTerminated.Task,
             MaxFrameSize, _writesToTransport.Reader.Completion); // we signal completion when _writesToTransport is done
 
-        _pipe = new Pipe(new PipeOptions(pauseWriterThreshold: ScaleBufferSize(MaxFrameSize), resumeWriterThreshold: ScaleBufferSize(MaxFrameSize) / 2,
+        _pipe = new Pipe(new PipeOptions(pauseWriterThreshold: ScaleBufferSize(MaxFrameSize),
+            resumeWriterThreshold: ScaleBufferSize(MaxFrameSize) / 2,
             useSynchronizationContext: false));
     }
 
@@ -141,7 +145,7 @@ internal sealed class TcpTransportActor : UntypedActor
      * Connecting --> DoConnect --> Connecting (already connecting) --> ConnectResult (Connected) BECOME Running
      * Running --> DoWriteToPipeAsync --> Running (read data from socket) --> DoWriteToSocketAsync --> Running (write data to socket)
      */
-    
+
     /// <summary>
     /// Performs the max buffer size scaling for the socket.
     /// </summary>
@@ -151,11 +155,11 @@ internal sealed class TcpTransportActor : UntypedActor
         // if the max frame size is under 128kb, scale it up to 512kb
         if (maxFrameSize <= 128 * 1024)
             return 512 * 1024;
-        
+
         // between 128kb and 1mb, scale it up to 2mb
         if (maxFrameSize <= 1024 * 1024)
             return 2 * 1024 * 1024;
-        
+
         // if the max frame size is above 1mb, 2x it
         return maxFrameSize * 2;
     }
@@ -245,7 +249,7 @@ internal sealed class TcpTransportActor : UntypedActor
                     _log.Info("Attempting to connect to [{0}:{1}]", TcpOptions.Host, TcpOptions.Port);
 
                     var sender = Sender;
-                    
+
                     // set status to connecting
                     State.Status = ConnectionStatus.Connecting;
 
@@ -265,7 +269,7 @@ internal sealed class TcpTransportActor : UntypedActor
                         await DoConnectAsync(resolved, TcpOptions.Port, sender, ct).ConfigureAwait(false);
                     }
                 });
-                
+
                 break;
             }
             case DoConnect:
@@ -317,40 +321,56 @@ internal sealed class TcpTransportActor : UntypedActor
             throw new IllegalStateException(
                 "Writes to transport channel is already completed, before we started reading");
         }
-        
+
+        async ValueTask<bool> CanRead()
+        {
+            _log.Info("Attempting to read from channel.");
+            var canRead = await _writesToTransport.Reader.WaitToReadAsync(ct).ConfigureAwait(false);
+            _log.Info("Can read from channel: {0}", canRead);
+            return canRead;
+        }
+
         while (!_writesToTransport.Reader.Completion.IsCompleted)
         {
             try
             {
                 // TODO: believe a hang is happening here
-                while (await _writesToTransport.Reader.WaitToReadAsync(ct).ConfigureAwait(false))
-                while (_writesToTransport.Reader.TryRead(out var item))
+                while (await CanRead())
                 {
-                    var (buffer, readableBytes) = item;
-                    try
+                    while (_writesToTransport.Reader.TryRead(out var item))
                     {
-                        var workingBuffer = buffer.Memory;
-                        while (readableBytes > 0)
+                        var (buffer, readableBytes) = item;
+                        try
                         {
-                            var sent = await _tcpClient!.SendAsync(workingBuffer.Slice(0, readableBytes), ct)
-                                .ConfigureAwait(false);
-                            if (sent == 0)
+                            var workingBuffer = buffer.Memory;
+                            while (readableBytes > 0)
                             {
-                                _log.Warning("Failed to write to socket - no bytes written.");
-                                _closureSelf.Tell(ReadFinished.Instance);
-                                goto WritesFinished;
-                            }
+                                var sent = await _tcpClient!.SendAsync(workingBuffer.Slice(0, readableBytes), ct)
+                                    .ConfigureAwait(false);
+                                _log.Info("Sent {0} bytes to socket.", sent);
+                                if (sent == 0)
+                                {
+                                    _log.Warning("Failed to write to socket - no bytes written.");
+                                    _closureSelf.Tell(ReadFinished.Instance);
+                                    goto WritesFinished;
+                                }
 
-                            readableBytes -= sent;
-                            workingBuffer = workingBuffer.Slice(sent);
+                               
+
+                                readableBytes -= sent;
+                                workingBuffer = workingBuffer.Slice(sent);
+                            }
+                        }
+                        finally
+                        {
+                            // free the pooled buffer
+                            buffer.Dispose();
                         }
                     }
-                    finally
-                    {
-                        // free the pooled buffer
-                        buffer.Dispose();
-                    }
+                    
+                    _log.Info("No more data to write to socket.");
                 }
+               
             }
             catch (OperationCanceledException)
             {
@@ -372,7 +392,7 @@ internal sealed class TcpTransportActor : UntypedActor
         }
 
         WritesFinished:
-            _writesToTransport.Writer.TryComplete(); // can't write anymore either
+        _writesToTransport.Writer.TryComplete(); // can't write anymore either
     }
 
     private async Task DoWriteToPipeAsync(CancellationToken ct)
@@ -383,6 +403,7 @@ internal sealed class TcpTransportActor : UntypedActor
             try
             {
                 int bytesRead = await _tcpClient!.ReceiveAsync(memory, SocketFlags.None, ct);
+                _log.Info("Read {0} bytes from socket.", bytesRead);
                 if (bytesRead == 0)
                 {
                     // we are done reading - socket was gracefully closed
@@ -431,6 +452,7 @@ internal sealed class TcpTransportActor : UntypedActor
             {
                 var result = await _pipe.Reader.ReadAsync(ct);
                 var buffer = result.Buffer;
+                _log.Info("Read {0} bytes from pipe.", buffer.Length);
 
                 // consume this entire sequence by copying it into a new buffer
                 // have to copy because there's no guarantee we can safely release a shared buffer
@@ -484,8 +506,9 @@ internal sealed class TcpTransportActor : UntypedActor
     private async Task CleanUpGracefully(bool waitOnReads = false)
     {
         // add a simulated DisconnectPacket to help ensure the stream gets terminated
-        _readsFromTransport.Writer.TryWrite(DisconnectToBinary.NormalDisconnectPacket.ToBinary(MqttProtocolVersion.V3_1_1));
-        
+        _readsFromTransport.Writer.TryWrite(
+            DisconnectToBinary.NormalDisconnectPacket.ToBinary(MqttProtocolVersion.V3_1_1));
+
         // no more writes to transport
         _writesToTransport.Writer.TryComplete();
 
