@@ -22,15 +22,15 @@ public class NanoMqContainer: DockerContainer
         _configuration = configuration;
     }
 
-    /// <summary>
-    /// Gets the NanoMq broker address.
-    /// </summary>
-    /// <returns>The NanoMq broker address.</returns>
-    public string GetBrokerAddress()
-    {
-        var endpoint = new UriBuilder("tcp", Hostname, GetMappedPublicPort(NanoMqBuilder.NanoMqTcpPort));
-        return endpoint.ToString();
-    }
-    
-    
+    public string UserName => "admin";
+    public string Password => "public";
+
+    public Uri BrokerTcpAddress =>
+        new UriBuilder("nmq-tcp", Hostname, GetMappedPublicPort(NanoMqBuilder.NanoMqTcpPort)).Uri;
+
+    public Uri BrokerWebSocketAddress =>
+        new UriBuilder("nmq-ws", Hostname, GetMappedPublicPort(NanoMqBuilder.NanoMqWebSocketPort))
+        {
+            Path = "mqtt"
+        }.Uri;
 }

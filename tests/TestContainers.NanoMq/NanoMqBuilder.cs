@@ -10,15 +10,11 @@ namespace TestContainers.NanoMq;
 [PublicAPI]
 public class NanoMqBuilder: ContainerBuilder<NanoMqBuilder, NanoMqContainer, NanoMqConfiguration>
 {
-    public const string NanoMqImage = "emqx/nanomq:0.21";
-    public const string NanoMqSlimImage = NanoMqImage + "-slim";
-    public const string NanoMqFullImage = NanoMqImage + "-full";
+    public const string NanoMqImage = "emqx/nanomq:0.21-slim";
 
     public const ushort NanoMqTcpPort = 1883;
 
     public const ushort NanoMqWebSocketPort = 8883;
-
-    public const ushort NanoMqHttpPort = 8081;
 
     public const string DefaultUsername = "admin";
 
@@ -60,7 +56,6 @@ public class NanoMqBuilder: ContainerBuilder<NanoMqBuilder, NanoMqContainer, Nan
             .WithImage(NanoMqImage)
             .WithPortBinding(NanoMqTcpPort, true)
             .WithPortBinding(NanoMqWebSocketPort, true)
-            .WithPortBinding(NanoMqHttpPort, true)
             .WithWaitStrategy(Wait.ForUnixContainer().UntilMessageIsLogged("NanoMQ Broker is started successfully!"));
     }
 
