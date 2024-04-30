@@ -118,6 +118,9 @@ internal sealed class HeartBeatActor : UntypedActor, IWithTimers
                     _log.Error(ex, errorMsg);
                     _failureDetector.Trigger(ex); // should result in the listener being notified
                 }
+                
+                // restart the timeout
+                RestartHeartbeatTimeout();
 
                 break;
             }
