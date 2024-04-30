@@ -470,6 +470,9 @@ internal sealed class ClientStreamOwner : UntypedActor
 
     protected override void PostStop()
     {
+        // force the transport to close - usually it will already be dead by now
+        _currentTransport?.AbortAsync();
+        
         // subtle race condition - if someone immediately tries to recreate a failed client, our parent
         // might yell at them and say "client already exists" - this is because DeathWatch runs slightly
         // behind the _trueDeath task completion even when it runs only in our PostStop routine.
