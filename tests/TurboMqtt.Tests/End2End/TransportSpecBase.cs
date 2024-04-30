@@ -4,6 +4,7 @@
 // </copyright>
 // -----------------------------------------------------------------------
 
+using System.Runtime.InteropServices;
 using System.Text;
 using Akka.Configuration;
 using Akka.TestKit.Xunit2;
@@ -18,6 +19,11 @@ namespace TurboMqtt.Tests.End2End;
 /// </summary>
 public abstract class TransportSpecBase : TestKit
 {
+    protected static readonly Lazy<bool> IsOnWindows =
+        new Lazy<bool>(() => RuntimeInformation.IsOSPlatform(OSPlatform.Windows));
+    
+    protected virtual bool SkipOnWindows => false;
+    
     public TransportSpecBase(ITestOutputHelper output, Config? config = null) : base(output: output, config: config)
     {
         ClientFactory = new MqttClientFactory(Sys);
@@ -37,9 +43,11 @@ public abstract class TransportSpecBase : TestKit
     
     public const string DefaultTopic = "topic";
 
-    [Fact]
+    [SkippableFact]
     public async Task ShouldConnectAndDisconnect()
     {
+        Skip.If(SkipOnWindows && IsOnWindows.Value, "Skipped on Windows");
+        
         var client = await CreateClient();
 
         using var cts = new CancellationTokenSource(RemainingOrDefault);
@@ -95,10 +103,12 @@ public abstract class TransportSpecBase : TestKit
         }
     };
 
-    [Theory]
+    [SkippableTheory]
     [MemberData(nameof(PublishMessages))]
     public async Task ShouldPublishMessages(MqttMessage[] messages)
     {
+        Skip.If(SkipOnWindows && IsOnWindows.Value, "Skipped on Windows");
+        
         var client = await CreateClient();
 
         using var cts = new CancellationTokenSource(RemainingOrDefault);
@@ -115,17 +125,19 @@ public abstract class TransportSpecBase : TestKit
         await AwaitAssertAsync(() => client.IsConnected.Should().BeFalse(), cancellationToken: cts.Token);
     }
 
-    [Theory]
+    [SkippableTheory]
     [MemberData(nameof(PublishMessages))]
     public async Task ShouldSubscribeAndReceiveMessages(MqttMessage[] messages)
     {
+        Skip.If(SkipOnWindows && IsOnWindows.Value, "Skipped on Windows");
+        
         var client = await CreateClient();
 
         using var cts = new CancellationTokenSource(RemainingOrDefault);
         var connectResult = await client.ConnectAsync(cts.Token);
         connectResult.IsSuccess.Should().BeTrue();
 
-        var subscribeResult = await client.SubscribeAsync(DefaultTopic, QualityOfService.AtLeastOnce, cts.Token);
+        var subscribeResult = await client.SubscribeAsync(DefaultTopic, QualityOfService.ExactlyOnce, cts.Token);
         subscribeResult.IsSuccess.Should().BeTrue();
 
         var receivedMessages = new List<MqttMessage>();
@@ -161,9 +173,11 @@ public abstract class TransportSpecBase : TestKit
         await AwaitAssertAsync(() => client.IsConnected.Should().BeFalse(), cancellationToken: cts.Token);
     }
     
-    [Fact]
+    [SkippableFact]
     public async Task ShouldSubscribeAndReceiveMessagesWithMultipleSubscriptions()
     {
+        Skip.If(SkipOnWindows && IsOnWindows.Value, "Skipped on Windows");
+        
         var client = await CreateClient();
 
         using var cts = new CancellationTokenSource(RemainingOrDefault);
@@ -223,9 +237,11 @@ public abstract class TransportSpecBase : TestKit
         await AwaitAssertAsync(() => client.IsConnected.Should().BeFalse(), cancellationToken: cts.Token);
     }
     
-    [Fact]
+    [SkippableFact]
     public async Task ShouldSubscribeAndReceiveMessagesWithMultipleSubscriptionsAndUnsubscribe()
     {
+        Skip.If(SkipOnWindows && IsOnWindows.Value, "Skipped on Windows");
+        
         var client = await CreateClient();
 
         using var cts = new CancellationTokenSource(RemainingOrDefault);
