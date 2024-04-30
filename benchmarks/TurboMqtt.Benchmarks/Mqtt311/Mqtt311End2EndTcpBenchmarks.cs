@@ -23,11 +23,11 @@ public class Mqtt311EndToEndTcpBenchmarks
     [Params(QualityOfService.AtMostOnce, QualityOfService.AtLeastOnce, QualityOfService.ExactlyOnce)]
     public QualityOfService QoSLevel { get; set; }
 
-    [Params(10, 1024, 2 * 1024)] public int PayloadSizeBytes { get; set; }
+    [Params(10, 1024, 8 * 1024)] public int PayloadSizeBytes { get; set; }
 
     [Params(MqttProtocolVersion.V3_1_1)] public MqttProtocolVersion ProtocolVersion { get; set; }
 
-    public const int PacketCount = 1_000;
+    public const int PacketCount = 100_000;
 
     private ActorSystem? _system;
     private IMqttClientFactory? _clientFactory;
@@ -62,23 +62,10 @@ public class Mqtt311EndToEndTcpBenchmarks
         _system = ActorSystem.Create("Mqtt311EndToEndTcpBenchmarks", "akka.loglevel=INFO");
         
         _clientFactory = new MqttClientFactory(_system);
-        _testMessage = new MqttMessage(Topic, CreateMsgPayload())
-        {
-            PayloadFormatIndicator = PayloadFormatIndicator.Unspecified,
-            ContentType = "application/binary",
-            QoS = QoSLevel
-        };
 
         _defaultTcpOptions = new MqttClientTcpOptions(Host, Port) { MaxFrameSize = 256 * 1024 };
-        _defaultConnectOptions = new MqttClientConnectOptions("test-subscriber", ProtocolVersion)
-        {
-            UserName = "testuser",
-            Password = "testpassword",
-            KeepAliveSeconds = 60,
-            MaxReconnectAttempts = 10,
             PublishRetryInterval = TimeSpan.FromSeconds(5),
             CleanSession = true
-        };
     }
     
     [GlobalCleanup]
@@ -88,15 +75,34 @@ public class Mqtt311EndToEndTcpBenchmarks
         _system = null;
     }
 
+    private string _uniqueTopicId = Topic;
+
     [IterationSetup]
     public void SetupPerIteration()
     {
         _writeTasks.Clear();
+        _uniqueTopicId = Topic + Guid.NewGuid();
+        _testMessage = new MqttMessage(_uniqueTopicId, CreateMsgPayload())
+        {
+            PayloadFormatIndicator = PayloadFormatIndicator.Unspecified,
+            ContentType = "application/binary",
+            QoS = QoSLevel
+        };
+        
         DoSetup().Wait();
         return;
 
         async Task DoSetup()
         {
+            _defaultConnectOptions = new MqttClientConnectOptions("test-subscriber" + Guid.NewGuid(), ProtocolVersion)
+            {
+                UserName = "testuser",
+                Password = "testpassword",
+                KeepAliveSeconds = 60,
+                MaxReconnectAttempts = 10,
+                PublishRetryInterval = TimeSpan.FromSeconds(5)
+            };
+            
             using var cts = new CancellationTokenSource(System.TimeSpan.FromSeconds(5));
             _subscribeClient = await _clientFactory!.CreateTcpClient(_defaultConnectOptions!, _defaultTcpOptions!);
             var r = await _subscribeClient.ConnectAsync(cts.Token);
@@ -104,7 +110,7 @@ public class Mqtt311EndToEndTcpBenchmarks
             {
                 throw new Exception("Failed to connect to server.");
             }
-            var subR = await _subscribeClient.SubscribeAsync(Topic, QoSLevel, cts.Token);
+            var subR = await _subscribeClient.SubscribeAsync(_uniqueTopicId, QoSLevel, cts.Token);
             if (!subR.IsSuccess)
             {
                 throw new Exception("Failed to subscribe to topic.");
