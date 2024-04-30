@@ -5,12 +5,9 @@
 // -----------------------------------------------------------------------
 
 using Akka.Actor;
-using Akka.Event;
 using BenchmarkDotNet.Attributes;
 using BenchmarkDotNet.Engines;
 using TurboMqtt.Client;
-using TurboMqtt.IO;
-using TurboMqtt.IO.Tcp;
 using TurboMqtt.PacketTypes;
 using TurboMqtt.Protocol;
 
@@ -27,7 +24,7 @@ public class Mqtt311EndToEndTcpBenchmarks
 
     [Params(MqttProtocolVersion.V3_1_1)] public MqttProtocolVersion ProtocolVersion { get; set; }
 
-    public const int PacketCount = 1_000;
+    public const int PacketCount = 100_00;
 
     private ActorSystem? _system;
     private IMqttClientFactory? _clientFactory;
@@ -70,14 +67,6 @@ public class Mqtt311EndToEndTcpBenchmarks
         };
 
         _defaultTcpOptions = new MqttClientTcpOptions(Host, Port) { MaxFrameSize = 256 * 1024 };
-        _defaultConnectOptions = new MqttClientConnectOptions("test-subscriber", ProtocolVersion)
-        {
-            UserName = "testuser",
-            Password = "testpassword",
-            KeepAliveSeconds = 60,
-            MaxReconnectAttempts = 10,
-            PublishRetryInterval = TimeSpan.FromSeconds(5)
-        };
     }
     
     [GlobalCleanup]
@@ -90,6 +79,15 @@ public class Mqtt311EndToEndTcpBenchmarks
     [IterationSetup]
     public void SetupPerIteration()
     {
+        _defaultConnectOptions = new MqttClientConnectOptions("test-subscriber" + Guid.NewGuid(), ProtocolVersion)
+        {
+            UserName = "admin",
+            Password = "public",
+            KeepAliveSeconds = 5,
+            MaxReconnectAttempts = 3,
+            PublishRetryInterval = TimeSpan.FromSeconds(5)
+        };
+        
         _writeTasks.Clear();
         DoSetup().Wait();
         return;
@@ -125,15 +123,15 @@ public class Mqtt311EndToEndTcpBenchmarks
             await _subscribeClient!.DisposeAsync();
         }
     }
+
+    public const int ChunkSize = PacketCount / 15;
     
-    [Benchmark(OperationsPerInvoke = PacketCount)]
+    [Benchmark(OperationsPerInvoke = PacketCount * 2)]
     public async Task<int> PublishAndReceiveMessages()
     {
         using var cts = new CancellationTokenSource(System.TimeSpan.FromMinutes(2));
-        for (var i = 0; i < PacketCount; i++)
-        {
-            _writeTasks.Add(_subscribeClient!.PublishAsync(_testMessage!, cts.Token));
-        }
+
+        var writes = WriteMessages(cts.Token);
 
         var processedMessages = PacketCount;
         while(await _subscribeClient!.ReceivedMessages.WaitToReadAsync(cts.Token))
@@ -146,8 +144,19 @@ public class Mqtt311EndToEndTcpBenchmarks
             }
         }
 
-        await Task.WhenAll(_writeTasks).WaitAsync(cts.Token);
+        await writes;
         
         return processedMessages;
+
+        async Task<int> WriteMessages(CancellationToken ct)
+        {
+            for (var i = 0; i < PacketCount; i += ChunkSize)
+            {
+                var tasks = Enumerable.Range(0, ChunkSize).Select(c => _subscribeClient!.PublishAsync(_testMessage!, cts.Token));
+                await Task.WhenAll(tasks).WaitAsync(ct);
+            }
+            
+            return 0;
+        }
     }
 }
