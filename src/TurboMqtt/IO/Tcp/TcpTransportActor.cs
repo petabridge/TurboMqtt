@@ -485,10 +485,12 @@ internal sealed class TcpTransportActor : UntypedActor
             case DoClose: // we are closing
             {
                 _ = CleanUpGracefully(true);
+                _log.Info("Closing connection to [{0}:{1}]", TcpOptions.Host, TcpOptions.Port);
                 break;
             }
             case ReadFinished: // server closed us
             {
+                _log.Info("Server [{0}:{1}] closed connection to us.", TcpOptions.Host, TcpOptions.Port);
                 _ = CleanUpGracefully(); // idempotent
                 break;
             }

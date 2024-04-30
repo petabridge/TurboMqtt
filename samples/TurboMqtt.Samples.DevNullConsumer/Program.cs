@@ -42,7 +42,7 @@ builder
                 m
                     .SetResourceBuilder(resourceBuilder)
                     .AddTurboMqttMetrics()
-                    .AddConsoleExporter()
+                    //.AddConsoleExporter()
                     .AddOtlpExporter(options =>
                     {
                         options.Endpoint = new Uri("http://localhost:4317"); // Replace with the appropriate endpoint
@@ -54,7 +54,7 @@ builder
                 t
                     .SetResourceBuilder(resourceBuilder)
                     .AddTurboMqttTracing()
-                    .AddConsoleExporter()
+                    //.AddConsoleExporter()
                     .AddOtlpExporter(options =>
                     {
                         options.Endpoint = new Uri("http://localhost:4317"); // Replace with the appropriate endpoint
