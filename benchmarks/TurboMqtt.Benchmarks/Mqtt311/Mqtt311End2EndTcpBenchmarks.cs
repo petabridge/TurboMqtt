@@ -64,8 +64,7 @@ public class Mqtt311EndToEndTcpBenchmarks
         _clientFactory = new MqttClientFactory(_system);
 
         _defaultTcpOptions = new MqttClientTcpOptions(Host, Port) { MaxFrameSize = 256 * 1024 };
-            PublishRetryInterval = TimeSpan.FromSeconds(5),
-            CleanSession = true
+            
     }
     
     [GlobalCleanup]
@@ -100,7 +99,8 @@ public class Mqtt311EndToEndTcpBenchmarks
                 Password = "testpassword",
                 KeepAliveSeconds = 60,
                 MaxReconnectAttempts = 10,
-                PublishRetryInterval = TimeSpan.FromSeconds(5)
+                PublishRetryInterval = TimeSpan.FromSeconds(5),
+                CleanSession = true,
             };
             
             using var cts = new CancellationTokenSource(System.TimeSpan.FromSeconds(5));
