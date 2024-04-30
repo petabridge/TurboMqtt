@@ -35,6 +35,7 @@ public abstract class TransportSpecBase : TestKit
             UserName = "test",
             Password = "test",
             //PublishRetryInterval = TimeSpan.FromSeconds(1),
+            KeepAliveSeconds = 60 // so it's not a relevant factor during testing
         };
 
     public MqttClientFactory ClientFactory { get; }
