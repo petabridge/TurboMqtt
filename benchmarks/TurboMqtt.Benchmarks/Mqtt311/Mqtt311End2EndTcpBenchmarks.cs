@@ -59,7 +59,7 @@ public class Mqtt311EndToEndTcpBenchmarks
     public void StartFixture()
     {
         _writeTasks = new List<Task>(PacketCount);
-        _system = ActorSystem.Create("Mqtt311EndToEndTcpBenchmarks", "akka.loglevel=ERROR");
+        _system = ActorSystem.Create("Mqtt311EndToEndTcpBenchmarks", "akka.loglevel=INFO");
         
         _clientFactory = new MqttClientFactory(_system);
         _testMessage = new MqttMessage(Topic, CreateMsgPayload())
@@ -76,7 +76,8 @@ public class Mqtt311EndToEndTcpBenchmarks
             Password = "testpassword",
             KeepAliveSeconds = 60,
             MaxReconnectAttempts = 10,
-            PublishRetryInterval = TimeSpan.FromSeconds(5)
+            PublishRetryInterval = TimeSpan.FromSeconds(5),
+            CleanSession = true
         };
     }
     

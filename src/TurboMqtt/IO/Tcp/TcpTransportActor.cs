@@ -11,6 +11,7 @@ using System.Net.Sockets;
 using System.Threading.Channels;
 using Akka.Actor;
 using Akka.Event;
+using Akka.Pattern;
 using TurboMqtt.Client;
 using TurboMqtt.PacketTypes;
 using TurboMqtt.Protocol;
@@ -311,6 +312,12 @@ internal sealed class TcpTransportActor : UntypedActor
 
     private async Task DoWriteToSocketAsync(CancellationToken ct)
     {
+        if (_writesToTransport.Reader.Completion.IsCompleted)
+        {
+            throw new IllegalStateException(
+                "Writes to transport channel is already completed, before we started reading");
+        }
+        
         while (!_writesToTransport.Reader.Completion.IsCompleted)
         {
             try
