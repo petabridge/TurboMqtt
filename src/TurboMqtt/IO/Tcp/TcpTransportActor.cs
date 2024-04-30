@@ -323,7 +323,7 @@ internal sealed class TcpTransportActor : UntypedActor
             try
             {
                 // TODO: believe a hang is happening here
-                while (debug || await _writesToTransport.Reader.WaitToReadAsync(ct).ConfigureAwait(false))
+                while (await _writesToTransport.Reader.WaitToReadAsync(ct).ConfigureAwait(false))
                 while (_writesToTransport.Reader.TryRead(out var item))
                 {
                     var (buffer, readableBytes) = item;
