@@ -44,12 +44,14 @@ internal sealed class ClientStreamOwner : UntypedActor
 
     public sealed class ServerDisconnect : IClientStreamOwnerMessage
     {
-        public ServerDisconnect(DisconnectReasonCode reason)
+        public ServerDisconnect(DisconnectPacket disconnectPacket)
         {
-            Reason = reason;
+            DisconnectPacket = disconnectPacket;
         }
 
-        public DisconnectReasonCode Reason { get; }
+        public DisconnectReasonCode Reason => DisconnectPacket.ReasonCode ?? DisconnectReasonCode.NormalDisconnection;
+
+        public DisconnectPacket DisconnectPacket { get; }
     }
 
     private sealed class StreamTerminated : IClientStreamOwnerMessage
@@ -264,16 +266,17 @@ internal sealed class ClientStreamOwner : UntypedActor
                 var sender = Sender;
                 RunTask(async () =>
                 {
-                    _log.Debug("Client failed to connect to the server. Replacing transport in order to allow reconnect.");
+                    _log.Debug(
+                        "Client failed to connect to the server. Replacing transport in order to allow reconnect.");
                     // just to avoid race conditions, unwatch the previous stream instance owner
                     Context.Unwatch(_streamInstanceOwner);
-                    
+
                     _ = _currentTransport?.AbortAsync(); // have to force old resources to close
                     _currentTransport = null; // null out the old transport
                     Context.Stop(_streamInstanceOwner); // terminate previous stream
-                    
+
                     await ReplaceTransport();
-                    
+
                     var requiredActors = new MqttRequiredActors(_exactlyOnceActor!, _atLeastOnceActor!,
                         _clientAckActor!,
                         _heartBeatActor!);
@@ -289,7 +292,7 @@ internal sealed class ClientStreamOwner : UntypedActor
                         Self.Tell(PoisonPill.Instance);
                         return;
                     }
-                    
+
                     sender.Tell(TransportResetComplete.Instance);
                 });
                 break;
@@ -335,18 +338,18 @@ internal sealed class ClientStreamOwner : UntypedActor
                     var requiredActors = new MqttRequiredActors(_exactlyOnceActor!, _atLeastOnceActor!,
                         _clientAckActor!,
                         _heartBeatActor!);
-                    
+
                     // the transport should be at rest now, no longer being written to - clear out all the old data\
                     HashSet<MqttPacket> preservedPackets = new();
                     while (_outboundChannel!.Reader.TryRead(out var p))
                     {
-                        if(p.PacketType == MqttPacketType.Disconnect)
+                        if (p.PacketType == MqttPacketType.Disconnect)
                             continue; // don't bother resending disconnect packets
                         preservedPackets.Add(p);
                     }
-                    
+
                     _log.Debug("Preserved {0} packets for retransmission.", preservedPackets.Count);
-                    
+
                     // NOTE: inbound channel does not need to be drained - it's a one-way channel
 
                     // need to reconnect the streams
@@ -377,7 +380,8 @@ internal sealed class ClientStreamOwner : UntypedActor
                         if (!resp.IsSuccess)
                         {
                             _log.Warning("Failed to reconnect client. Reason: {0}", resp.Reason);
-                            self.Tell(new ServerDisconnect(DisconnectReasonCode.UnspecifiedError));
+                            self.Tell(new ServerDisconnect(new DisconnectPacket()
+                                { ReasonCode = DisconnectReasonCode.MaximumConnectTime }));
                         }
 
                         // for each of our subscriptions, we need to resubscribe
@@ -385,9 +389,10 @@ internal sealed class ClientStreamOwner : UntypedActor
                         if (!subscribeResp.IsSuccess)
                         {
                             _log.Warning("Failed to resubscribe to topics. Reason: {0}", subscribeResp.Reason);
-                            self.Tell(new ServerDisconnect(DisconnectReasonCode.UnspecifiedError));
+                            self.Tell(new ServerDisconnect(new DisconnectPacket()
+                                { ReasonCode = DisconnectReasonCode.UnspecifiedError }));
                         }
-                        
+
                         // requeue all the packets that were preserved
                         foreach (var p in preserved)
                             _outboundChannel.Writer.TryWrite(p);

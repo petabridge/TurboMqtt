@@ -36,9 +36,10 @@ internal sealed class FailureDetector
             TimeoutException _ => DisconnectReasonCode.KeepAliveTimeout,
             _ => DisconnectReasonCode.UnspecifiedError
         };
-            
-        
-        _failedConnectionActor.Tell(new ClientStreamOwner.ServerDisconnect(DisconnectReasonCode.ServerBusy));
+
+
+        _failedConnectionActor.Tell(new ClientStreamOwner.ServerDisconnect(new DisconnectPacket()
+            { ReasonCode = DisconnectReasonCode.KeepAliveTimeout }));
     }
 }
 
@@ -136,7 +137,7 @@ internal sealed class HeartBeatActor : UntypedActor, IWithTimers
 
     private void RestartHeartbeatTimeout()
     {
-        if(Timers.IsTimerActive(HeartbeatFailureTimerKey))
+        if (Timers.IsTimerActive(HeartbeatFailureTimerKey))
             Timers.Cancel(HeartbeatFailureTimerKey);
         Timers.StartSingleTimer(HeartbeatFailureTimerKey, HeartbeatTimeout.Instance,
             _failureDetector.HeartbeatInterval);

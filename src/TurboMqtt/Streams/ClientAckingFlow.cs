@@ -19,6 +19,7 @@ namespace TurboMqtt.Streams;
 /// </summary>
 internal sealed class ClientAckingFlow : GraphStage<FlowShape<MqttPacket, MqttPacket>>
 {
+    private readonly TaskCompletionSource<DisconnectPacket> _disconnectPromise;
     private readonly MqttRequiredActors _actors;
     private readonly int _bufferSize;
     private readonly TimeSpan _bufferExpiry;
@@ -28,7 +29,7 @@ internal sealed class ClientAckingFlow : GraphStage<FlowShape<MqttPacket, MqttPa
     /// </summary>
     private readonly ChannelWriter<MqttPacket> _outboundPackets;
 
-    public ClientAckingFlow(int bufferSize, TimeSpan bufferExpiry, ChannelWriter<MqttPacket> outboundPackets, MqttRequiredActors actors)
+    public ClientAckingFlow(int bufferSize, TimeSpan bufferExpiry, ChannelWriter<MqttPacket> outboundPackets, MqttRequiredActors actors, TaskCompletionSource<DisconnectPacket> disconnectPromise)
     {
         // assert that buffer size is at least 1
         if (bufferSize < 1)
@@ -39,6 +40,7 @@ internal sealed class ClientAckingFlow : GraphStage<FlowShape<MqttPacket, MqttPa
             throw new ArgumentException("Buffer expiry must be greater than zero", nameof(bufferExpiry));
         _outboundPackets = outboundPackets;
         _actors = actors;
+        _disconnectPromise = disconnectPromise;
 
         _bufferSize = bufferSize;
         _bufferExpiry = bufferExpiry;
@@ -130,6 +132,7 @@ internal sealed class ClientAckingFlow : GraphStage<FlowShape<MqttPacket, MqttPa
                     if (!_shutdownTriggered)
                     {
                         Log.Info("Received DISCONNECT packet from broker - closing connection.");
+                        _stage._disconnectPromise.TrySetResult((DisconnectPacket) packet);
                         _shutdownTriggered = true;
                     }
                    
