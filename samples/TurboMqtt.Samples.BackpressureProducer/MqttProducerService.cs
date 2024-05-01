@@ -11,6 +11,7 @@ using Microsoft.Extensions.Options;
 using TurboMqtt;
 using TurboMqtt.Client;
 using TurboMqtt.Protocol;
+using TurboMqtt.Protocol.Pub;
 
 namespace TurboMqtt.Samples.BackpressureProducer;
 
@@ -80,29 +81,29 @@ public sealed class MqttProducerService : BackgroundService
                     connectResult.Reason);
                 return;
             }
+            
+            const int batchSize = 10;
 
             _logger.LogInformation("Connected to MQTT broker at {0}:{1}", config.Host, config.Port);
+            var trueCount = 0;
             foreach (var i in Enumerable.Range(0, config.MessageCount))
             {
                 var msg = new MqttMessage(config.Topic, CreatePayload(i, TargetMessageSize.EightKb))
                 {
                     QoS = QualityOfService.AtLeastOnce
                 };
-
-                // if(i % 3 == 0)
-                // {
-                //     msg = new MqttMessage(config.Topic, CreatePayload(i, TargetMessageSize.OneKb));
-                // }
-                // else if(i % 5 == 0)
-                // {
-                //     msg = new MqttMessage(config.Topic, CreatePayload(i, TargetMessageSize.EightKb));
-                // }
-                // else
-                // {
-                //     msg = new MqttMessage(config.Topic, CreatePayload(i, TargetMessageSize.Tiny));
-                // }
-                var pb = await client.PublishAsync(msg, stoppingToken);
-                if(i % 1000 == 0)
+                
+                // publish up to 10 messages at a time
+                var tasks = new List<Task<IPublishResult>>();
+                for (var j = 0; j < batchSize; j++)
+                {
+                    tasks.Add(client.PublishAsync(msg, stoppingToken));
+                }
+                
+                trueCount += batchSize;
+                
+                await Task.WhenAll(tasks);
+                if(trueCount % 1000 == 0)
                 {
                     _logger.LogInformation("Published {0} messages", i);
                 }
