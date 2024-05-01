@@ -5,9 +5,12 @@
 // -----------------------------------------------------------------------
 
 using Akka.Actor;
+using Akka.Event;
 using BenchmarkDotNet.Attributes;
 using BenchmarkDotNet.Engines;
 using TurboMqtt.Client;
+using TurboMqtt.IO;
+using TurboMqtt.IO.Tcp;
 using TurboMqtt.PacketTypes;
 using TurboMqtt.Protocol;
 
@@ -38,9 +41,8 @@ public class Mqtt311EndToEndTcpBenchmarks
     private const string TopicConst = "test";
     private string Topic = TopicConst;
     private const string Host = "localhost";
-    private const int Port = 1883;
-    
-    private List<Task> _writeTasks = new();
+    private const int Port = 19913;
+    private FakeMqttTcpServer? _server;
     
     private ReadOnlyMemory<byte> CreateMsgPayload()
     {
@@ -56,9 +58,12 @@ public class Mqtt311EndToEndTcpBenchmarks
     [GlobalSetup]
     public void StartFixture()
     {
-        _writeTasks = new List<Task>(PacketCount);
         _system = ActorSystem.Create("Mqtt311EndToEndTcpBenchmarks", "akka.loglevel=ERROR");
-        
+        var logger = new BusLogging(_system.EventStream, "FakeMqttTcpServer", typeof(FakeMqttTcpServer),
+            _system.Settings.LogFormatter);
+        _server = new FakeMqttTcpServer(new MqttTcpServerOptions("localhost", Port), MqttProtocolVersion.V3_1_1,
+            logger, TimeSpan.Zero, new DefaultFakeServerHandleFactory());
+        _server.Bind();
         _clientFactory = new MqttClientFactory(_system);
         _defaultTcpOptions = new MqttClientTcpOptions(Host, Port) { MaxFrameSize = 256 * 1024 };
     }
@@ -66,6 +71,7 @@ public class Mqtt311EndToEndTcpBenchmarks
     [GlobalCleanup]
     public void StopFixture()
     {
+        _server?.Shutdown();
         _system?.Dispose();
         _system = null;
     }
@@ -91,7 +97,6 @@ public class Mqtt311EndToEndTcpBenchmarks
         };
 
         
-        _writeTasks.Clear();
         DoSetup().Wait();
         return;
 
@@ -124,6 +129,7 @@ public class Mqtt311EndToEndTcpBenchmarks
             await _subscribeClient!.DisconnectAsync(cts.Token);
             await _subscribeClient!.WhenTerminated.WaitAsync(cts.Token);
             await _subscribeClient!.DisposeAsync();
+            //_server!.TryKickClient(_subscribeClient.ClientId);
         }
     }
 
@@ -142,12 +148,16 @@ public class Mqtt311EndToEndTcpBenchmarks
             while(_subscribeClient.ReceivedMessages.TryRead(out _))
             {
                 processedMessages--;
-                if(processedMessages == 0)
-                    return 0;
+                if (processedMessages == 0)
+                {
+                    await writes;
+                    return processedMessages;
+                }
             }
         }
-
-        await writes;
+        
+        if(processedMessages > 0)
+            throw new Exception("Failed to process all messages.");
         
         return processedMessages;
 
