@@ -1,8 +1,8 @@
 # TurboMqtt
 
-[TurboMqtt](https://github.com/petabridge/TurboMqtt) is a high-speed MQ Telemetry Transport (MQTT) client designed to support large-scale IOT workloads, handling over 100k msg/s from any MQTT 3.1.1+ broker.
+[TurboMqtt](https://github.com/petabridge/TurboMqtt) is a high-speed Message Queue Telemetry Transport (MQTT) client designed to support large-scale IOT workloads, handling over 100k msg/s from any MQTT 3.1.1+ broker.
 
-![TurboMqtt logo](https://github.com/petabridge/TurboMqtt/blob/dev/docs/logo.png)
+![TurboMqtt logo](https://raw.githubusercontent.com/petabridge/TurboMqtt/dev/docs/logo.png)
 
 TurboMqtt is written on top of [Akka.NET](https://getakka.net/) and Akka.Streams, which is the secret to its efficient use of resources and high throughput.
 
