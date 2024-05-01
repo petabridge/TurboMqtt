@@ -4,11 +4,13 @@
 // </copyright>
 // -----------------------------------------------------------------------
 
+using System.Buffers;
 using Akka.Configuration;
 using Akka.Event;
 using TurboMqtt.Client;
 using TurboMqtt.IO;
 using TurboMqtt.IO.Tcp;
+using TurboMqtt.PacketTypes;
 using TurboMqtt.Protocol;
 using Xunit.Abstractions;
 
@@ -46,8 +48,156 @@ public class TcpMqtt311End2EndSpecs : TransportSpecBase
         base.AfterAll();
     }
 
+    private sealed class DisconnectOnConnectFakeServerHandler: FakeMqtt311ServerHandle
+    {
+        private readonly Action<ConnectPacket> _onConnectCallback;
+        
+        public DisconnectOnConnectFakeServerHandler(
+            Action<ConnectPacket> onConnectCallback,
+            Func<(IMemoryOwner<byte> buffer, int estimatedSize), bool> pushMessage, 
+            Func<Task> closingAction,
+            ILoggingAdapter log,
+            TimeSpan? heartbeatDelay = null) 
+            : base(pushMessage, closingAction, log, heartbeatDelay)
+        {
+            _onConnectCallback = onConnectCallback;
+        }
+
+        public override void HandlePacket(MqttPacket packet)
+        {
+            if (packet.PacketType == MqttPacketType.Connect)
+            {
+                var connect = (ConnectPacket)packet;
+                ClientIdAssigned.TrySetResult(connect.ClientId);
+                _onConnectCallback(connect);
+                return;
+            }
+            base.HandlePacket(packet);
+        }
+    }
+    
+    private sealed class ConfigurableFakeServerFactory: IFakeServerHandleFactory
+    {
+        private readonly Func<Func<(IMemoryOwner<byte> buffer, int estimatedSize), bool>, Func<Task>, ILoggingAdapter,
+            TimeSpan?, IFakeServerHandle> _onCreateHandlerCallback;
+
+        public ConfigurableFakeServerFactory(
+            Func<Func<(IMemoryOwner<byte> buffer, int estimatedSize), bool>, Func<Task>, ILoggingAdapter,
+                TimeSpan?, IFakeServerHandle> onCreateHandlerCallback)
+        {
+            _onCreateHandlerCallback = onCreateHandlerCallback;
+        }
+
+        public IFakeServerHandle CreateServerHandle(
+            Func<(IMemoryOwner<byte> buffer, int estimatedSize), bool> pushMessage, 
+            Func<Task> closingAction,
+            ILoggingAdapter log,
+            MqttProtocolVersion protocolVersion = MqttProtocolVersion.V3_1_1, 
+            TimeSpan? heartbeatDelay = null)
+        {
+            return _onCreateHandlerCallback(pushMessage, closingAction, log, heartbeatDelay);
+        }
+    }
+    
+    /// <summary>
+    /// This is an edge case when the client tries to reconnect and the socket disconnected right after the CONNECT
+    /// packet was sent by the client but before the CONNACK packet were received by the client.
+    ///
+    /// The bug was that the ClientAcksActor were stuck waiting for the previous connection state to complete, blocking
+    /// immediate client reconnect attempt.
+    ///
+    /// There should be 3 connection attempts in this test, with these steps happening in sequence:
+    /// 
+    /// 1. Client connects normally to the broker
+    /// 2. Client connected successfully to the broker
+    /// 3. Socket connection lost (forcefully)
+    /// 4. Client tries to reconnect to the broker
+    /// 5. Client socket connected to the broker and sends a CONNECT packet, ClientAcksActor _pendingConnect field is set
+    /// 6. Socket connection lost (forcefully)
+    /// 7. ClientAcksActor _pendingConnect field is reset by a Reconnect message
+    /// 8. Client tries to reconnect to the broker
+    /// 9. Client connected successfully to the broker
+    /// </summary>
     [Fact]
-    public async Task ShouldAutomaticallyReconnectandSubscribeAfterServerDisconnect()
+    public async Task ShouldReconnectSuccessfullyIfReconnectFlowFailed()
+    {
+        var connectAttempts = 0;
+        var connectPacketTcs = new TaskCompletionSource<ConnectPacket>();
+        
+        // need our own server
+        _server.Shutdown();
+        
+        var server = new FakeMqttTcpServer(
+            options: new MqttTcpServerOptions("localhost", 21883), 
+            version: MqttProtocolVersion.V3_1_1,
+            log: Log,
+            heartbeatDelay: TimeSpan.Zero,
+            handleFactory: new ConfigurableFakeServerFactory(OnCreateHandlerCallback));
+        server.Bind();
+        
+        var client = await ClientFactory.CreateTcpClient(DefaultConnectOptions, DefaultTcpOptions);
+        
+        try
+        {
+            using var cts = new CancellationTokenSource(RemainingOrDefault);
+            
+            // First connection should succeed
+            var connectResult = await client.ConnectAsync(cts.Token);
+            connectResult.IsSuccess.Should().BeTrue();
+
+            // Disconnect the client socket forcefully to force it to reconnect
+            server.TryDisconnectClientSocket(client.ClientId);
+
+            // Wait for connect packet to arrive in the handler
+            await connectPacketTcs.Task;
+            
+            // Disconnect the client as soon as its client id is registered but without replying with a ConectAck
+            await AwaitConditionAsync(() => server.TryDisconnectClientSocket(client.ClientId), cts.Token);
+            
+            // Client should reconnect even with the dirty _pendingConnect in the ClientAcksActor
+            await AwaitConditionAsync(() => client.IsConnected, cts.Token);
+        }
+        finally
+        {
+            try
+            {
+                await client.DisconnectAsync();
+            }
+            catch
+            {
+                // no-op
+            }
+            server.Shutdown();
+        }
+
+        return;
+
+        IFakeServerHandle OnCreateHandlerCallback(
+            Func<(IMemoryOwner<byte> buffer, int estimatedSize), bool> pushMessage,
+            Func<Task> closingAction,
+            ILoggingAdapter log,
+            TimeSpan? heartbeatDelay)
+        {
+            connectAttempts++;
+            Log.Info($"OnCreateHandlerCallback {connectAttempts}");
+            return connectAttempts switch
+            {
+                1 => new FakeMqtt311ServerHandle(pushMessage, closingAction, log, heartbeatDelay),
+                2 => new DisconnectOnConnectFakeServerHandler(OnConnectCallback, pushMessage, closingAction, log,
+                    heartbeatDelay),
+                _ => new FakeMqtt311ServerHandle(pushMessage, closingAction, log, heartbeatDelay)
+            };
+        }
+        
+        void OnConnectCallback(ConnectPacket connect)
+        {
+            Log.Info($"OnConnectCallback {connectAttempts}");
+            connectPacketTcs.SetResult(connect);
+        }
+    }
+    
+    [Fact]
+    public async Task ShouldAutomaticallyReconnectAndSubscribeAfterServerDisconnect()
     {
         var client = await ClientFactory.CreateTcpClient(DefaultConnectOptions, DefaultTcpOptions);
 

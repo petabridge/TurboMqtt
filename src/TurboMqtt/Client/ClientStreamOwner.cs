@@ -466,6 +466,9 @@ internal sealed class ClientStreamOwner : UntypedActor
 
         // swap transports
         _client!.SwapTransport(_currentTransport);
+        
+        // Reset the ack actor connection state
+        _clientAckActor!.Tell(ClientAcksActor.Reconnect.Instance);
     }
 
     protected override void PostStop()
