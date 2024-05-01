@@ -4,6 +4,8 @@
         <TargetFramework>net8.0</TargetFramework>
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
+        <Tags>mqtt, iot, mqtt 3.1.1, mqtt 5.0, akka.net</Tags>
+        <Description>The fastest Message Queue Telemetry Transport (MQTT) client for .NET.</Description>
     </PropertyGroup>
 
     <!-- AOT compatibility -->

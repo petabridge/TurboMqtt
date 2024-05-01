@@ -24,6 +24,12 @@ namespace TurboMqtt.Protocol;
 /// </summary>
 internal sealed class ClientAcksActor : UntypedActor, IWithTimers
 {
+    public sealed class Reconnect
+    {
+        public static readonly Reconnect Instance = new();
+        private Reconnect() { }
+    }
+    
     public record struct PendingSubscribe(SubscribePacket Packet, Deadline Deadline, IActorRef Sender);
     
     public record struct PendingUnsubscribe(UnsubscribePacket Packet, Deadline Deadline, IActorRef Sender);
@@ -86,6 +92,12 @@ internal sealed class ClientAcksActor : UntypedActor, IWithTimers
                 _pendingUnsubscribes[unsubscribe.PacketId] = new PendingUnsubscribe(unsubscribe, deadline, Sender);
                 break;
             }
+            
+            case Reconnect:
+                if(_log.IsDebugEnabled)
+                    _log.Debug("Resetting state for a broker reconnect");
+                _pendingConnect = null;
+                break;
             
             case ConnectPacket connect:
             {

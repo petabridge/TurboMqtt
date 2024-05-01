@@ -17,6 +17,9 @@
     <PackageLicenseFile>LICENSE.md</PackageLicenseFile>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageIcon>logo.png</PackageIcon>
+
+    <!-- Need the icon URL for Sdkbin -->
+    <PackageIconUrl>https://raw.githubusercontent.com/petabridge/TurboMqtt/dev/docs/logo.png</PackageIconUrl>
   </PropertyGroup>
   <ItemGroup>
     <None Include="$(MSBuildThisFileDirectory)\README.md" Pack="true" Visible="false" PackagePath="\" />
