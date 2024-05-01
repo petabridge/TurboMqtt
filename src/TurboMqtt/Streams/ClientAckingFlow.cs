@@ -81,9 +81,6 @@ internal sealed class ClientAckingFlow : GraphStage<FlowShape<MqttPacket, MqttPa
         public void OnPush()
         {
             var packet = Grab(_stage.In);
-            // need to do this to ensure that we don't block the stream
-            Pull(_stage.In);
-            
             Log.Debug("Received packet of type [{0}] from client.", packet.PacketType);
             
             if(packet.PacketType == MqttPacketType.Publish)
@@ -92,6 +89,9 @@ internal sealed class ClientAckingFlow : GraphStage<FlowShape<MqttPacket, MqttPa
                 HandlePublish(publish);
                 return;
             }
+            
+            // need to do this to ensure that we don't block the stream
+            Pull(_stage.In);
 
             switch (packet.PacketType)
             {
