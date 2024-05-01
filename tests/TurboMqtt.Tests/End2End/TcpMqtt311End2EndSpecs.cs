@@ -17,7 +17,7 @@ namespace TurboMqtt.Tests.End2End;
 public class TcpMqtt311End2EndSpecs : TransportSpecBase
 {
     public static readonly Config DebugLogging = """
-                                                 akka.loglevel = INFO
+                                                 akka.loglevel = DEBUG
                                                  """;
 
     public TcpMqtt311End2EndSpecs(ITestOutputHelper output) : base(output: output, config: DebugLogging)

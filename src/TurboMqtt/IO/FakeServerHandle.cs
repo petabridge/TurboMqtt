@@ -21,6 +21,10 @@ internal interface IFakeServerHandle
     void HandleBytes(in ReadOnlyMemory<byte> bytes);
     void HandlePacket(MqttPacket packet);
     bool TryPush(MqttPacket outboundPacket);
+    /// <summary>
+    /// Encodes and writes the packets out to the transport
+    /// </summary>
+    void FlushPackets();
     void DisconnectFromServer();
 }
 
@@ -33,6 +37,7 @@ internal class FakeMqtt311ServerHandle : IFakeServerHandle
     private readonly HashSet<string> _subscribedTopics = [];
     private readonly TimeSpan _heartbeatDelay;
     private readonly TaskCompletionSource _terminated = new();
+    private readonly List<(MqttPacket packet, int estimatedSize)> _pendingPackets = new();
 
 
     public FakeMqtt311ServerHandle(Func<(IMemoryOwner<byte> buffer, int estimatedSize), bool> pushMessage,
@@ -44,32 +49,51 @@ internal class FakeMqtt311ServerHandle : IFakeServerHandle
         _heartbeatDelay = heartbeatDelay ?? TimeSpan.Zero;
     }
 
-    public virtual bool TryPush(MqttPacket packet)
+    public bool TryPush(MqttPacket packet)
     {
         if(Log.IsDebugEnabled)
             Log.Debug("Sending packet of type {0} using {1}", packet.PacketType, ProtocolVersion);
         var estimatedSize = MqttPacketSizeEstimator.EstimateMqtt3PacketSize(packet);
         var headerSize = MqttPacketSizeEstimator.GetPacketLengthHeaderSize(estimatedSize) + 1;
-        var buffer = new Memory<byte>(new byte[estimatedSize + headerSize]);
+        
+        _pendingPackets.Add((packet, estimatedSize + headerSize));
+        
+        return true;
+    }
 
-        Mqtt311Encoder.EncodePacket(packet, ref buffer, estimatedSize);
+    public virtual void FlushPackets()
+    {
+        if (_pendingPackets.Count == 0)
+            return;
+        Log.Info("Starting flush");
+        var totalSize = _pendingPackets.Sum(c => c.estimatedSize);
+        var bufferPooled = new UnsharedMemoryOwner<byte>(new Memory<byte>(new byte[totalSize]));
+        var buffer = bufferPooled.Memory[..totalSize];
 
-        var unshared = new UnsharedMemoryOwner<byte>(buffer);
+        var encodedBytes = Mqtt311Encoder.EncodePackets(_pendingPackets, ref buffer);
+        
+        // assert that encodedBytes == totalSize
+        if (encodedBytes != totalSize)
+        {
+            var errMsg = $"Expected to encode {totalSize} bytes, but only encoded {encodedBytes} bytes.";
+            Log.Error(errMsg);
+            throw new ArgumentOutOfRangeException(errMsg);
+        }
+            
 
         // simulate reads back on the client here
-        var didWrite = _pushMessage((unshared, estimatedSize + headerSize));
+        var didWrite = _pushMessage((bufferPooled, encodedBytes));
         if (!didWrite)
         {
-            Log.Error("Failed to write packet of type {0} to transport.", packet.PacketType);
-            unshared.Dispose();
+            Log.Error("Failed to write [{0}] packets [{1} bytes] to transport.", _pendingPackets.Count, totalSize);
+            bufferPooled.Dispose();
         }
         else
         {
-            Log.Debug("Successfully wrote packet of type {0} [{1} bytes] to transport.", packet.PacketType,
-                estimatedSize + headerSize);
+            Log.Debug("Successfully wrote N packets {0} [{1} bytes] to transport.", _pendingPackets.Count, totalSize);
         }
-
-        return didWrite;
+        
+        _pendingPackets.Clear();
     }
 
     public void DisconnectFromServer()
@@ -100,6 +124,7 @@ internal class FakeMqtt311ServerHandle : IFakeServerHandle
             {
                 HandlePacket(packet);
             }
+            FlushPackets();
         }
         else
         {
