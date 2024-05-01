@@ -20,11 +20,11 @@ public class Mqtt311EndToEndTcpBenchmarks
     [Params(QualityOfService.AtMostOnce, QualityOfService.AtLeastOnce, QualityOfService.ExactlyOnce)]
     public QualityOfService QoSLevel { get; set; }
 
-    [Params(10, 1024, 2 * 1024)] public int PayloadSizeBytes { get; set; }
+    [Params(10)] public int PayloadSizeBytes { get; set; }
 
     [Params(MqttProtocolVersion.V3_1_1)] public MqttProtocolVersion ProtocolVersion { get; set; }
 
-    public const int PacketCount = 100_00;
+    public const int PacketCount = 1_000;
 
     private ActorSystem? _system;
     private IMqttClientFactory? _clientFactory;
@@ -35,7 +35,8 @@ public class Mqtt311EndToEndTcpBenchmarks
     private MqttClientConnectOptions? _defaultConnectOptions;
     private MqttClientTcpOptions? _defaultTcpOptions;
 
-    private const string Topic = "test";
+    private const string TopicConst = "test";
+    private string Topic = TopicConst;
     private const string Host = "localhost";
     private const int Port = 1883;
     
@@ -59,13 +60,6 @@ public class Mqtt311EndToEndTcpBenchmarks
         _system = ActorSystem.Create("Mqtt311EndToEndTcpBenchmarks", "akka.loglevel=ERROR");
         
         _clientFactory = new MqttClientFactory(_system);
-        _testMessage = new MqttMessage(Topic, CreateMsgPayload())
-        {
-            PayloadFormatIndicator = PayloadFormatIndicator.Unspecified,
-            ContentType = "application/binary",
-            QoS = QoSLevel
-        };
-
         _defaultTcpOptions = new MqttClientTcpOptions(Host, Port) { MaxFrameSize = 256 * 1024 };
     }
     
@@ -79,6 +73,7 @@ public class Mqtt311EndToEndTcpBenchmarks
     [IterationSetup]
     public void SetupPerIteration()
     {
+        Topic = TopicConst + Guid.NewGuid();
         _defaultConnectOptions = new MqttClientConnectOptions("test-subscriber" + Guid.NewGuid(), ProtocolVersion)
         {
             UserName = "admin",
@@ -87,6 +82,14 @@ public class Mqtt311EndToEndTcpBenchmarks
             MaxReconnectAttempts = 3,
             PublishRetryInterval = TimeSpan.FromSeconds(5)
         };
+        
+        _testMessage = new MqttMessage(Topic, CreateMsgPayload())
+        {
+            PayloadFormatIndicator = PayloadFormatIndicator.Unspecified,
+            ContentType = "application/binary",
+            QoS = QoSLevel
+        };
+
         
         _writeTasks.Clear();
         DoSetup().Wait();
@@ -129,7 +132,7 @@ public class Mqtt311EndToEndTcpBenchmarks
     [Benchmark(OperationsPerInvoke = PacketCount * 2)]
     public async Task<int> PublishAndReceiveMessages()
     {
-        using var cts = new CancellationTokenSource(System.TimeSpan.FromMinutes(2));
+        using var cts = new CancellationTokenSource(System.TimeSpan.FromSeconds(30));
 
         var writes = WriteMessages(cts.Token);
 
@@ -150,11 +153,13 @@ public class Mqtt311EndToEndTcpBenchmarks
 
         async Task<int> WriteMessages(CancellationToken ct)
         {
-            for (var i = 0; i < PacketCount; i += ChunkSize)
+            var tasks = new List<Task>(PacketCount);
+            for (var i = 0; i < PacketCount; i++)
             {
-                var tasks = Enumerable.Range(0, ChunkSize).Select(c => _subscribeClient!.PublishAsync(_testMessage!, cts.Token));
-                await Task.WhenAll(tasks).WaitAsync(ct);
+                tasks.Add(_subscribeClient!.PublishAsync(_testMessage!, ct));
             }
+            
+            await Task.WhenAll(tasks);
             
             return 0;
         }

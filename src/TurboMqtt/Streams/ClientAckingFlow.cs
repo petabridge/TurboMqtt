@@ -61,6 +61,7 @@ internal sealed class ClientAckingFlow : GraphStage<FlowShape<MqttPacket, MqttPa
         private readonly SimpleLruCache<NonZeroUInt16> _publishIds;
         private readonly SimpleLruCache<NonZeroUInt16> _pubRelIds;
         private readonly ClientAckingFlow _stage;
+        private readonly Queue<MqttPacket> _buffer = new();
         
         // just to stop us from logging multiple Disconnect messages
         private bool _shutdownTriggered;
@@ -145,6 +146,27 @@ internal sealed class ClientAckingFlow : GraphStage<FlowShape<MqttPacket, MqttPa
                     throw new ArgumentOutOfRangeException(nameof(packet), $"Unsupported packet of type [{packet.PacketType}] - this is a server message.");
             }
         }
+        
+        private bool TryPush(MqttPacket packet)
+        {
+            // if Port is available, push the packet
+            if (IsAvailable(_stage.Out))
+            {
+                if (_buffer.TryDequeue(out var olderPacket))
+                {
+                    Push(_stage.Out, olderPacket);
+                    _buffer.Enqueue(packet);
+                }
+                else
+                    Push(_stage.Out, packet);
+                return true;
+            }
+            else 
+            {
+                _buffer.Enqueue(packet);
+                return false;
+            }
+        }
 
         public override void PreStart()
         {
@@ -163,9 +185,21 @@ internal sealed class ClientAckingFlow : GraphStage<FlowShape<MqttPacket, MqttPa
             FailStage(e);
         }
 
+        public override void PostStop()
+        {
+            // clean up any remaining packets
+            Log.Info("Cleaning up remaining [{0}] packets in buffer.", _buffer.Count);
+            _buffer.Clear();
+        }
+
         public void OnPull()
         {
-            Pull(_stage.In);
+            if(_buffer.TryDequeue(out var packet)) // immediately push the next packet if we have one
+                Push(_stage.Out, packet);
+            else
+                // if we don't have any packets to push, pull from the upstream
+                // to see if we can get more (this is a backpressure mechanism
+                Pull(_stage.In);
         }
 
         public void OnDownstreamFinish(Exception cause)
@@ -179,7 +213,7 @@ internal sealed class ClientAckingFlow : GraphStage<FlowShape<MqttPacket, MqttPa
             switch (publish.QualityOfService)
             {
                 case QualityOfService.AtMostOnce:
-                    Push(_stage.Out, publish); // no ACK required here
+                    TryPush(publish); // no ACK required here
                     return;
                 case QualityOfService.AtLeastOnce:
                 case QualityOfService.ExactlyOnce:
@@ -193,7 +227,7 @@ internal sealed class ClientAckingFlow : GraphStage<FlowShape<MqttPacket, MqttPa
 
                     if (alreadySeen) return; // add the PacketId and push the message if we've never seen it before
                     _publishIds.Add(publish.PacketId);
-                    Push(_stage.Out, publish);
+                    TryPush(publish);
                     return;
                 }
                 default:
