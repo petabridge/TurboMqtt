@@ -4,35 +4,30 @@
 // </copyright>
 // -----------------------------------------------------------------------
 
-using Testcontainers.ActiveMq;
+using TestContainers.Emqx;
 
 namespace TurboMqtt.Container.Tests;
 
-[CollectionDefinition(nameof(ActiveMqCollection))]
-public class ActiveMqCollection : ICollectionFixture<ActiveMqFixture>
+[CollectionDefinition(nameof(EmqxCollection))]
+public class EmqxCollection : ICollectionFixture<EmqxFixture>
 {
     // This class has no code, and is never created. Its purpose is simply
     // to be the place to apply [CollectionDefinition] and all the
     // ICollectionFixture<> interfaces.
 }
 
-public class ActiveMqFixture: IAsyncLifetime
+public class EmqxFixture: IAsyncLifetime
 {
-    public const ushort MqttTcpPort = 1883;
-    
-    public readonly ArtemisContainer Container;
+    public readonly EmqxContainer Container;
 
-    public ActiveMqFixture()
+    public EmqxFixture()
     {
-        Container = new ArtemisBuilder()
-            .WithImage("apache/activemq-artemis:2.31.2")
-            .WithUsername("test")
-            .WithPassword("test")
-            .WithPortBinding(MqttTcpPort, true)
+        Container = new EmqxBuilder()
+            .WithEnvironment("EMQX_SESSION__UPGRADE_QOS", "true")
             .Build();
     }
 
-    public int MqttPort => Container.GetMappedPublicPort(MqttTcpPort);
+    public int MqttPort => Container.BrokerTcpPort;
 
     public async Task InitializeAsync()
     {
