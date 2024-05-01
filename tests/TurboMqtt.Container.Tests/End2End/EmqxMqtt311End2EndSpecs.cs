@@ -14,17 +14,17 @@ using Xunit.Abstractions;
 
 namespace TurboMqtt.Container.Tests.End2End;
 
-[Collection(nameof(ActiveMqCollection))]
-public class ActiveMqMqtt311End2EndSpecs: TestKit
+[Collection(nameof(EmqxCollection))]
+public class EmqxMqtt311End2EndSpecs: TestKit
 {
     public static readonly Config DebugLogging = 
         """
         akka.loglevel = DEBUG
         """;
 
-    private readonly ActiveMqFixture _fixture;
+    private readonly EmqxFixture _fixture;
     
-    public ActiveMqMqtt311End2EndSpecs(ITestOutputHelper output, ActiveMqFixture fixture, Config? config = null) : base(output:output, config:config)
+    public EmqxMqtt311End2EndSpecs(ITestOutputHelper output, EmqxFixture fixture, Config? config = null) : base(output:output, config:config)
     {
         _fixture = fixture;
         ClientFactory = new MqttClientFactory(Sys);
