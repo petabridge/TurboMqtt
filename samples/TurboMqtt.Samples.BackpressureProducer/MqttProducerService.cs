@@ -40,12 +40,10 @@ public sealed class MqttProducerService : BackgroundService
     }
 
     // generate a roughly 1kb long JSON payload message as a static variable
-    private static readonly byte[] OneKbIshPayload = Encoding.UTF8.GetBytes(
-        "{\"id\":\"1234567890\",\"name\":\"John Doe\",\"age\":30,\"address\":\"123 Elm St\",\"city\":\"Springfield\",\"state\":\"IL\",\"zip\":\"62701\"}");
+    private static readonly byte[] OneKbIshPayload = "{\"id\":\"1234567890\",\"name\":\"John Doe\",\"age\":30,\"address\":\"123 Elm St\",\"city\":\"Springfield\",\"state\":\"IL\",\"zip\":\"62701\"}"u8.ToArray();
 
     // generate a roughly 8kb long JSON payload message as a static variable
-    private static readonly byte[] EightKbIshPayload = Encoding.UTF8.GetBytes(
-        "{\"id\":\"1234567890\",\"name\":\"John Doe\",\"age\":30,\"address\":\"123 Elm St\",\"city\":\"Springfield\",\"state\":\"IL\",\"zip\":\"62701\",\"children\":[{\"id\":\"1234567890\",\"name\":\"Jane Doe\",\"age\":5,\"address\":\"123 Elm St\",\"city\":\"Springfield\",\"state\":\"IL\",\"zip\":\"62701\"},{\"id\":\"1234567890\",\"name\":\"Jack Doe\",\"age\":10,\"address\":\"123 Elm St\",\"city\":\"Springfield\",\"state\":\"IL\",\"zip\":\"62701\"},{\"id\":\"1234567890\",\"name\":\"Jill Doe\",\"age\":15,\"address\":\"123 Elm St\",\"city\":\"Springfield\",\"state\":\"IL\",\"zip\":\"62701\"},{\"id\":\"1234567890\",\"name\":\"Jim Doe\",\"age\":20,\"address\":\"123 Elm St\",\"city\":\"Springfield\",\"state\":\"IL\",\"zip\":\"62701\"},{\"id\":\"1234567890\",\"name\":\"Jenny Doe\",\"age\":25,\"address\":\"123 Elm St\",\"city\":\"Springfield\",\"state\":\"IL\",\"zip\":\"62701\"},{\"id\":\"1234567890\",\"name\":\"Jerry Doe\",\"age\":30,\"address\":\"123 Elm St\",\"city\":\"Springfield\",\"state\":\"IL\",\"zip\":\"62701\"},{\"id\":\"1234567890\",\"name\":\"Jasmine Doe\",\"age\":35,\"address\":\"123 Elm St\",\"city\":\"Springfield\",\"state\":\"IL\",\"zip\":\"62701\"},{\"id\":\"1234567890\",\"name\":\"Jared Doe\",\"age\":40,\"address\":\"123 Elm St\",\"city\":\"Springfield\",\"state\":\"IL\",\"zip\":\"62701\"}]}");
+    private static readonly byte[] EightKbIshPayload = "{\"id\":\"1234567890\",\"name\":\"John Doe\",\"age\":30,\"address\":\"123 Elm St\",\"city\":\"Springfield\",\"state\":\"IL\",\"zip\":\"62701\",\"children\":[{\"id\":\"1234567890\",\"name\":\"Jane Doe\",\"age\":5,\"address\":\"123 Elm St\",\"city\":\"Springfield\",\"state\":\"IL\",\"zip\":\"62701\"},{\"id\":\"1234567890\",\"name\":\"Jack Doe\",\"age\":10,\"address\":\"123 Elm St\",\"city\":\"Springfield\",\"state\":\"IL\",\"zip\":\"62701\"},{\"id\":\"1234567890\",\"name\":\"Jill Doe\",\"age\":15,\"address\":\"123 Elm St\",\"city\":\"Springfield\",\"state\":\"IL\",\"zip\":\"62701\"},{\"id\":\"1234567890\",\"name\":\"Jim Doe\",\"age\":20,\"address\":\"123 Elm St\",\"city\":\"Springfield\",\"state\":\"IL\",\"zip\":\"62701\"},{\"id\":\"1234567890\",\"name\":\"Jenny Doe\",\"age\":25,\"address\":\"123 Elm St\",\"city\":\"Springfield\",\"state\":\"IL\",\"zip\":\"62701\"},{\"id\":\"1234567890\",\"name\":\"Jerry Doe\",\"age\":30,\"address\":\"123 Elm St\",\"city\":\"Springfield\",\"state\":\"IL\",\"zip\":\"62701\"},{\"id\":\"1234567890\",\"name\":\"Jasmine Doe\",\"age\":35,\"address\":\"123 Elm St\",\"city\":\"Springfield\",\"state\":\"IL\",\"zip\":\"62701\"},{\"id\":\"1234567890\",\"name\":\"Jared Doe\",\"age\":40,\"address\":\"123 Elm St\",\"city\":\"Springfield\",\"state\":\"IL\",\"zip\":\"62701\"}]}"u8.ToArray();
     
     private static Memory<byte> CreatePayload(int i, TargetMessageSize size)
     {
@@ -88,9 +86,9 @@ public sealed class MqttProducerService : BackgroundService
             var trueCount = 0;
             foreach (var i in Enumerable.Range(0, config.MessageCount))
             {
-                var msg = new MqttMessage(config.Topic, CreatePayload(i, TargetMessageSize.EightKb))
+                var msg = new MqttMessage(config.Topic, CreatePayload(i, TargetMessageSize.Tiny))
                 {
-                    QoS = QualityOfService.AtLeastOnce
+                    QoS = config.QoS
                 };
                 
                 // publish up to 10 messages at a time
