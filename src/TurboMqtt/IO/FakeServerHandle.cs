@@ -26,7 +26,7 @@ internal interface IFakeServerHandle
 
 internal class FakeMqtt311ServerHandle : IFakeServerHandle
 {
-    private readonly TaskCompletionSource<string> _clientIdAssigned = new();
+    protected readonly TaskCompletionSource<string> ClientIdAssigned = new();
     private readonly Mqtt311Decoder _decoder = new();
     private readonly Func<(IMemoryOwner<byte> buffer, int estimatedSize), bool> _pushMessage;
     private readonly Func<Task> _closingAction;
@@ -85,7 +85,7 @@ internal class FakeMqtt311ServerHandle : IFakeServerHandle
         _terminated.TrySetResult();
     }
 
-    public Task<string> WhenClientIdAssigned => _clientIdAssigned.Task;
+    public Task<string> WhenClientIdAssigned => ClientIdAssigned.Task;
     public Task WhenTerminated => _terminated.Task;
     public MqttProtocolVersion ProtocolVersion => MqttProtocolVersion.V3_1_1;
     public ILoggingAdapter Log { get; }
@@ -144,7 +144,7 @@ internal class FakeMqtt311ServerHandle : IFakeServerHandle
             }
             case MqttPacketType.Connect:
                 var connect = (ConnectPacket)packet;
-                _clientIdAssigned.TrySetResult(connect.ClientId);
+                ClientIdAssigned.TrySetResult(connect.ClientId);
                 var connAck = new ConnAckPacket()
                 {
                     SessionPresent = true,
