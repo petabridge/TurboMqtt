@@ -132,7 +132,7 @@ public class Mqtt311EndToEndTcpBenchmarks
     [Benchmark(OperationsPerInvoke = PacketCount * 2)]
     public async Task<int> PublishAndReceiveMessages()
     {
-        using var cts = new CancellationTokenSource(System.TimeSpan.FromMinutes(2));
+        using var cts = new CancellationTokenSource(System.TimeSpan.FromSeconds(30));
 
         var writes = WriteMessages(cts.Token);
 
