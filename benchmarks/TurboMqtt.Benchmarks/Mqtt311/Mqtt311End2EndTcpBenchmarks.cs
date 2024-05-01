@@ -20,11 +20,11 @@ public class Mqtt311EndToEndTcpBenchmarks
     [Params(QualityOfService.AtMostOnce, QualityOfService.AtLeastOnce, QualityOfService.ExactlyOnce)]
     public QualityOfService QoSLevel { get; set; }
 
-    [Params(10, 1024, 2 * 1024)] public int PayloadSizeBytes { get; set; }
+    [Params(10)] public int PayloadSizeBytes { get; set; }
 
     [Params(MqttProtocolVersion.V3_1_1)] public MqttProtocolVersion ProtocolVersion { get; set; }
 
-    public const int PacketCount = 100_00;
+    public const int PacketCount = 10_000;
 
     private ActorSystem? _system;
     private IMqttClientFactory? _clientFactory;
