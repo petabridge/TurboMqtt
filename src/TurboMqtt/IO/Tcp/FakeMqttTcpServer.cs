@@ -154,19 +154,36 @@ internal sealed class FakeMqttTcpServer
                 var result = await reader.ReadAsync(ct);
                 var buffer = result.Buffer;
 
-                // consume this entire sequence by copying it into a new buffer
-                // have to copy because there's no guarantee we can safely release a shared buffer
-                // once we hand the message over to the end-user.
-                var newMemory = new Memory<byte>(new byte[buffer.Length]);
-                buffer.CopyTo(newMemory.Span);
+                if (!buffer.IsEmpty)
+                {
+                    // consume this entire sequence by copying it into a new buffer
+                    // have to copy because there's no guarantee we can safely release a shared buffer
+                    // once we hand the message over to the end-user.
+                    var newMemory = new Memory<byte>(new byte[buffer.Length]);
+                    buffer.CopyTo(newMemory.Span);
+                    
+                    handle.HandleBytes(newMemory);
+                }
 
-                // tell the pipe we're done with this data
-                reader.AdvanceTo(buffer.End);
+                if (result.IsCompleted || result.IsCanceled)
+                {
+                    return; // exit the loop and stop waiting for more data
+                }
 
-                handle.HandleBytes(newMemory);
-                
-                if(result.IsCompleted || result.IsCanceled)
-                    break;
+                if (!buffer.IsEmpty && !ct.IsCancellationRequested)
+                {
+                    try
+                    {
+                        // tell the pipe we're done with this data
+                        reader.AdvanceTo(buffer.End);
+                    }
+                    catch (Exception ex)
+                    {
+                        // junk exception that occurs during shutdown
+                        handle.Log.Debug(ex, "Error advancing the reader with buffer size [{0}] with read result of [Completed={1}, Cancelled={2}]", buffer.Length, result.IsCompleted, result.IsCanceled);
+                        return;
+                    }
+                }
             }
             catch (OperationCanceledException)
             {
@@ -218,6 +235,7 @@ internal sealed class FakeMqttTcpServer
                         break;
                     }
 
+
                     pipe.Writer.Advance(bytesRead);
 
                     var flushResult = await pipe.Writer.FlushAsync(linkedCts.Token);
@@ -255,6 +273,9 @@ internal sealed class FakeMqttTcpServer
 
             // ensure we've cleaned up all resources
             await handle.WhenTerminated;
+            
+            await pipe.Writer.CompleteAsync();
+            await pipe.Reader.CompleteAsync();
 
             return;
 
@@ -296,10 +317,8 @@ internal sealed class FakeMqttTcpServer
             async Task ClosingAction()
             {
                 closed = true;
-                await pipe.Writer.CompleteAsync();
-                await pipe.Reader.CompleteAsync();
                 // ReSharper disable once AccessToModifiedClosure
-                clientShutdownCts.Cancel(false);
+                await clientShutdownCts.CancelAsync();
                 if (socket.Connected) socket.Close();
             }
         }
