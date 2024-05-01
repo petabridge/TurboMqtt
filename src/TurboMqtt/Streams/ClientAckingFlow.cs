@@ -56,12 +56,13 @@ internal sealed class ClientAckingFlow : GraphStage<FlowShape<MqttPacket, MqttPa
         return new Logic(this);
     }
     
-    private sealed class Logic : TimerGraphStageLogic, IInHandler, IOutHandler
+    private sealed class Logic : InAndOutGraphStageLogic
     {
         private readonly SimpleLruCache<NonZeroUInt16> _publishIds;
         private readonly SimpleLruCache<NonZeroUInt16> _pubRelIds;
         private readonly ClientAckingFlow _stage;
         private readonly Queue<MqttPacket> _buffer = new();
+        private Deadline _timeToCheckEvictions = Deadline.Now;
         
         // just to stop us from logging multiple Disconnect messages
         private bool _shutdownTriggered;
@@ -78,7 +79,7 @@ internal sealed class ClientAckingFlow : GraphStage<FlowShape<MqttPacket, MqttPa
             SetHandler(stage.Out, this);
         }
 
-        public void OnPush()
+        public override void OnPush()
         {
             var packet = Grab(_stage.In);
             Log.Debug("Received packet of type [{0}] from client.", packet.PacketType);
@@ -145,6 +146,13 @@ internal sealed class ClientAckingFlow : GraphStage<FlowShape<MqttPacket, MqttPa
                     // we should never reach here - the rest of these messages are server msgs
                     throw new ArgumentOutOfRangeException(nameof(packet), $"Unsupported packet of type [{packet.PacketType}] - this is a server message.");
             }
+            
+            // check to see if we need to evict any expired items
+            if (_timeToCheckEvictions.IsOverdue)
+            {
+                OnExpiredTimer();
+                _timeToCheckEvictions = Deadline.FromNow(TimeSpan.FromSeconds(1));
+            }
         }
         
         private bool TryPush(MqttPacket packet)
@@ -168,19 +176,13 @@ internal sealed class ClientAckingFlow : GraphStage<FlowShape<MqttPacket, MqttPa
             }
         }
 
-        public override void PreStart()
-        {
-            // start the timer to evict expired PacketIds
-            ScheduleRepeatedly("cleanup", TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
-        }
-
-        public void OnUpstreamFinish()
+        public override void OnUpstreamFinish()
         {
             // we're done here
             CompleteStage();
         }
 
-        public void OnUpstreamFailure(Exception e)
+        public override void OnUpstreamFailure(Exception e)
         {
             FailStage(e);
         }
@@ -192,7 +194,7 @@ internal sealed class ClientAckingFlow : GraphStage<FlowShape<MqttPacket, MqttPa
             _buffer.Clear();
         }
 
-        public void OnPull()
+        public override void OnPull()
         {
             if(_buffer.TryDequeue(out var packet)) // immediately push the next packet if we have one
                 Push(_stage.Out, packet);
@@ -202,7 +204,7 @@ internal sealed class ClientAckingFlow : GraphStage<FlowShape<MqttPacket, MqttPa
                 Pull(_stage.In);
         }
 
-        public void OnDownstreamFinish(Exception cause)
+        public override void OnDownstreamFinish(Exception cause)
         {
             // we're done here
             CompleteStage();
@@ -254,7 +256,7 @@ internal sealed class ClientAckingFlow : GraphStage<FlowShape<MqttPacket, MqttPa
             _pubRelIds.Add(pubRel.PacketId);
         }
 
-        protected override void OnTimer(object timerKey)
+        private void OnExpiredTimer()
         {
             // clean up expired items
             _publishIds.EvictExpired();
