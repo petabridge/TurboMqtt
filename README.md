@@ -9,7 +9,7 @@ TurboMqtt is written on top of [Akka.NET](https://getakka.net/) and Akka.Streams
 ## Key Features
 
 * MQTT 3.1.1 support;
-* Extremely high performance;
+* Extremely high performance - hundreds of thousands of messages per second;
 * Extremely resource-efficient - pools memory and leverages asynchronous I/O best practices;
 * Extremely robust fault tolerance - this is one of [Akka.NET's great strengths](https://petabridge.com/blog/akkadotnet-actors-restart/) and we've leveraged it in TurboMqtt;
 * Supports all MQTT quality of service levels, with automatic publishing retries for QoS 1 and 2;
@@ -20,6 +20,15 @@ TurboMqtt is written on top of [Akka.NET](https://getakka.net/) and Akka.Streams
 * Automatically acks QoS 1 and QoS 2 packets.
 
 Simple interface that works at very high rates of speed with minimal resource utilization.
+
+## Documentation
+
+1. [QuickStart](https://github.com/petabridge/TurboMqtt/tree/dev?tab=readme-ov-file#quickstart)
+2. [Performance](https://github.com/petabridge/TurboMqtt/blob/dev/docs/Performance.md)
+3. [OpenTelemetry Support](https://github.com/petabridge/TurboMqtt/blob/dev/docs/Telemetry.md)
+4. [MQTT 3.1.1 Roadmap](https://github.com/petabridge/TurboMqtt/issues/66)
+5. [MQTT 5.0 Roadmap](https://github.com/petabridge/TurboMqtt/issues/67)
+6. [MQTT over Quic Roadmap](https://github.com/petabridge/TurboMqtt/issues/68)
 
 ## QuickStart
 
@@ -150,4 +159,3 @@ You can purchase a license and read our full commerical license terms here: [htt
 To get support with TurboMqtt, either fill out the help form on Sdkbin or [file an issue on the TurboMqtt repository](https://github.com/petabridge/TurboMqtt/issues).
 
 TurboMqtt developed and maintained by [Petabridge](https://petabridge.com/), the company behind Akka.NET.
-
