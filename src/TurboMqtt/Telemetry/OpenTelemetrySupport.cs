@@ -44,16 +44,21 @@ internal static class OpenTelemetrySupport
         Outbound
     }
     
-    public static Counter<long> CreateMessagesCounter(string clientId, MqttProtocolVersion version, Direction direction)
+    public static TagList CreateTags(string clientId, MqttProtocolVersion version)
     {
         var tags = version switch
         {
             MqttProtocolVersion.V3_1_1 => Mqtt311Tags,
             MqttProtocolVersion.V5_0 => Mqtt5Tags,
-            _ => []
+            _ => new TagList()
         };
-        
+
         tags.Add(ClientIdTag, clientId);
+        return tags;
+    }
+    
+    public static Counter<long> CreateMessagesCounter(Direction direction)
+    {
 
         var operationName = direction == Direction.Inbound ? "recv_messages" : "sent_messages";
         var description = direction == Direction.Inbound
@@ -61,26 +66,17 @@ internal static class OpenTelemetrySupport
             : "The number of MQTT messages sent to a broker.";
         
         return Meter.CreateCounter<long>(operationName, "packets",
-            description, tags);
+            description);
     }
     
-    public static Counter<long> CreateBitRateCounter(string clientId, MqttProtocolVersion version, Direction direction)
+    public static Counter<long> CreateBitRateCounter(Direction direction)
     {
-        var tags = version switch
-        {
-            MqttProtocolVersion.V3_1_1 => Mqtt311Tags,
-            MqttProtocolVersion.V5_0 => Mqtt5Tags,
-            _ => []
-        };
-        
-        tags.Add(ClientIdTag, clientId);
-
         var operationName = direction == Direction.Inbound ? "recv_bytes" : "sent_bytes";
         var description = direction == Direction.Inbound
             ? "The number of MQTT bytes received from a broker."
             : "The number of MQTT bytes sent to a broker.";
         
         return Meter.CreateCounter<long>(operationName, "bytes",
-            description, tags);
+            description);
     }
 }
