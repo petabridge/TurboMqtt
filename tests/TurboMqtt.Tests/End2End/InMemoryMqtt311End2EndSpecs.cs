@@ -13,7 +13,7 @@ public class InMemoryMqtt311End2EndSpecs : TransportSpecBase
 {
     // enable debug logging
     public static readonly string Config = """
-                                                   akka.loglevel = INFO
+                                                   akka.loglevel = DEBUG
                                            """;
 
 
