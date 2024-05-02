@@ -93,6 +93,8 @@ internal sealed class ClientAckingFlow : GraphStage<FlowShape<ImmutableList<Mqtt
             // need to do this to ensure that we don't block the stream
             if(!HasBeenPulled(_stage.In))
                 Pull(_stage.In);
+            
+            Log.Debug("Processing [{0}] packets from client.", packets.Count);
 
             foreach (var packet in packets)
             {
@@ -102,7 +104,7 @@ internal sealed class ClientAckingFlow : GraphStage<FlowShape<ImmutableList<Mqtt
                 {
                     var publish = (PublishPacket)packet;
                     HandlePublish(publish);
-                    return;
+                    continue;
                 }
 
                 switch (packet.PacketType)
@@ -245,11 +247,15 @@ internal sealed class ClientAckingFlow : GraphStage<FlowShape<ImmutableList<Mqtt
                     _stage._outboundPackets.TryWrite(pubAck);
 
                     // TODO: check to see if the original packet was a duplicate too - might be interesting to log that here
-                    if (alreadySeen) return; // add the PacketId and push the message if we've never seen it before
+                    if (alreadySeen)
+                    {
+                        return; // add the PacketId and push the message if we've never seen it before
+                    }
+                    
                     _publishIds.Add(publish.PacketId);
                     TryPush(publish);
                     return;
-                }
+            }
                 case QualityOfService.ExactlyOnce:
                 {
                     var pubRec = publish.ToPubRec();
