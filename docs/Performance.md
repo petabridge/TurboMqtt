@@ -10,17 +10,18 @@ BenchmarkDotNet v0.13.12, Windows 11 (10.0.22631.3447/23H2/2023Update/SunValley3
 12th Gen Intel Core i7-1260P, 1 CPU, 16 logical and 12 physical cores
 .NET SDK 8.0.101
   [Host]     : .NET 8.0.1 (8.0.123.58001), X64 RyuJIT AVX2
-  Job-RUMBED : .NET 8.0.1 (8.0.123.58001), X64 RyuJIT AVX2
+  Job-FBXRHG : .NET 8.0.1 (8.0.123.58001), X64 RyuJIT AVX2
 
 InvocationCount=1  LaunchCount=10  RunStrategy=Monitoring  
 UnrollFactor=1  WarmupCount=10  
 
 ```
-| Method                    | QoSLevel    | PayloadSizeBytes | ProtocolVersion | Mean      | Error     | StdDev    | Median    | Req/sec    |
-|-------------------------- |------------ |----------------- |---------------- |----------:|----------:|----------:|----------:|-----------:|
-| **PublishAndReceiveMessages** | **AtMostOnce**  | **10**               | **V3_1_1**          |  **6.253 μs** | **0.3367 μs** | **0.9926 μs** |  **5.988 μs** | **159,935.17** |
-| **PublishAndReceiveMessages** | **AtLeastOnce** | **10**               | **V3_1_1**          | **34.304 μs** | **2.1527 μs** | **6.3473 μs** | **32.091 μs** |  **29,151.32** |
-| **PublishAndReceiveMessages** | **ExactlyOnce** | **10**               | **V3_1_1**          | **50.327 μs** | **1.4411 μs** | **4.2490 μs** | **49.157 μs** |  **19,869.95** |
+| Method                    | QoSLevel    | PayloadSizeBytes | ProtocolVersion | Mean      | Error     | StdDev   | Median    | Req/sec    |
+|-------------------------- |------------ |----------------- |---------------- |----------:|----------:|---------:|----------:|-----------:|
+| **PublishAndReceiveMessages** | **AtMostOnce**  | **10**               | **V3_1_1**          |  **5.175 μs** | **0.6794 μs** | **2.003 μs** |  **4.345 μs** | **193,230.35** |
+| **PublishAndReceiveMessages** | **AtLeastOnce** | **10**               | **V3_1_1**          | **26.309 μs** | **1.4071 μs** | **4.149 μs** | **25.906 μs** |  **38,010.35** |
+| **PublishAndReceiveMessages** | **ExactlyOnce** | **10**               | **V3_1_1**          | **44.501 μs** | **2.2778 μs** | **6.716 μs** | **42.175 μs** |  **22,471.53** |
+
 
 Every benchmark includes 100% of this overhead:
 
@@ -37,9 +38,9 @@ We designed the benchmark to include _everything_ in order to make it `git clone
 
 ### Why the `10b` message size?
 
-We stuck with a relatively low message size because doing anything larger is mostly a matter of scaling `Socket` buffer sizes, and when we perform end-to-end benchmarking with real brokers like [EMQX](https://www.emqx.io/) larger message sizes create memory pressure + availability problems. However, you can run these yourselves at larger sizes.
+We stuck with a relatively low message size because doing anything larger is mostly a matter of scaling `Socket` buffer sizes, and when we perform end-to-end benchmarking with real brokers like [EMQX](https://www.emqx.io/) larger message sizes create memory pressure + availability problems for the broker itself. You can run these yourselves at larger sizes.
 
-In other words, big messages are largely I/O bound problem - the whole purpose of TurboMqtt is make sure your publishing / receive message processing rates aren't CPU bound. Smaller message sizes make that easier to observe.
+But the TL;DR; is: big messages are largely I/O bound problem - the whole purpose of TurboMqtt is make sure your publishing / receive message processing rates aren't CPU bound. Smaller message sizes make that easier to observe.
 
 ### Data with Real Brokers
 
