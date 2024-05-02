@@ -90,10 +90,6 @@ internal sealed class ClientAckingFlow : GraphStage<FlowShape<ImmutableList<Mqtt
         {
             var packets = Grab(_stage.In);
             
-            // need to do this to ensure that we don't block the stream
-            if(!HasBeenPulled(_stage.In))
-                Pull(_stage.In);
-            
             Log.Debug("Processing [{0}] packets from client.", packets.Count);
 
             foreach (var packet in packets)
@@ -162,13 +158,16 @@ internal sealed class ClientAckingFlow : GraphStage<FlowShape<ImmutableList<Mqtt
                 }
             }
 
-
             // check to see if we need to evict any expired items
             if (_timeToCheckEvictions.IsOverdue)
             {
                 OnExpiredTimer();
                 _timeToCheckEvictions = Deadline.FromNow(TimeSpan.FromSeconds(1));
             }
+            
+            // need to do this to ensure that we don't block the stream
+            if(!HasBeenPulled(_stage.In))
+                Pull(_stage.In);
         }
 
         private bool TryPush(MqttPacket packet)
@@ -219,7 +218,7 @@ internal sealed class ClientAckingFlow : GraphStage<FlowShape<ImmutableList<Mqtt
 
         public override void OnPull()
         {
-            while(IsAvailable(_stage.Out) && _buffer.TryDequeue(out var packet)) // immediately push the next packet if we have one
+            if(_buffer.TryDequeue(out var packet)) // immediately push the next packet if we have one
                 Push(_stage.Out, packet);
      
             if (!HasBeenPulled(_stage.In))
