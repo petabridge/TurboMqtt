@@ -218,6 +218,18 @@ internal sealed class ClientAckingFlow : GraphStage<FlowShape<MqttPacket, MqttPa
                     TryPush(publish); // no ACK required here
                     return;
                 case QualityOfService.AtLeastOnce:
+                {
+                    var pubAck = publish.ToPubAck();
+                    var alreadySeen = _publishIds.Contains(publish.PacketId);
+                    pubAck.Duplicate = alreadySeen; // mark as duplicate if this isn't the first time we've ACKd
+                    _stage._outboundPackets.TryWrite(pubAck);
+                    
+                    // TODO: check to see if the original packet was a duplicate too - might be interesting to log that here
+                    if (alreadySeen) return; // add the PacketId and push the message if we've never seen it before
+                    _publishIds.Add(publish.PacketId);
+                    TryPush(publish);
+                    return;
+                }
                 case QualityOfService.ExactlyOnce:
                 {
                     var pubRec = publish.ToPubRec();
