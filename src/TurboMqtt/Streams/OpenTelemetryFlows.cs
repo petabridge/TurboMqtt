@@ -77,11 +77,13 @@ internal sealed class MqttBitRateTelemetryFlow : GraphStage<FlowShape<(
     {
         private readonly MqttBitRateTelemetryFlow _flow;
         private readonly Counter<long> _bitRateCounter;
+        private readonly TagList _defaultTags;
 
         public Logic(MqttBitRateTelemetryFlow flow) : base(flow.Shape)
         {
             _flow = flow;
-            _bitRateCounter = OpenTelemetrySupport.CreateBitRateCounter(flow._clientId, flow._version, flow._direction);
+            _bitRateCounter = OpenTelemetrySupport.CreateBitRateCounter(flow._direction);
+            _defaultTags = OpenTelemetrySupport.CreateTags(flow._clientId, flow._version);
             
             SetHandler(_flow.In, this);
             SetHandler(_flow.Out, this);
@@ -92,7 +94,7 @@ internal sealed class MqttBitRateTelemetryFlow : GraphStage<FlowShape<(
             var msg = Grab(_flow.In);
 
             // record the number of bytes
-            _bitRateCounter.Add(msg.readableBytes);
+            _bitRateCounter.Add(msg.readableBytes, _defaultTags);
 
             Push(_flow.Out, msg);
         }
@@ -136,12 +138,14 @@ internal sealed class MqttPacketRateTelemetryFlow : GraphStage<FlowShape<MqttPac
     {
         private readonly MqttPacketRateTelemetryFlow _flow;
         private readonly Counter<long> _msgCounter;
+        private readonly TagList _defaultTags;
 
         public Logic(MqttPacketRateTelemetryFlow flow) : base(flow.Shape)
         {
             _flow = flow;
 
-            _msgCounter = OpenTelemetrySupport.CreateMessagesCounter(flow._clientId, flow._version, flow._direction);
+            _msgCounter = OpenTelemetrySupport.CreateMessagesCounter(flow._direction);
+            _defaultTags = OpenTelemetrySupport.CreateTags(flow._clientId, flow._version);
             
             SetHandler(_flow.In, this);
             SetHandler(_flow.Out, this);
@@ -150,17 +154,18 @@ internal sealed class MqttPacketRateTelemetryFlow : GraphStage<FlowShape<MqttPac
         public override void OnPush()
         {
             var msg = Grab(_flow.In);
-
-            var tagList = new TagList { { OpenTelemetrySupport.PacketTypeTag, msg.PacketType } };
+            
+            var newTags = _defaultTags;
+            newTags.Add(OpenTelemetrySupport.PacketTypeTag, msg.PacketType);
 
             // record the packet type and QoS level for publish packets
             if (msg.PacketType == MqttPacketType.Publish)
             {
-                tagList.Add(OpenTelemetrySupport.QoSLevelTag, msg.QualityOfService);
+                newTags.Add(OpenTelemetrySupport.QoSLevelTag, msg.QualityOfService);
             }
-
+            
             _msgCounter.Add(1,
-                tagList);
+                newTags);
 
             Push(_flow.Out, msg);
         }
