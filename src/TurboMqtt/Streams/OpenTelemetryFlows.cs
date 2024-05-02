@@ -5,6 +5,7 @@
 // -----------------------------------------------------------------------
 
 using System.Buffers;
+using System.Collections.Immutable;
 using System.Diagnostics;
 using System.Diagnostics.Metrics;
 using Akka;
@@ -25,6 +26,13 @@ internal static class OpenTelemetryFlows
         MqttProtocolVersion version, string clientId, OpenTelemetrySupport.Direction direction)
     {
         var g = new MqttPacketRateTelemetryFlow(version, clientId, direction);
+        return g;
+    }
+    
+    public static IGraph<FlowShape<ImmutableList<MqttPacket>, ImmutableList<MqttPacket>>, NotUsed> MqttMultiPacketRateTelemetryFlow(
+        MqttProtocolVersion version, string clientId, OpenTelemetrySupport.Direction direction)
+    {
+        var g = new MqttMultiPacketRateTelemetryFlow(version, clientId, direction);
         return g;
     }
 
@@ -168,6 +176,82 @@ internal sealed class MqttPacketRateTelemetryFlow : GraphStage<FlowShape<MqttPac
                 newTags);
 
             Push(_flow.Out, msg);
+        }
+
+        public override void OnPull()
+        {
+            Pull(_flow.In);
+        }
+    }
+}
+
+/// <summary>
+/// Uses OTEL metrics to measure the flow of inbound MQTT packets.
+/// </summary>
+internal sealed class MqttMultiPacketRateTelemetryFlow : GraphStage<FlowShape<ImmutableList<MqttPacket>, ImmutableList<MqttPacket>>>
+{
+    private readonly string _clientId;
+    private readonly MqttProtocolVersion _version;
+    private readonly OpenTelemetrySupport.Direction _direction;
+
+
+    public MqttMultiPacketRateTelemetryFlow(MqttProtocolVersion version, string clientId,
+        OpenTelemetrySupport.Direction direction)
+    {
+        _version = version;
+        _clientId = clientId;
+        _direction = direction;
+        Shape = new FlowShape<ImmutableList<MqttPacket>, ImmutableList<MqttPacket>>(In, Out);
+    }
+
+    public override FlowShape<ImmutableList<MqttPacket>, ImmutableList<MqttPacket>> Shape { get; }
+    public Inlet<ImmutableList<MqttPacket>> In { get; } = new("MqttPacketRateTelemetryFlow.in");
+    public Outlet<ImmutableList<MqttPacket>> Out { get; } = new("MqttPacketRateTelemetryFlow.out");
+
+    protected override GraphStageLogic CreateLogic(Attributes inheritedAttributes)
+    {
+        return new Logic(this);
+    }
+
+    private class Logic : InAndOutGraphStageLogic
+    {
+        private readonly MqttMultiPacketRateTelemetryFlow _flow;
+        private readonly Counter<long> _msgCounter;
+        private readonly TagList _defaultTags;
+
+        public Logic(MqttMultiPacketRateTelemetryFlow flow) : base(flow.Shape)
+        {
+            _flow = flow;
+
+            _msgCounter = OpenTelemetrySupport.CreateMessagesCounter(flow._direction);
+            _defaultTags = OpenTelemetrySupport.CreateTags(flow._clientId, flow._version);
+            
+            SetHandler(_flow.In, this);
+            SetHandler(_flow.Out, this);
+        }
+
+        public override void OnPush()
+        {
+            var packets = Grab(_flow.In);
+
+            foreach (var msg in packets)
+            {
+                            
+                var newTags = _defaultTags;
+                newTags.Add(OpenTelemetrySupport.PacketTypeTag, msg.PacketType);
+
+                // record the packet type and QoS level for publish packets
+                if (msg.PacketType == MqttPacketType.Publish)
+                {
+                    newTags.Add(OpenTelemetrySupport.QoSLevelTag, msg.QualityOfService);
+                }
+            
+                _msgCounter.Add(1,
+                    newTags);
+            }
+
+
+            Push(_flow.Out, packets);
         }
 
         public override void OnPull()
