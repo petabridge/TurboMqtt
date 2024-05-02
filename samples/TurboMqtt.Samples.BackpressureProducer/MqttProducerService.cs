@@ -85,6 +85,8 @@ public sealed class MqttProducerService : BackgroundService
             var trueCount = 0;
             foreach (var i in Enumerable.Range(0, config.MessageCount))
             {
+                if (stoppingToken.IsCancellationRequested)
+                    break;
                 var msg = new MqttMessage(config.Topic, CreatePayload(i, TargetMessageSize.Tiny))
                 {
                     QoS = config.QoS
@@ -92,9 +94,10 @@ public sealed class MqttProducerService : BackgroundService
                 
                 // publish up to 10 messages at a time
                 var tasks = new List<Task<IPublishResult>>();
+                using var shortCts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
                 for (var j = 0; j < batchSize; j++)
                 {
-                    tasks.Add(client.PublishAsync(msg, stoppingToken));
+                    tasks.Add(client.PublishAsync(msg, shortCts.Token));
                 }
                 
                 trueCount += batchSize;
