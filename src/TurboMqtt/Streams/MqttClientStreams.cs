@@ -54,13 +54,17 @@ internal static class MqttClientStreams
                 .Via(MqttReceiverFlows.ClientAckingFlow(outboundPackets,
                     actors, disconnectPromise))
                 .Where(c => c.PacketType == MqttPacketType.Publish)
-                .Select(c => ((PublishPacket)c).FromPacket()));
+                .Select(c => ((PublishPacket)c)))
+                .Via(new PacketDeDuplicationFlow(maxRememberedPacketIds, packetIdExpiry))
+                .Select(c => c.FromPacket());
 
         return (ChannelSource.FromReader(transport.Reader)
             .Via(MqttDecodingFlows.Mqtt311Decoding())
             .Async()
             .Via(MqttReceiverFlows.ClientAckingFlow(outboundPackets, actors, disconnectPromise))
             .Where(c => c.PacketType == MqttPacketType.Publish)
-            .Select(c => ((PublishPacket)c).FromPacket()));
+            .Select(c => ((PublishPacket)c)))
+            .Via(new PacketDeDuplicationFlow(maxRememberedPacketIds, packetIdExpiry))
+            .Select(c => c.FromPacket());
     }
 }
