@@ -64,11 +64,8 @@ internal sealed class ClientAckingFlow : GraphStage<FlowShape<ImmutableList<Mqtt
 
     private sealed class Logic : InAndOutGraphStageLogic
     {
-        private readonly SimpleLruCache<NonZeroUInt16> _publishIds;
-        private readonly SimpleLruCache<NonZeroUInt16> _pubRelIds;
         private readonly ClientAckingFlow _stage;
         private readonly Queue<MqttPacket> _buffer = new();
-        private Deadline _timeToCheckEvictions = Deadline.Now;
 
         // just to stop us from logging multiple Disconnect messages
         private bool _shutdownTriggered;
@@ -78,9 +75,6 @@ internal sealed class ClientAckingFlow : GraphStage<FlowShape<ImmutableList<Mqtt
         public Logic(ClientAckingFlow stage) : base(stage.Shape)
         {
             _stage = stage;
-            _publishIds = new SimpleLruCache<NonZeroUInt16>(stage._bufferSize, stage._bufferExpiry);
-            _pubRelIds = new SimpleLruCache<NonZeroUInt16>(stage._bufferSize, stage._bufferExpiry);
-
 
             SetHandler(stage.In, this);
             SetHandler(stage.Out, this);
@@ -161,13 +155,6 @@ internal sealed class ClientAckingFlow : GraphStage<FlowShape<ImmutableList<Mqtt
                             $"Unsupported packet of type [{packet.PacketType}] - this is a server message.");
                 }
             }
-
-            // check to see if we need to evict any expired items
-            if (_timeToCheckEvictions.IsOverdue)
-            {
-                OnExpiredTimer();
-                _timeToCheckEvictions = Deadline.FromNow(TimeSpan.FromSeconds(1));
-            }
         }
 
         private bool TryPush(MqttPacket packet)
@@ -241,31 +228,14 @@ internal sealed class ClientAckingFlow : GraphStage<FlowShape<ImmutableList<Mqtt
                 case QualityOfService.AtLeastOnce:
                 {
                     var pubAck = publish.ToPubAck();
-                    var alreadySeen = _publishIds.Contains(publish.PacketId);
-                    pubAck.Duplicate = alreadySeen; // mark as duplicate if this isn't the first time we've ACKd
                     _stage._outboundPackets.TryWrite(pubAck);
-
-                    // TODO: check to see if the original packet was a duplicate too - might be interesting to log that here
-                    if (alreadySeen)
-                    {
-                        return; // add the PacketId and push the message if we've never seen it before
-                    }
-                    
-                    _publishIds.Add(publish.PacketId);
                     TryPush(publish);
                     return;
             }
                 case QualityOfService.ExactlyOnce:
                 {
                     var pubRec = publish.ToPubRec();
-                    var alreadySeen = _publishIds.Contains(publish.PacketId);
-                    pubRec.Duplicate = alreadySeen; // mark as duplicate if this isn't the first time we've ACKd
-
-                    // TODO: check to see if the original packet was a duplicate too - might be interesting to log that here
                     _stage._outboundPackets.TryWrite(pubRec);
-
-                    if (alreadySeen) return; // add the PacketId and push the message if we've never seen it before
-                    _publishIds.Add(publish.PacketId);
                     TryPush(publish);
                     return;
                 }
@@ -283,21 +253,9 @@ internal sealed class ClientAckingFlow : GraphStage<FlowShape<ImmutableList<Mqtt
             // edge case - what if we receive a PubRel packet for a message that we haven't seen before?
             // that would be a bug with the broker then - ignore it
             var pubComp = pubRel.ToPubComp();
-            var alreadySeen = _pubRelIds.Contains(pubRel.PacketId);
-            pubComp.Duplicate = alreadySeen; // mark as duplicate if this isn't the first time we've ACKd
 
             // send the PubComp packet
             _stage._outboundPackets.TryWrite(pubComp);
-
-            if (alreadySeen) return; // add the PacketId and push the message if we've never seen it before
-            _pubRelIds.Add(pubRel.PacketId);
-        }
-
-        private void OnExpiredTimer()
-        {
-            // clean up expired items
-            _publishIds.EvictExpired();
-            _pubRelIds.EvictExpired();
         }
     }
 }
