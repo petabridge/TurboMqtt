@@ -103,7 +103,7 @@ public abstract class TransportSpecBase : TestKit
     {
         var client = await CreateClient();
 
-        using var cts = new CancellationTokenSource(TimeSpan.FromMinutes(1));
+        using var cts = new CancellationTokenSource(RemainingOrDefault);
         var connectResult = await client.ConnectAsync(cts.Token);
         connectResult.IsSuccess.Should().BeTrue();
 
