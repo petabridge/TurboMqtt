@@ -49,8 +49,8 @@ internal static class MqttClientStreams
                     OpenTelemetrySupport.Direction.Inbound))
                 .Via(MqttDecodingFlows.Mqtt311Decoding())
                 .Async()
-                // .Via(OpenTelemetryFlows.MqttPacketRateTelemetryFlow(MqttProtocolVersion.V3_1_1, clientId,
-                //     OpenTelemetrySupport.Direction.Inbound))
+                .Via(OpenTelemetryFlows.MqttMultiPacketRateTelemetryFlow(MqttProtocolVersion.V3_1_1, clientId,
+                    OpenTelemetrySupport.Direction.Inbound))
                 .Via(MqttReceiverFlows.ClientAckingFlow(maxRememberedPacketIds, packetIdExpiry, outboundPackets,
                     actors, disconnectPromise))
                 .Where(c => c.PacketType == MqttPacketType.Publish)
