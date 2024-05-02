@@ -8,7 +8,6 @@ using System.Text;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
-using TurboMqtt;
 using TurboMqtt.Client;
 using TurboMqtt.Protocol;
 using TurboMqtt.Protocol.Pub;
@@ -80,7 +79,7 @@ public sealed class MqttProducerService : BackgroundService
                 return;
             }
             
-            const int batchSize = 10;
+            const int batchSize = 500;
 
             _logger.LogInformation("Connected to MQTT broker at {0}:{1}", config.Host, config.Port);
             var trueCount = 0;
@@ -103,7 +102,7 @@ public sealed class MqttProducerService : BackgroundService
                 await Task.WhenAll(tasks);
                 if(trueCount % 1000 == 0)
                 {
-                    _logger.LogInformation("Published {0} messages", i);
+                    _logger.LogInformation("Published {0} messages", trueCount);
                 }
             }
 
