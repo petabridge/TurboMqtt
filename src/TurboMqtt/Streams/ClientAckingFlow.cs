@@ -89,6 +89,10 @@ internal sealed class ClientAckingFlow : GraphStage<FlowShape<ImmutableList<Mqtt
         public override void OnPush()
         {
             var packets = Grab(_stage.In);
+            
+            // need to do this to ensure that we don't block the stream
+            if(!HasBeenPulled(_stage.In))
+                Pull(_stage.In);
 
             foreach (var packet in packets)
             {
@@ -100,9 +104,6 @@ internal sealed class ClientAckingFlow : GraphStage<FlowShape<ImmutableList<Mqtt
                     HandlePublish(publish);
                     return;
                 }
-
-                // need to do this to ensure that we don't block the stream
-                Pull(_stage.In);
 
                 switch (packet.PacketType)
                 {
@@ -212,9 +213,8 @@ internal sealed class ClientAckingFlow : GraphStage<FlowShape<ImmutableList<Mqtt
         {
             if (_buffer.TryDequeue(out var packet)) // immediately push the next packet if we have one
                 Push(_stage.Out, packet);
-            else
-                // if we don't have any packets to push, pull from the upstream
-                // to see if we can get more (this is a backpressure mechanism
+     
+            if (!HasBeenPulled(_stage.In))
                 Pull(_stage.In);
         }
 
