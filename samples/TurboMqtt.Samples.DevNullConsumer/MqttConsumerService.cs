@@ -39,8 +39,7 @@ public sealed class MqttConsumerService : BackgroundService
             {
                 UserName = config.User,
                 Password = config.Password,
-                KeepAliveSeconds = 5,
-                EnableOpenTelemetry = false // disable telemetry
+                KeepAliveSeconds = 5
             };
 
             var client = await _clientFactory.CreateTcpClient(clientConnectOptions, tcpClientOptions);
