@@ -5,6 +5,7 @@
 // -----------------------------------------------------------------------
 
 using System.Buffers;
+using System.Collections.Immutable;
 using Akka;
 using Akka.Event;
 using Akka.Streams;
@@ -29,11 +30,10 @@ public static class MqttDecodingFlows
     /// to dispose of the <see cref="IMemoryOwner{T}"/> buffer.
     /// </remarks>
     /// <returns>An Akka.Streams graph - still needs to be connected to a source and a sink in order to run.</returns>
-    public static IGraph<FlowShape<(IMemoryOwner<byte> buffer, int readableBytes), MqttPacket>, NotUsed> Mqtt311Decoding()
+    public static IGraph<FlowShape<(IMemoryOwner<byte> buffer, int readableBytes), ImmutableList<MqttPacket>>, NotUsed> Mqtt311Decoding()
     {
         var g = Flow.Create<(IMemoryOwner<byte> buffer, int readableBytes)>()
-            .Via(new Mqtt311DecoderFlow())
-            .SelectMany(c => c); // flatten the IEnumerable<MqttPacket> into a stream of MqttPacket
+            .Via(new Mqtt311DecoderFlow()); // flatten the IEnumerable<MqttPacket> into a stream of MqttPacket
 
         return g;
     }
@@ -46,19 +46,19 @@ public static class MqttDecodingFlows
 /// Will have to allocate additional byte arrays in order to be safe if we're using shared <see cref="IMemoryOwner{T}"/> instances.
 /// </remarks>
 internal sealed class Mqtt311DecoderFlow : GraphStage<FlowShape<(
-    IMemoryOwner<byte> buffer, int readableBytes), IEnumerable<MqttPacket>>>
+    IMemoryOwner<byte> buffer, int readableBytes), ImmutableList<MqttPacket>>>
 {
     public Mqtt311DecoderFlow()
     {
         In = new Inlet<(IMemoryOwner<byte> buffer, int readableBytes)>("Mqtt311DecoderFlow.In");
-        Out = new Outlet<IEnumerable<MqttPacket>>("Mqtt311DecoderFlow.Out");
-        Shape = new FlowShape<(IMemoryOwner<byte> buffer, int readableBytes), IEnumerable<MqttPacket>>(In, Out);
+        Out = new Outlet<ImmutableList<MqttPacket>>("Mqtt311DecoderFlow.Out");
+        Shape = new FlowShape<(IMemoryOwner<byte> buffer, int readableBytes), ImmutableList<MqttPacket>>(In, Out);
     }
 
-    public override FlowShape<(IMemoryOwner<byte> buffer, int readableBytes), IEnumerable<MqttPacket>> Shape { get; }
+    public override FlowShape<(IMemoryOwner<byte> buffer, int readableBytes), ImmutableList<MqttPacket>> Shape { get; }
 
     public Inlet<(IMemoryOwner<byte> buffer, int readableBytes)> In { get; }
-    public Outlet<IEnumerable<MqttPacket>> Out { get; }
+    public Outlet<ImmutableList<MqttPacket>> Out { get; }
     
     protected override Attributes InitialAttributes => DefaultAttributes.Select;
     

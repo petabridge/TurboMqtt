@@ -4,6 +4,7 @@
 // </copyright>
 // -----------------------------------------------------------------------
 
+using System.Collections.Immutable;
 using System.Threading.Channels;
 using Akka;
 using Akka.Streams;
@@ -16,7 +17,7 @@ namespace TurboMqtt.Streams;
 /// </summary>
 internal static class MqttReceiverFlows
 {
-    public static IGraph<FlowShape<MqttPacket, MqttPacket>, NotUsed> ClientAckingFlow(int bufferSize, TimeSpan bufferExpiry, ChannelWriter<MqttPacket> outboundPackets, MqttRequiredActors actors, TaskCompletionSource<DisconnectPacket> disconnectPromise)
+    public static IGraph<FlowShape<ImmutableList<MqttPacket>, MqttPacket>, NotUsed> ClientAckingFlow(int bufferSize, TimeSpan bufferExpiry, ChannelWriter<MqttPacket> outboundPackets, MqttRequiredActors actors, TaskCompletionSource<DisconnectPacket> disconnectPromise)
     {
         var g = new ClientAckingFlow(bufferSize, bufferExpiry, outboundPackets, actors, disconnectPromise);
         return g;
