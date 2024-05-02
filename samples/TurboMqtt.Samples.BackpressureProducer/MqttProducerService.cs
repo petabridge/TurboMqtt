@@ -8,9 +8,9 @@ using System.Text;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
-using TurboMqtt;
 using TurboMqtt.Client;
 using TurboMqtt.Protocol;
+using TurboMqtt.Protocol.Pub;
 
 namespace TurboMqtt.Samples.BackpressureProducer;
 
@@ -39,12 +39,10 @@ public sealed class MqttProducerService : BackgroundService
     }
 
     // generate a roughly 1kb long JSON payload message as a static variable
-    private static readonly byte[] OneKbIshPayload = Encoding.UTF8.GetBytes(
-        "{\"id\":\"1234567890\",\"name\":\"John Doe\",\"age\":30,\"address\":\"123 Elm St\",\"city\":\"Springfield\",\"state\":\"IL\",\"zip\":\"62701\"}");
+    private static readonly byte[] OneKbIshPayload = "{\"id\":\"1234567890\",\"name\":\"John Doe\",\"age\":30,\"address\":\"123 Elm St\",\"city\":\"Springfield\",\"state\":\"IL\",\"zip\":\"62701\"}"u8.ToArray();
 
     // generate a roughly 8kb long JSON payload message as a static variable
-    private static readonly byte[] EightKbIshPayload = Encoding.UTF8.GetBytes(
-        "{\"id\":\"1234567890\",\"name\":\"John Doe\",\"age\":30,\"address\":\"123 Elm St\",\"city\":\"Springfield\",\"state\":\"IL\",\"zip\":\"62701\",\"children\":[{\"id\":\"1234567890\",\"name\":\"Jane Doe\",\"age\":5,\"address\":\"123 Elm St\",\"city\":\"Springfield\",\"state\":\"IL\",\"zip\":\"62701\"},{\"id\":\"1234567890\",\"name\":\"Jack Doe\",\"age\":10,\"address\":\"123 Elm St\",\"city\":\"Springfield\",\"state\":\"IL\",\"zip\":\"62701\"},{\"id\":\"1234567890\",\"name\":\"Jill Doe\",\"age\":15,\"address\":\"123 Elm St\",\"city\":\"Springfield\",\"state\":\"IL\",\"zip\":\"62701\"},{\"id\":\"1234567890\",\"name\":\"Jim Doe\",\"age\":20,\"address\":\"123 Elm St\",\"city\":\"Springfield\",\"state\":\"IL\",\"zip\":\"62701\"},{\"id\":\"1234567890\",\"name\":\"Jenny Doe\",\"age\":25,\"address\":\"123 Elm St\",\"city\":\"Springfield\",\"state\":\"IL\",\"zip\":\"62701\"},{\"id\":\"1234567890\",\"name\":\"Jerry Doe\",\"age\":30,\"address\":\"123 Elm St\",\"city\":\"Springfield\",\"state\":\"IL\",\"zip\":\"62701\"},{\"id\":\"1234567890\",\"name\":\"Jasmine Doe\",\"age\":35,\"address\":\"123 Elm St\",\"city\":\"Springfield\",\"state\":\"IL\",\"zip\":\"62701\"},{\"id\":\"1234567890\",\"name\":\"Jared Doe\",\"age\":40,\"address\":\"123 Elm St\",\"city\":\"Springfield\",\"state\":\"IL\",\"zip\":\"62701\"}]}");
+    private static readonly byte[] EightKbIshPayload = "{\"id\":\"1234567890\",\"name\":\"John Doe\",\"age\":30,\"address\":\"123 Elm St\",\"city\":\"Springfield\",\"state\":\"IL\",\"zip\":\"62701\",\"children\":[{\"id\":\"1234567890\",\"name\":\"Jane Doe\",\"age\":5,\"address\":\"123 Elm St\",\"city\":\"Springfield\",\"state\":\"IL\",\"zip\":\"62701\"},{\"id\":\"1234567890\",\"name\":\"Jack Doe\",\"age\":10,\"address\":\"123 Elm St\",\"city\":\"Springfield\",\"state\":\"IL\",\"zip\":\"62701\"},{\"id\":\"1234567890\",\"name\":\"Jill Doe\",\"age\":15,\"address\":\"123 Elm St\",\"city\":\"Springfield\",\"state\":\"IL\",\"zip\":\"62701\"},{\"id\":\"1234567890\",\"name\":\"Jim Doe\",\"age\":20,\"address\":\"123 Elm St\",\"city\":\"Springfield\",\"state\":\"IL\",\"zip\":\"62701\"},{\"id\":\"1234567890\",\"name\":\"Jenny Doe\",\"age\":25,\"address\":\"123 Elm St\",\"city\":\"Springfield\",\"state\":\"IL\",\"zip\":\"62701\"},{\"id\":\"1234567890\",\"name\":\"Jerry Doe\",\"age\":30,\"address\":\"123 Elm St\",\"city\":\"Springfield\",\"state\":\"IL\",\"zip\":\"62701\"},{\"id\":\"1234567890\",\"name\":\"Jasmine Doe\",\"age\":35,\"address\":\"123 Elm St\",\"city\":\"Springfield\",\"state\":\"IL\",\"zip\":\"62701\"},{\"id\":\"1234567890\",\"name\":\"Jared Doe\",\"age\":40,\"address\":\"123 Elm St\",\"city\":\"Springfield\",\"state\":\"IL\",\"zip\":\"62701\"}]}"u8.ToArray();
     
     private static Memory<byte> CreatePayload(int i, TargetMessageSize size)
     {
@@ -80,36 +78,40 @@ public sealed class MqttProducerService : BackgroundService
                     connectResult.Reason);
                 return;
             }
+            
+            const int batchSize = 500;
 
             _logger.LogInformation("Connected to MQTT broker at {0}:{1}", config.Host, config.Port);
+            var trueCount = 0;
             foreach (var i in Enumerable.Range(0, config.MessageCount))
             {
-                var msg = new MqttMessage(config.Topic, CreatePayload(i, TargetMessageSize.EightKb))
+                if (stoppingToken.IsCancellationRequested)
+                    break;
+                var msg = new MqttMessage(config.Topic, CreatePayload(i, TargetMessageSize.Tiny))
                 {
-                    QoS = QualityOfService.AtLeastOnce
+                    QoS = config.QoS
                 };
-
-                // if(i % 3 == 0)
-                // {
-                //     msg = new MqttMessage(config.Topic, CreatePayload(i, TargetMessageSize.OneKb));
-                // }
-                // else if(i % 5 == 0)
-                // {
-                //     msg = new MqttMessage(config.Topic, CreatePayload(i, TargetMessageSize.EightKb));
-                // }
-                // else
-                // {
-                //     msg = new MqttMessage(config.Topic, CreatePayload(i, TargetMessageSize.Tiny));
-                // }
-                var pb = await client.PublishAsync(msg, stoppingToken);
-                if(i % 1000 == 0)
+                
+                // publish up to 10 messages at a time
+                var tasks = new List<Task<IPublishResult>>();
+                using var shortCts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+                for (var j = 0; j < batchSize; j++)
                 {
-                    _logger.LogInformation("Published {0} messages", i);
+                    tasks.Add(client.PublishAsync(msg, shortCts.Token));
+                }
+                
+                trueCount += batchSize;
+                
+                await Task.WhenAll(tasks);
+                if(trueCount % 1000 == 0)
+                {
+                    _logger.LogInformation("Published {0} messages", trueCount);
                 }
             }
 
             _logger.LogInformation("Shutting down MQTT consumer service");
-            await client.DisconnectAsync(stoppingToken);
+            using var cancelCts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+            await client.DisconnectAsync(cancelCts.Token);
         }
         catch (Exception ex)
         {

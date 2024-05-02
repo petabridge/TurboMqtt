@@ -48,16 +48,18 @@ internal static class MqttClientStreams
                 .Via(OpenTelemetryFlows.MqttBitRateTelemetryFlow(MqttProtocolVersion.V3_1_1, clientId,
                     OpenTelemetrySupport.Direction.Inbound))
                 .Via(MqttDecodingFlows.Mqtt311Decoding())
-                .Via(OpenTelemetryFlows.MqttPacketRateTelemetryFlow(MqttProtocolVersion.V3_1_1, clientId,
+                .Async()
+                .Via(OpenTelemetryFlows.MqttMultiPacketRateTelemetryFlow(MqttProtocolVersion.V3_1_1, clientId,
                     OpenTelemetrySupport.Direction.Inbound))
-                .Via(MqttReceiverFlows.ClientAckingFlow(maxRememberedPacketIds, packetIdExpiry, outboundPackets,
+                .Via(MqttReceiverFlows.ClientAckingFlow(outboundPackets,
                     actors, disconnectPromise))
                 .Where(c => c.PacketType == MqttPacketType.Publish)
                 .Select(c => ((PublishPacket)c).FromPacket()));
 
         return (ChannelSource.FromReader(transport.Reader)
             .Via(MqttDecodingFlows.Mqtt311Decoding())
-            .Via(MqttReceiverFlows.ClientAckingFlow(maxRememberedPacketIds, packetIdExpiry, outboundPackets, actors, disconnectPromise))
+            .Async()
+            .Via(MqttReceiverFlows.ClientAckingFlow(outboundPackets, actors, disconnectPromise))
             .Where(c => c.PacketType == MqttPacketType.Publish)
             .Select(c => ((PublishPacket)c).FromPacket()));
     }

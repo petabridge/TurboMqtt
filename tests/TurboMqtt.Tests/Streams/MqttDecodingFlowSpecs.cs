@@ -62,7 +62,7 @@ public class MqttDecodingFlowSpecs : TestKit
             .From(new MqttPacket[] { connectPacket, connAckPacket, publishPacket1 })
             .Via(encodingFlow)
             .Via(decodingFlow)
-            .RunAggregate(ImmutableList<MqttPacket>.Empty, (a, b) => a.Add(b), Sys);
+            .RunAggregate(ImmutableList<MqttPacket>.Empty, (a, b) => a.AddRange(b), Sys);
 
         decodedPackets.Count.Should().Be(3);
     }

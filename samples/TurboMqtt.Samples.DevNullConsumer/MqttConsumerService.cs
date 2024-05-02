@@ -39,7 +39,8 @@ public sealed class MqttConsumerService : BackgroundService
             {
                 UserName = config.User,
                 Password = config.Password,
-                KeepAliveSeconds = 5
+                KeepAliveSeconds = 5,
+                CleanSession = true
             };
 
             var client = await _clientFactory.CreateTcpClient(clientConnectOptions, tcpClientOptions);
@@ -77,7 +78,8 @@ public sealed class MqttConsumerService : BackgroundService
             }
 
             _logger.LogInformation("Shutting down MQTT consumer service");
-            await client.DisconnectAsync(stoppingToken);
+            using var disconnectCts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+            await client.DisconnectAsync(disconnectCts.Token);
         }
         catch(OperationCanceledException){ }
         catch (Exception ex)
