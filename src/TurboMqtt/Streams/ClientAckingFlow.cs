@@ -177,15 +177,21 @@ internal sealed class ClientAckingFlow : GraphStage<FlowShape<ImmutableList<Mqtt
                 if (_buffer.TryDequeue(out var olderPacket))
                 {
                     Push(_stage.Out, olderPacket);
+                    Log.Debug("Pushing older packet of type [{0}] from buffer.", olderPacket.PacketType);
                     _buffer.Enqueue(packet);
                 }
                 else
+                {
+                    Log.Debug("Pushing packet of type [{0}] without buffering", packet.PacketType);
                     Push(_stage.Out, packet);
+                }
+                    
 
                 return true;
             }
             else
             {
+                Log.Debug("Buffering packet of type [{0}] due to backpressure.", packet.PacketType);
                 _buffer.Enqueue(packet);
                 return false;
             }
@@ -211,7 +217,7 @@ internal sealed class ClientAckingFlow : GraphStage<FlowShape<ImmutableList<Mqtt
 
         public override void OnPull()
         {
-            if (_buffer.TryDequeue(out var packet)) // immediately push the next packet if we have one
+            while(IsAvailable(_stage.Out) && _buffer.TryDequeue(out var packet)) // immediately push the next packet if we have one
                 Push(_stage.Out, packet);
      
             if (!HasBeenPulled(_stage.In))
