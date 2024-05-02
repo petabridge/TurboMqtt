@@ -5,16 +5,12 @@
 // -----------------------------------------------------------------------
 
 using System.Collections.Immutable;
-using System.Diagnostics;
-using System.Diagnostics.Metrics;
 using System.Threading.Channels;
 using Akka.Actor;
 using Akka.Event;
 using Akka.Streams;
 using Akka.Streams.Stage;
 using TurboMqtt.PacketTypes;
-using TurboMqtt.Telemetry;
-using TurboMqtt.Utility;
 
 namespace TurboMqtt.Streams;
 
@@ -25,30 +21,19 @@ internal sealed class ClientAckingFlow : GraphStage<FlowShape<ImmutableList<Mqtt
 {
     private readonly TaskCompletionSource<DisconnectPacket> _disconnectPromise;
     private readonly MqttRequiredActors _actors;
-    private readonly int _bufferSize;
-    private readonly TimeSpan _bufferExpiry;
 
     /// <summary>
     /// Used to send packets back to the broker.
     /// </summary>
     private readonly ChannelWriter<MqttPacket> _outboundPackets;
 
-    public ClientAckingFlow(int bufferSize, TimeSpan bufferExpiry, ChannelWriter<MqttPacket> outboundPackets,
+    public ClientAckingFlow(ChannelWriter<MqttPacket> outboundPackets,
         MqttRequiredActors actors, TaskCompletionSource<DisconnectPacket> disconnectPromise)
     {
-        // assert that buffer size is at least 1
-        if (bufferSize < 1)
-            throw new ArgumentException("Buffer size must be at least 1", nameof(bufferSize));
-
-        // assert that bufferExpiry is non-zero
-        if (bufferExpiry <= TimeSpan.Zero)
-            throw new ArgumentException("Buffer expiry must be greater than zero", nameof(bufferExpiry));
         _outboundPackets = outboundPackets;
         _actors = actors;
         _disconnectPromise = disconnectPromise;
-
-        _bufferSize = bufferSize;
-        _bufferExpiry = bufferExpiry;
+        
         Shape = new FlowShape<ImmutableList<MqttPacket>, MqttPacket>(In, Out);
     }
 
