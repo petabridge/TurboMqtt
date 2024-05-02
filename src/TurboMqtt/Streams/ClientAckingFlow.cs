@@ -90,6 +90,10 @@ internal sealed class ClientAckingFlow : GraphStage<FlowShape<ImmutableList<Mqtt
         {
             var packets = Grab(_stage.In);
             
+            // need to do this to ensure that we don't block the stream
+            if(!HasBeenPulled(_stage.In))
+                Pull(_stage.In);
+            
             Log.Debug("Processing [{0}] packets from client.", packets.Count);
 
             foreach (var packet in packets)
@@ -164,10 +168,6 @@ internal sealed class ClientAckingFlow : GraphStage<FlowShape<ImmutableList<Mqtt
                 OnExpiredTimer();
                 _timeToCheckEvictions = Deadline.FromNow(TimeSpan.FromSeconds(1));
             }
-            
-            // need to do this to ensure that we don't block the stream
-            if(!HasBeenPulled(_stage.In))
-                Pull(_stage.In);
         }
 
         private bool TryPush(MqttPacket packet)
