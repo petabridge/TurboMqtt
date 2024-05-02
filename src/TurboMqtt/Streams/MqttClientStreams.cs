@@ -53,6 +53,7 @@ internal static class MqttClientStreams
                     OpenTelemetrySupport.Direction.Inbound))
                 .Via(MqttReceiverFlows.ClientAckingFlow(outboundPackets,
                     actors, disconnectPromise))
+                .Async()
                 .Where(c => c.PacketType == MqttPacketType.Publish)
                 .Select(c => ((PublishPacket)c)))
                 .Via(new PacketDeDuplicationFlow(maxRememberedPacketIds, packetIdExpiry))
@@ -62,6 +63,7 @@ internal static class MqttClientStreams
             .Via(MqttDecodingFlows.Mqtt311Decoding())
             .Async()
             .Via(MqttReceiverFlows.ClientAckingFlow(outboundPackets, actors, disconnectPromise))
+            .Async()
             .Where(c => c.PacketType == MqttPacketType.Publish)
             .Select(c => ((PublishPacket)c)))
             .Via(new PacketDeDuplicationFlow(maxRememberedPacketIds, packetIdExpiry))
