@@ -21,6 +21,10 @@ UnrollFactor=1  WarmupCount=10
 | **PublishAndReceiveMessages** | **AtMostOnce**  | **10**               | **V3_1_1**          |  **4.453 μs** | **0.5012 μs** | **1.478 μs** | **224,583.72** |
 | **PublishAndReceiveMessages** | **AtLeastOnce** | **10**               | **V3_1_1**          | **24.358 μs** | **0.8365 μs** | **2.466 μs** |  **41,054.14** |
 | **PublishAndReceiveMessages** | **ExactlyOnce** | **10**               | **V3_1_1**          | **39.245 μs** | **3.0092 μs** | **8.873 μs** |  **25,480.94** |
+| **PublishAndReceiveMessages** | **AtMostOnce**  | **8192**             | **V3_1_1**          |  **15.25 μs** |   **2.454 μs** |   **7.235 μs** | **11.55 μs** | **65,573.90** |
+| **PublishAndReceiveMessages** | **AtLeastOnce** | **8192**             | **V3_1_1**          |  **35.33 μs** |   **2.451 μs** |   **7.226 μs** | **35.89 μs** | **28,303.75** |
+| **PublishAndReceiveMessages** | **ExactlyOnce** | **8192**             | **V3_1_1**          | **155.65 μs** | **248.599 μs** | **733.001 μs** | **51.99 μs** |  **6,424.66** |
+
 
 
 Every benchmark includes 100% of this overhead:
