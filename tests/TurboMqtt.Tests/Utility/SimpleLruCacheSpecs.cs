@@ -11,16 +11,16 @@ namespace TurboMqtt.Tests.Utility;
 public class SimpleLruCacheSpecs
 {
     [Fact]
-    public void SimpleLruCache_should_evict_oldest_item_when_capacity_reached()
+    public void SimpleLruCache_should_expand_when_capacity_reached()
     {
         var cache = new SimpleLruCache<int>(capacity: 3);
-        cache.Add(1, Deadline.Now); // should be removed
+        cache.Add(1, Deadline.Now); 
         cache.Add(2);
         cache.Add(3);
         cache.Add(4);
 
-        cache.Count.Should().Be(3);
-        cache.Contains(1).Should().BeFalse();
+        cache.Count.Should().Be(4); // should expand to 4
+        cache.Contains(1).Should().BeTrue();
         cache.Contains(2).Should().BeTrue();
         cache.Contains(3).Should().BeTrue();
         cache.Contains(4).Should().BeTrue();

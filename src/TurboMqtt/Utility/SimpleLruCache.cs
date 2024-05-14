@@ -54,6 +54,9 @@ internal sealed class SimpleLruCache<TKey> where TKey : notnull
             evicted++;
             _cache.Remove(kvp.Key);
         }
+        
+        // trim the cache to its original capacity
+        _cache.TrimExcess();
 
         return evicted;
     }
