@@ -13,6 +13,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "build", "build", "{B3AABB6F
 		Directory.Packages.props = Directory.Packages.props
 		global.json = global.json
 		nuget.config = nuget.config
+		README.md = README.md
 	EndProjectSection
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TurboMqtt.Benchmarks", "benchmarks\TurboMqtt.Benchmarks\TurboMqtt.Benchmarks.csproj", "{7F0DD423-98D0-4BB0-B9AA-1EA9D42901F0}"
@@ -24,6 +25,7 @@ EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TurboMqtt.Samples.BackpressureProducer", "samples\TurboMqtt.Samples.BackpressureProducer\TurboMqtt.Samples.BackpressureProducer.csproj", "{B3A2A6E9-DF52-4CFA-8F53-C9878525C2E0}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TurboMqtt.Container.Tests", "tests\TurboMqtt.Container.Tests\TurboMqtt.Container.Tests.csproj", "{CEE1640B-1C76-4683-BA14-C970B19E17E2}"
+EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TestContainers.TurboMqtt", "tests\TestContainers.TurboMqtt\TestContainers.TurboMqtt.csproj", "{CC7C2D64-7C40-4676-A32A-0F2ECDE99BDF}"
 EndProject
 Global

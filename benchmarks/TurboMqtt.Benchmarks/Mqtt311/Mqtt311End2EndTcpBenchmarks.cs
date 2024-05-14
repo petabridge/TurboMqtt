@@ -23,7 +23,7 @@ public class Mqtt311EndToEndTcpBenchmarks
     [Params(QualityOfService.AtMostOnce, QualityOfService.AtLeastOnce, QualityOfService.ExactlyOnce)]
     public QualityOfService QoSLevel { get; set; }
 
-    [Params(10)] public int PayloadSizeBytes { get; set; }
+    [Params(10, 1024, 1024*8)] public int PayloadSizeBytes { get; set; }
 
     [Params(MqttProtocolVersion.V3_1_1)] public MqttProtocolVersion ProtocolVersion { get; set; }
 
@@ -65,7 +65,7 @@ public class Mqtt311EndToEndTcpBenchmarks
             logger, TimeSpan.Zero, new DefaultFakeServerHandleFactory());
         _server.Bind();
         _clientFactory = new MqttClientFactory(_system);
-        _defaultTcpOptions = new MqttClientTcpOptions(Host, Port) { MaxFrameSize = 256 * 1024 };
+        _defaultTcpOptions = new MqttClientTcpOptions(Host, Port) { MaxFrameSize = 256*1024 };
     }
     
     [GlobalCleanup]
@@ -129,7 +129,6 @@ public class Mqtt311EndToEndTcpBenchmarks
             await _subscribeClient!.DisconnectAsync(cts.Token);
             await _subscribeClient!.WhenTerminated.WaitAsync(cts.Token);
             await _subscribeClient!.DisposeAsync();
-            //_server!.TryKickClient(_subscribeClient.ClientId);
         }
     }
 
