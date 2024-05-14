@@ -37,13 +37,6 @@ internal sealed class SimpleLruCache<TKey> where TKey : notnull
     
     public void Add(TKey key, Deadline deadline)
     {
-        if (_cache.Count > Capacity)
-        {
-            // remove the oldest item
-            var oldest = _cache.MinBy(x => x.Value);
-            _cache.Remove(oldest.Key);
-        }
-
         _cache[key] = deadline;
     }
     
