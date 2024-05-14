@@ -11,12 +11,14 @@ namespace TurboMqtt.Benchmarks.DeDupe;
 
 public class TopicCacheManagerCrudBenchmarks
 {
+    [Params(1,2,3)] public int ActiveTopics { get; set; }
+    
     public readonly TimeSpan Expiry = TimeSpan.Zero;
     private TopicCacheManager<ushort> _cacheManager = null!;
     
-    private const string Topic1 = "test1";
-    private const string Topic2 = "test2";
-    private const string Topic3 = "test3";
+    private const string Topic1 = "test0";
+    private const string Topic2 = "test1";
+    private const string Topic3 = "test2";
     
     [IterationSetup]
     public void Setup()
@@ -24,9 +26,8 @@ public class TopicCacheManagerCrudBenchmarks
         _cacheManager = new TopicCacheManager<ushort>(1000, Expiry);
         
         // pre-populate the cache with zero, which is an illegal packetId so it won't get used again
-        _cacheManager.AddItem(Topic1, 0);
-        _cacheManager.AddItem(Topic2, 0);
-        _cacheManager.AddItem(Topic3, 0);
+        for(var i = 0; i < ActiveTopics; i++)
+            _cacheManager.AddItem($"topic{i}", 0);
     }
     
     [Benchmark]
