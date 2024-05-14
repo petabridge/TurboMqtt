@@ -37,7 +37,7 @@ internal sealed class SimpleLruCache<TKey> where TKey : notnull
     
     public void Add(TKey key, Deadline deadline)
     {
-        if (_cache.Count >= Capacity)
+        if (_cache.Count > Capacity)
         {
             // remove the oldest item
             var oldest = _cache.MinBy(x => x.Value);
@@ -54,13 +54,15 @@ internal sealed class SimpleLruCache<TKey> where TKey : notnull
     
     public int EvictExpired()
     {
-        var expired = _cache.Where(x => x.Value.IsOverdue).ToList();
+        var expired = _cache.Where(x => x.Value.IsOverdue);
+        var evicted = 0;
         foreach (var kvp in expired)
         {
+            evicted++;
             _cache.Remove(kvp.Key);
         }
 
-        return expired.Count;
+        return evicted;
     }
     
     public void Clear()
