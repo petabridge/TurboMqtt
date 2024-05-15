@@ -26,7 +26,7 @@ internal static class MqttPacketSizeEstimator
     /// <returns>The length of the packet NOT INCLUDING the length header, which gets calculated separately via <see cref="GetPacketLengthHeaderSize"/>.</returns>
     /// <exception cref="ArgumentOutOfRangeException">Thrown when an recognized MQTT protocol version is supplied.</exception>
     public static int EstimatePacketSize(MqttPacket packet,
-        MqttProtocolVersion protocolVersion = MqttProtocolVersion.V5_0)
+        MqttProtocolVersion protocolVersion)
     {
         switch (protocolVersion)
         {
