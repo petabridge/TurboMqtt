@@ -19,7 +19,7 @@ public class Mqtt311ConnectCodecBenchmarks
     private readonly ConnectPacket _connectPacket = new ConnectPacket(MqttProtocolVersion.V3_1_1)
     {
         ClientId = "benchmark-client",
-        Username = "benchmark-user",
+        UserName = "benchmark-user",
         Password = "benchmark-password",
         ProtocolName = "MQTT",
         KeepAliveSeconds = 2,

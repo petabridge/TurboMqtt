@@ -630,9 +630,9 @@ internal static class MqttPacketSizeEstimator
             payloadSize += 2 + packet.Will.Message.Length;
         }
 
-        if (!string.IsNullOrEmpty(packet.Username))
+        if (!string.IsNullOrEmpty(packet.UserName))
         {
-            payloadSize += 2 + Encoding.UTF8.GetByteCount(packet.Username);
+            payloadSize += 2 + Encoding.UTF8.GetByteCount(packet.UserName);
         }
 
         if (!string.IsNullOrEmpty(packet.Password))
@@ -747,9 +747,9 @@ internal static class MqttPacketSizeEstimator
             }
         }
 
-        if (!string.IsNullOrEmpty(packet.Username))
+        if (!string.IsNullOrEmpty(packet.UserName))
         {
-            payloadSize += 2 + Encoding.UTF8.GetByteCount(packet.Username);
+            payloadSize += 2 + Encoding.UTF8.GetByteCount(packet.UserName);
         }
 
         if (!string.IsNullOrEmpty(packet.Password))

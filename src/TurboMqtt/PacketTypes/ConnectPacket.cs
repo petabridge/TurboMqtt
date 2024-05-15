@@ -27,13 +27,13 @@ public sealed class ConnectPacket(MqttProtocolVersion protocolVersion) : MqttPac
         set;
     }
 
-    private string? _username;
-    public string? Username
+    private string? _userName;
+    public string? UserName
     {
-        get => _username;
+        get => _userName;
         set
         {
-            _username = value;
+            _userName = value;
             
             // ensure that the username flag is set or unset
             var flags = Flags;
@@ -75,7 +75,7 @@ public sealed class ConnectPacket(MqttProtocolVersion protocolVersion) : MqttPac
 
     public override string ToString()
     {
-        return $"ConnectPacket(ClientId={ClientId}, KeepAliveSeconds={KeepAliveSeconds}, Flags={Flags}, Will={Will}, UserName={Username}, Password={Password})";
+        return $"ConnectPacket(ClientId={ClientId}, KeepAliveSeconds={KeepAliveSeconds}, Flags={Flags}, Will={Will}, UserName={UserName}, Password={Password})";
     
     }
 }

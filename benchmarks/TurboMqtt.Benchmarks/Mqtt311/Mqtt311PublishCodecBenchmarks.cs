@@ -63,10 +63,4 @@ public class Mqtt311PublishCodecBenchmarks
     {
         Mqtt311Encoder.EncodePacket(_publishPacket, ref _writeableBuffer, _estimatedPublishPacketSize);
     }
-    
-    [Benchmark]
-    public void EstimatePublishPacketSize()
-    {
-        MqttPacketSizeEstimator.EstimateMqtt3PacketSize(_publishPacket);
-    }
 }

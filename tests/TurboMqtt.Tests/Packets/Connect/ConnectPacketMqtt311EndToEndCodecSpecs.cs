@@ -31,7 +31,7 @@ public class ConnectPacketMqtt311EndToEndCodecSpecs
             new ConnectPacket(MqttProtocolVersion.V3_1_1)
             {
                 ClientId = "clientId",
-                Username = "username",
+                UserName = "username",
                 Password = "password",
                 ProtocolName = "MQTT",
             },
@@ -40,7 +40,7 @@ public class ConnectPacketMqtt311EndToEndCodecSpecs
             new ConnectPacket(MqttProtocolVersion.V3_1_1)
             {
                 ClientId = "clientId",
-                Username = "username",
+                UserName = "username",
                 Password = "password",
                 ProtocolName = "MQTT",
                 Will = new MqttLastWill("topic", new ReadOnlyMemory<byte>(new byte[] { 0, 1, 2, 3 }))
@@ -60,7 +60,7 @@ public class ConnectPacketMqtt311EndToEndCodecSpecs
             new ConnectPacket(MqttProtocolVersion.V3_1_1)
             {
                 ClientId = "clientId",
-                Username = "username",
+                UserName = "username",
                 Password = "password",
                 ProtocolName = "MQTT",
                 KeepAliveSeconds = 100,
@@ -81,7 +81,7 @@ public class ConnectPacketMqtt311EndToEndCodecSpecs
             new ConnectPacket(MqttProtocolVersion.V3_1_1)
             {
                 ClientId = "clientId",
-                Username = "username",
+                UserName = "username",
                 Password = "password",
                 ProtocolName = "MQTT",
                 KeepAliveSeconds = 100,

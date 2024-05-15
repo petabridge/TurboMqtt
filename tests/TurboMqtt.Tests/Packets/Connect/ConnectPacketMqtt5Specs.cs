@@ -59,7 +59,7 @@ public class ConnectPacketMqtt5Specs
         public void should_have_correct_username()
         {
             var packet = new ConnectPacket(MqttProtocolVersion.V5_0);
-            packet.Username.Should().BeNull();
+            packet.UserName.Should().BeNull();
         }
 
         [Fact]
