@@ -26,12 +26,10 @@ public static class PacketEncodingTestHelper
     public static Memory<byte> EncodePacketOnly<TPacket>(TPacket packet) where TPacket : MqttPacket
     {
         var estimatedSize = MqttPacketSizeEstimator.EstimateMqtt3PacketSize(packet);
-        var headerSize =
-            MqttPacketSizeEstimator.GetPacketLengthHeaderSize(estimatedSize) + 1; // add 1 for the lead byte
-        var buffer = new Memory<byte>(new byte[estimatedSize + headerSize]);
+        var buffer = new Memory<byte>(new byte[estimatedSize.TotalSize]);
         
         var actualBytesWritten = Mqtt311Encoder.EncodePacket(packet, ref buffer, estimatedSize);
-        actualBytesWritten.Should().Be(estimatedSize + headerSize);
+        actualBytesWritten.Should().Be(estimatedSize.TotalSize);
         return buffer;
     }
 }

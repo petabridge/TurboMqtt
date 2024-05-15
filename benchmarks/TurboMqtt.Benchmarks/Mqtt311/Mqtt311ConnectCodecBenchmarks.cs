@@ -44,21 +44,17 @@ public class Mqtt311ConnectCodecBenchmarks
 
     private byte[] _writeableBytes = Array.Empty<byte>();
     private ReadOnlyMemory<byte> _encodedConnectPacket;
-    private int _estimatedConnectPacketSize;
-    private int _estimatedHeaderSize;
+    private PacketSize _estimatedConnectPacketSize;
 
     [GlobalSetup]
     public void Setup()
     {
         var estimate = MqttPacketSizeEstimator.EstimateMqtt3PacketSize(_connectPacket);
-        var headerSize =
-            MqttPacketSizeEstimator.GetPacketLengthHeaderSize(estimate) + 1; // add 1 for the lead byte
-        _writeableBytes = new byte[estimate + headerSize];
-        var memory = new Memory<byte>(new byte[estimate + headerSize]);
+        _writeableBytes = new byte[estimate.TotalSize];
+        var memory = new Memory<byte>(new byte[estimate.TotalSize]);
         _encodedConnectPacket = memory;
         Mqtt311Encoder.EncodePacket(_connectPacket, ref memory, estimate);
         _estimatedConnectPacketSize = estimate;
-        _estimatedHeaderSize = headerSize;
     }
 
     private Memory<byte> _writeableBuffer;
@@ -68,9 +64,6 @@ public class Mqtt311ConnectCodecBenchmarks
     {
         _writeableBuffer = new Memory<byte>(_writeableBytes);
     }
-
-    [Benchmark]
-    public int EstimatedConnectPacketSize() => MqttPacketSizeEstimator.EstimateMqtt3PacketSize(_connectPacket);
 
     [Benchmark]
     public ImmutableList<MqttPacket> DecodeConnectPacket()

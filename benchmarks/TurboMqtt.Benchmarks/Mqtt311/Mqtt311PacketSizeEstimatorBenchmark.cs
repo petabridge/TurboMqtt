@@ -65,7 +65,7 @@ public class Mqtt311PacketSizeEstimatorBenchmark
 
     [Benchmark]
     [ArgumentsSource(nameof(Packets))]
-    public int EstimateMqttPacketSize(MqttPacket packet)
+    public PacketSize EstimateMqttPacketSize(MqttPacket packet)
     {
         return MqttPacketSizeEstimator.EstimateMqtt3PacketSize(packet);
     }

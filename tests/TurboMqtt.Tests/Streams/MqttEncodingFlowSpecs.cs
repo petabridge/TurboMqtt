@@ -73,7 +73,7 @@ public class MqttEncodingFlowSpecs : TestKit
 
         // compute the total packet size
         var totalPayloadSize = packets.Select(MqttPacketSizeEstimator.EstimateMqtt3PacketSize)
-            .Select(c => c + MqttPacketSizeEstimator.GetPacketLengthHeaderSize(c) + 1).Sum();
+            .Select(c => c.TotalSize).Sum();
 
         // set a ridiculous frame size to force the packets to be split up
         var flow = MqttEncodingFlows.Mqtt311Encoding(MemoryPool<byte>.Shared, 1024, 1024);
