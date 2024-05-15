@@ -6,25 +6,30 @@ Via [`Mqtt311End2EndTcpBenchmarks.cs`](../benchmarks/TurboMqtt.Benchmarks/Mqtt31
 
 ```
 
-BenchmarkDotNet v0.13.12, Windows 11 (10.0.22631.3447/23H2/2023Update/SunValley3)
+BenchmarkDotNet v0.13.12, Windows 11 (10.0.22631.3593/23H2/2023Update/SunValley3)
 12th Gen Intel Core i7-1260P, 1 CPU, 16 logical and 12 physical cores
-.NET SDK 8.0.101
-  [Host]     : .NET 8.0.1 (8.0.123.58001), X64 RyuJIT AVX2
-  Job-EYKSZI : .NET 8.0.1 (8.0.123.58001), X64 RyuJIT AVX2
+.NET SDK 8.0.204
+  [Host]     : .NET 8.0.4 (8.0.424.16909), X64 RyuJIT AVX2
+  Job-VHKMUG : .NET 8.0.4 (8.0.424.16909), X64 RyuJIT AVX2
 
 InvocationCount=1  LaunchCount=10  RunStrategy=Monitoring  
 UnrollFactor=1  WarmupCount=10  
 
 ```
-| Method                    | QoSLevel    | PayloadSizeBytes | ProtocolVersion | Mean      | Error     | StdDev   | Req/sec    |
-|-------------------------- |------------ |----------------- |---------------- |----------:|----------:|---------:|-----------:|
-| **PublishAndReceiveMessages** | **AtMostOnce**  | **10**               | **V3_1_1**          |  **4.453 μs** | **0.5012 μs** | **1.478 μs** | **224,583.72** |
-| **PublishAndReceiveMessages** | **AtLeastOnce** | **10**               | **V3_1_1**          | **24.358 μs** | **0.8365 μs** | **2.466 μs** |  **41,054.14** |
-| **PublishAndReceiveMessages** | **ExactlyOnce** | **10**               | **V3_1_1**          | **39.245 μs** | **3.0092 μs** | **8.873 μs** |  **25,480.94** |
-| **PublishAndReceiveMessages** | **AtMostOnce**  | **8192**             | **V3_1_1**          |  **15.25 μs** |   **2.454 μs** |   **7.235 μs** | **11.55 μs** | **65,573.90** |
-| **PublishAndReceiveMessages** | **AtLeastOnce** | **8192**             | **V3_1_1**          |  **35.33 μs** |   **2.451 μs** |   **7.226 μs** | **35.89 μs** | **28,303.75** |
-| **PublishAndReceiveMessages** | **ExactlyOnce** | **8192**             | **V3_1_1**          | **155.65 μs** | **248.599 μs** | **733.001 μs** | **51.99 μs** |  **6,424.66** |
-
+| Method                    | QoSLevel    | PayloadSizeBytes | ProtocolVersion | Mean      | Error     | StdDev    | Median    | Req/sec    |
+|-------------------------- |------------ |----------------- |---------------- |----------:|----------:|----------:|----------:|-----------:|
+| **PublishAndReceiveMessages** | **AtMostOnce**  | **10**               | **V3_1_1**          |  **4.857 μs** | **0.7428 μs** | **2.1902 μs** |  **4.139 μs** | **205,881.88** |
+| **PublishAndReceiveMessages** | **AtMostOnce**  | **1024**             | **V3_1_1**          |  **4.564 μs** | **0.5076 μs** | **1.4968 μs** |  **4.346 μs** | **219,088.41** |
+| **PublishAndReceiveMessages** | **AtMostOnce**  | **2048**             | **V3_1_1**          |  **4.984 μs** | **0.3386 μs** | **0.9983 μs** |  **4.661 μs** | **200,642.09** |
+| **PublishAndReceiveMessages** | **AtMostOnce**  | **8192**             | **V3_1_1**          | **12.807 μs** | **2.0964 μs** | **6.1811 μs** | **10.064 μs** |  **78,080.79** |
+| **PublishAndReceiveMessages** | **AtLeastOnce** | **10**               | **V3_1_1**          | **24.877 μs** | **1.4839 μs** | **4.3754 μs** | **24.051 μs** |  **40,197.85** |
+| **PublishAndReceiveMessages** | **AtLeastOnce** | **1024**             | **V3_1_1**          | **24.040 μs** | **0.9618 μs** | **2.8358 μs** | **23.976 μs** |  **41,598.02** |
+| **PublishAndReceiveMessages** | **AtLeastOnce** | **2048**             | **V3_1_1**          | **21.982 μs** | **2.3840 μs** | **7.0293 μs** | **23.538 μs** |  **45,490.96** |
+| **PublishAndReceiveMessages** | **AtLeastOnce** | **8192**             | **V3_1_1**          | **31.632 μs** | **2.0415 μs** | **6.0194 μs** | **32.232 μs** |  **31,613.79** |
+| **PublishAndReceiveMessages** | **ExactlyOnce** | **10**               | **V3_1_1**          | **42.540 μs** | **2.3121 μs** | **6.8172 μs** | **41.198 μs** |  **23,507.18** |
+| **PublishAndReceiveMessages** | **ExactlyOnce** | **1024**             | **V3_1_1**          | **41.950 μs** | **2.3413 μs** | **6.9034 μs** | **39.199 μs** |  **23,838.15** |
+| **PublishAndReceiveMessages** | **ExactlyOnce** | **2048**             | **V3_1_1**          | **45.286 μs** | **2.3360 μs** | **6.8878 μs** | **44.192 μs** |  **22,081.81** |
+| **PublishAndReceiveMessages** | **ExactlyOnce** | **8192**             | **V3_1_1**          | **47.743 μs** | **3.0797 μs** | **9.0805 μs** | **47.786 μs** |  **20,945.61** |
 
 
 Every benchmark includes 100% of this overhead:
