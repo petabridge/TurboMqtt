@@ -12,7 +12,7 @@ namespace TurboMqtt.Benchmarks.Mqtt311;
 
 public class Mqtt311PacketSizeEstimatorBenchmark
 {
-    public IEnumerable<object> Packets() // for multiple arguments it's an IEnumerable of array of objects (object[])
+    public static IEnumerable<object> Packets() // for multiple arguments it's an IEnumerable of array of objects (object[])
     {
         yield return PingReqPacket.Instance;
         yield return PingRespPacket.Instance;

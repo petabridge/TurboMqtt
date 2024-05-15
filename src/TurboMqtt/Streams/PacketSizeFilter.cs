@@ -15,19 +15,19 @@ namespace TurboMqtt.Streams;
 /// <summary>
 /// Drops all packets greater than the maximum allowable size
 /// </summary>
-internal sealed class PacketSizeFilter : GraphStage<FlowShape<(MqttPacket, int), (MqttPacket, int)>>
+internal sealed class PacketSizeFilter : GraphStage<FlowShape<(MqttPacket, PacketSize), (MqttPacket, PacketSize)>>
 {
     private readonly int _maxPacketSize;
-    public Inlet<(MqttPacket, int)> In { get; } = new Inlet<(MqttPacket, int)>("PacketSizeFilter.In");
-    public Outlet<(MqttPacket, int)> Out { get; } = new Outlet<(MqttPacket, int)>("PacketSizeFilter.Out");
+    public Inlet<(MqttPacket, PacketSize)> In { get; } = new("PacketSizeFilter.In");
+    public Outlet<(MqttPacket, PacketSize)> Out { get; } = new("PacketSizeFilter.Out");
 
     public PacketSizeFilter(int maxPacketSize)
     {
         _maxPacketSize = maxPacketSize;
-        Shape = new FlowShape<(MqttPacket, int), (MqttPacket, int)>(In, Out);
+        Shape = new FlowShape<(MqttPacket, PacketSize), (MqttPacket, PacketSize)>(In, Out);
     }
 
-    public override FlowShape<(MqttPacket, int), (MqttPacket, int)> Shape { get; }
+    public override FlowShape<(MqttPacket, PacketSize), (MqttPacket, PacketSize)> Shape { get; }
 
     protected override GraphStageLogic CreateLogic(Attributes inheritedAttributes) => new Logic(this);
 
@@ -48,8 +48,7 @@ internal sealed class PacketSizeFilter : GraphStage<FlowShape<(MqttPacket, int),
             var (packet, size) = Grab(_stage.In);
             
             // have to adjust the packet size to account for the length header
-            var maxHeaderSize = MqttPacketSizeEstimator.GetPacketLengthHeaderSize(size) + 1;
-            if (size + maxHeaderSize > _stage._maxPacketSize)
+            if (size.TotalSize > _stage._maxPacketSize)
             {
                 Log.Warning("Dropping MQTT packet [{0}] for exceeding max size: {1} bytes.", packet, _stage._maxPacketSize);
                 Pull(_stage.In); // Request next element
