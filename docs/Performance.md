@@ -10,17 +10,21 @@ BenchmarkDotNet v0.13.12, Windows 11 (10.0.22631.3447/23H2/2023Update/SunValley3
 12th Gen Intel Core i7-1260P, 1 CPU, 16 logical and 12 physical cores
 .NET SDK 8.0.101
   [Host]     : .NET 8.0.1 (8.0.123.58001), X64 RyuJIT AVX2
-  Job-FBXRHG : .NET 8.0.1 (8.0.123.58001), X64 RyuJIT AVX2
+  Job-EYKSZI : .NET 8.0.1 (8.0.123.58001), X64 RyuJIT AVX2
 
 InvocationCount=1  LaunchCount=10  RunStrategy=Monitoring  
 UnrollFactor=1  WarmupCount=10  
 
 ```
-| Method                    | QoSLevel    | PayloadSizeBytes | ProtocolVersion | Mean      | Error     | StdDev   | Median    | Req/sec    |
-|-------------------------- |------------ |----------------- |---------------- |----------:|----------:|---------:|----------:|-----------:|
-| **PublishAndReceiveMessages** | **AtMostOnce**  | **10**               | **V3_1_1**          |  **5.175 μs** | **0.6794 μs** | **2.003 μs** |  **4.345 μs** | **193,230.35** |
-| **PublishAndReceiveMessages** | **AtLeastOnce** | **10**               | **V3_1_1**          | **26.309 μs** | **1.4071 μs** | **4.149 μs** | **25.906 μs** |  **38,010.35** |
-| **PublishAndReceiveMessages** | **ExactlyOnce** | **10**               | **V3_1_1**          | **44.501 μs** | **2.2778 μs** | **6.716 μs** | **42.175 μs** |  **22,471.53** |
+| Method                    | QoSLevel    | PayloadSizeBytes | ProtocolVersion | Mean      | Error     | StdDev   | Req/sec    |
+|-------------------------- |------------ |----------------- |---------------- |----------:|----------:|---------:|-----------:|
+| **PublishAndReceiveMessages** | **AtMostOnce**  | **10**               | **V3_1_1**          |  **4.453 μs** | **0.5012 μs** | **1.478 μs** | **224,583.72** |
+| **PublishAndReceiveMessages** | **AtLeastOnce** | **10**               | **V3_1_1**          | **24.358 μs** | **0.8365 μs** | **2.466 μs** |  **41,054.14** |
+| **PublishAndReceiveMessages** | **ExactlyOnce** | **10**               | **V3_1_1**          | **39.245 μs** | **3.0092 μs** | **8.873 μs** |  **25,480.94** |
+| **PublishAndReceiveMessages** | **AtMostOnce**  | **8192**             | **V3_1_1**          |  **15.25 μs** |   **2.454 μs** |   **7.235 μs** | **11.55 μs** | **65,573.90** |
+| **PublishAndReceiveMessages** | **AtLeastOnce** | **8192**             | **V3_1_1**          |  **35.33 μs** |   **2.451 μs** |   **7.226 μs** | **35.89 μs** | **28,303.75** |
+| **PublishAndReceiveMessages** | **ExactlyOnce** | **8192**             | **V3_1_1**          | **155.65 μs** | **248.599 μs** | **733.001 μs** | **51.99 μs** |  **6,424.66** |
+
 
 
 Every benchmark includes 100% of this overhead:
