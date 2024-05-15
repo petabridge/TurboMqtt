@@ -97,7 +97,7 @@ internal sealed class PacketDeDuplicationFlow : GraphStage<FlowShape<PublishPack
             // check for expired items
             if (_expiryDeadline.IsOverdue)
             {
-                _publishIds.ClearCache(publishPacket.TopicName);
+                _publishIds.EvictAllExpiredItems();
                 _expiryDeadline = Deadline.FromNow(_stage._bufferExpiry);
             }
         }
