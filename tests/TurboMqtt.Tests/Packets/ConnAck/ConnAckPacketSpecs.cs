@@ -55,7 +55,7 @@ public class ConnAckPacketSpecs
                 SessionPresent = sessionCreated,
                 ReasonCode = reasonCode
             };
-            MqttPacketSizeEstimator.EstimatePacketSize(packet, MqttProtocolVersion.V3_1_1).Should().Be(2);
+            MqttPacketSizeEstimator.EstimatePacketSize(packet, MqttProtocolVersion.V3_1_1).Should().Be(new PacketSize(2));
         }
     }
     
@@ -72,7 +72,7 @@ public class ConnAckPacketSpecs
                 SessionPresent = sessionCreated,
                 ReasonCode = reasonCode
             };
-            MqttPacketSizeEstimator.EstimatePacketSize(packet, MqttProtocolVersion.V5_0).Should().Be(2);
+            MqttPacketSizeEstimator.EstimatePacketSize(packet, MqttProtocolVersion.V5_0).Should().Be(new PacketSize(2));
         }
         
         [Fact]
@@ -88,7 +88,7 @@ public class ConnAckPacketSpecs
                     { "key2", "value2" }
                 }
             };
-            MqttPacketSizeEstimator.EstimatePacketSize(packet, MqttProtocolVersion.V5_0).Should().Be(32);
+            MqttPacketSizeEstimator.EstimatePacketSize(packet, MqttProtocolVersion.V5_0).Should().Be(new PacketSize(32));
         }
     }
     
