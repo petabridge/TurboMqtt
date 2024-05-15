@@ -32,7 +32,7 @@ internal sealed class TopicCacheManager<T> where T : notnull
     {
         if (!_topicCaches.TryGetValue(topic, out var cache))
         {
-            cache = new SimpleLruCache<T>(_defaultCapacity);
+            cache = new SimpleLruCache<T>(_defaultCapacity, _defaultExpiry);
             _topicCaches[topic] = cache;
         }
         return cache;

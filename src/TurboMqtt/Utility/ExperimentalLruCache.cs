@@ -4,14 +4,9 @@
 // </copyright>
 // -----------------------------------------------------------------------
 
-using TurboMqtt.Utility;
-
-namespace TurboMqtt.Benchmarks.DeDupe;
-
-using System;
 using System.Collections;
-using System.Collections.Generic;
-using System.Linq;
+
+namespace TurboMqtt.Utility;
 
 internal sealed class ExperimentalSimpleLruCache
 {
