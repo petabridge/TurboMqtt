@@ -23,7 +23,7 @@ public class Mqtt311EndToEndTcpBenchmarks
     [Params(QualityOfService.AtMostOnce, QualityOfService.AtLeastOnce, QualityOfService.ExactlyOnce)]
     public QualityOfService QoSLevel { get; set; }
 
-    [Params(10, 1024, 1024*8)] public int PayloadSizeBytes { get; set; }
+    [Params(10, 1024, 1024*2, 1024*8)] public int PayloadSizeBytes { get; set; }
 
     [Params(MqttProtocolVersion.V3_1_1)] public MqttProtocolVersion ProtocolVersion { get; set; }
 
