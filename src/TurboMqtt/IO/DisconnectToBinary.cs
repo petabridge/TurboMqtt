@@ -32,7 +32,7 @@ internal static class DisconnectToBinary
             throw new NotSupportedException();
 
         var estimate = MqttPacketSizeEstimator.EstimatePacketSize(packet, version);
-        var fullSize = estimate + 2; // add 2 bytes for the fixed header
+        var fullSize = estimate.TotalSize;
         Memory<byte> bytes = new byte[fullSize];
 
         switch (version)

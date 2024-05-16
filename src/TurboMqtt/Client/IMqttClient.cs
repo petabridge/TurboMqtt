@@ -228,7 +228,7 @@ public sealed class MqttClient : IInternalMqttClient
         {
             ClientId = _options.ClientId,
             KeepAliveSeconds = _options.KeepAliveSeconds,
-            Username = _options.UserName,
+            UserName = _options.UserName,
             Password = _options.Password,
             ConnectFlags = connectFlags,
             MaximumPacketSize = _options.MaximumPacketSize,

@@ -22,8 +22,7 @@ public class Mqtt311PublishCodecBenchmarks
     private PublishPacket _publishPacket = null!; 
     
     private ReadOnlyMemory<byte> _encodedPublishPacket;
-    private int _estimatedPublishPacketSize;
-    private int _estimatedHeaderSize;
+    private PacketSize _estimatedPublishPacketSize;
     
     [GlobalSetup]
     public void Setup()
@@ -34,13 +33,10 @@ public class Mqtt311PublishCodecBenchmarks
             Payload = new ReadOnlyMemory<byte>(new byte[PayloadSize])
         };
         var estimate = MqttPacketSizeEstimator.EstimateMqtt3PacketSize(_publishPacket);
-        var headerSize =
-            MqttPacketSizeEstimator.GetPacketLengthHeaderSize(estimate) + 1; // add 1 for the lead byte
-        var memory = new Memory<byte>(new byte[estimate + headerSize]);
+        var memory = new Memory<byte>(new byte[estimate.TotalSize]);
         _encodedPublishPacket = memory;
         Mqtt311Encoder.EncodePacket(_publishPacket, ref memory, estimate);
         _estimatedPublishPacketSize = estimate;
-        _estimatedHeaderSize = headerSize;
     }
     
     private Memory<byte> _writeableBuffer;
@@ -48,7 +44,7 @@ public class Mqtt311PublishCodecBenchmarks
     [IterationSetup]
     public void IterationSetup()
     {
-        _writeableBuffer = new Memory<byte>(new byte[_estimatedPublishPacketSize + _estimatedHeaderSize]);
+        _writeableBuffer = new Memory<byte>(new byte[_estimatedPublishPacketSize.TotalSize]);
     }
     
     [Benchmark]
@@ -62,11 +58,5 @@ public class Mqtt311PublishCodecBenchmarks
     public void EncodePublishPacket()
     {
         Mqtt311Encoder.EncodePacket(_publishPacket, ref _writeableBuffer, _estimatedPublishPacketSize);
-    }
-    
-    [Benchmark]
-    public void EstimatePublishPacketSize()
-    {
-        MqttPacketSizeEstimator.EstimateMqtt3PacketSize(_publishPacket);
     }
 }

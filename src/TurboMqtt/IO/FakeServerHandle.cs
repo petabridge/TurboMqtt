@@ -39,7 +39,7 @@ internal class FakeMqtt311ServerHandle : IFakeServerHandle
     private readonly HashSet<string> _subscribedTopics = [];
     private readonly TimeSpan _heartbeatDelay;
     private readonly TaskCompletionSource _terminated = new();
-    private readonly List<(MqttPacket packet, int estimatedSize)> _pendingPackets = new();
+    private readonly List<(MqttPacket packet, PacketSize estimatedSize)> _pendingPackets = new();
 
 
     public FakeMqtt311ServerHandle(Func<(IMemoryOwner<byte> buffer, int estimatedSize), bool> pushMessage,
@@ -56,7 +56,6 @@ internal class FakeMqtt311ServerHandle : IFakeServerHandle
         if (Log.IsDebugEnabled)
             Log.Debug("Sending packet of type {0} using {1}", packet.PacketType, ProtocolVersion);
         var estimatedSize = MqttPacketSizeEstimator.EstimateMqtt3PacketSize(packet);
-        var headerSize = MqttPacketSizeEstimator.GetPacketLengthHeaderSize(estimatedSize) + 1;
 
         _pendingPackets.Add((packet, estimatedSize));
 
@@ -69,9 +68,7 @@ internal class FakeMqtt311ServerHandle : IFakeServerHandle
             return;
         Log.Info("Starting flush");
         var totalSize = _pendingPackets.Sum(c =>
-            c.estimatedSize 
-            + MqttPacketSizeEstimator.GetPacketLengthHeaderSize(c.estimatedSize) // variable length header
-            + 1); // fixed length header
+            c.estimatedSize.TotalSize); // fixed length header
         var bufferPooled = new UnsharedMemoryOwner<byte>(new Memory<byte>(new byte[totalSize]));
         var buffer = bufferPooled.Memory[..totalSize];
 

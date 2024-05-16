@@ -12,7 +12,7 @@ namespace TurboMqtt.Protocol;
 
 public static class Mqtt311Encoder
 {
-    public static int EncodePackets(IEnumerable<(MqttPacket packet, int estimatedSize)> packets, ref Memory<byte> buffer)
+    public static int EncodePackets(IEnumerable<(MqttPacket packet, PacketSize estimatedSize)> packets, ref Memory<byte> buffer)
     {
         var bytesWritten = 0;
         var workingBuffer = buffer;
@@ -35,7 +35,7 @@ public static class Mqtt311Encoder
     /// <exception cref="NotSupportedException">For packet types not supported in MQTT 3.1.1.</exception>
     /// <exception cref="ArgumentOutOfRangeException">For unrecognized packet types.</exception>
     /// <returns>The length of actual bytes encoded</returns>
-    public static int EncodePacket(MqttPacket packet, ref Memory<byte> buffer, int estimatedSize)
+    public static int EncodePacket(MqttPacket packet, ref Memory<byte> buffer, PacketSize estimatedSize)
     {
         switch (packet.PacketType)
         {
@@ -50,7 +50,7 @@ public static class Mqtt311Encoder
             case MqttPacketType.PingReq:
             case MqttPacketType.PingResp:
             case MqttPacketType.Disconnect:
-                return EncodePacketWithFixedHeader(packet, ref buffer, estimatedSize);
+                return EncodePacketWithFixedHeader(packet, ref buffer);
             case MqttPacketType.Connect:
                 return EncodeConnectPacket((ConnectPacket)packet, ref buffer, estimatedSize);
             case MqttPacketType.ConnAck:
@@ -68,13 +68,13 @@ public static class Mqtt311Encoder
         }
     }
 
-    public static int EncodeUnsubscribePacket(UnsubscribePacket packet, ref Memory<byte> buffer, int estimatedSize)
+    public static int EncodeUnsubscribePacket(UnsubscribePacket packet, ref Memory<byte> buffer, PacketSize estimatedSize)
     {
         var bytesWritten = 0;
         var span = buffer.Span;
         bytesWritten += WriteByte(ref span, CalculateFirstByteOfFixedPacketHeader(packet));
-        bytesWritten += EncodeFrameHeaderWithByteShifting(ref span, estimatedSize);
-        bytesWritten += WriteUnsignedShort(ref span, (int)packet.PacketId.Value);
+        bytesWritten += EncodeFrameHeaderWithByteShifting(ref span, estimatedSize.ContentSize);
+        bytesWritten += WriteUnsignedShort(ref span, packet.PacketId.Value);
         foreach (var topic in packet.Topics)
         {
             bytesWritten += EncodeUtf8String(ref span, topic);
@@ -83,13 +83,13 @@ public static class Mqtt311Encoder
         return bytesWritten;
     }
 
-    public static int EncodeSubAckPacket(SubAckPacket packet, ref Memory<byte> buffer, int estimatedSize)
+    public static int EncodeSubAckPacket(SubAckPacket packet, ref Memory<byte> buffer, PacketSize estimatedSize)
     {
         var bytesWritten = 0; 
         var span = buffer.Span;
         bytesWritten += WriteByte(ref span, CalculateFirstByteOfFixedPacketHeader(packet));
-        bytesWritten += EncodeFrameHeaderWithByteShifting(ref span, estimatedSize);
-        bytesWritten += WriteUnsignedShort(ref span, (int)packet.PacketId.Value);
+        bytesWritten += EncodeFrameHeaderWithByteShifting(ref span, estimatedSize.ContentSize);
+        bytesWritten += WriteUnsignedShort(ref span, packet.PacketId.Value);
         foreach (var qos in packet.ReasonCodes)
         {
             bytesWritten += WriteByte(ref span, (byte)qos);
@@ -98,12 +98,12 @@ public static class Mqtt311Encoder
         return bytesWritten;
     }
 
-    public static int EncodeSubscribePacket(SubscribePacket packet, ref Memory<byte> buffer, int estimatedSize)
+    public static int EncodeSubscribePacket(SubscribePacket packet, ref Memory<byte> buffer, PacketSize estimatedSize)
     {
         var bytesWritten = 0;
         var span = buffer.Span;
         bytesWritten += WriteByte(ref span, CalculateFirstByteOfFixedPacketHeader(packet));
-        bytesWritten += EncodeFrameHeaderWithByteShifting(ref span, estimatedSize);
+        bytesWritten += EncodeFrameHeaderWithByteShifting(ref span, estimatedSize.ContentSize);
         bytesWritten += WriteUnsignedShort(ref span, (int)packet.PacketId.Value);
         foreach (var topic in packet.Topics)
         {
@@ -114,12 +114,12 @@ public static class Mqtt311Encoder
         return bytesWritten;
     }
 
-    public static int EncodeConnAckPacket(ConnAckPacket packet, ref Memory<byte> buffer, int estimatedSize)
+    public static int EncodeConnAckPacket(ConnAckPacket packet, ref Memory<byte> buffer, PacketSize estimatedSize)
     {
         var bytesWritten = 0;
         var span = buffer.Span;
         bytesWritten += WriteByte(ref span, CalculateFirstByteOfFixedPacketHeader(packet));
-        bytesWritten += EncodeFrameHeaderWithByteShifting(ref span, estimatedSize);
+        bytesWritten += EncodeFrameHeaderWithByteShifting(ref span, estimatedSize.ContentSize);
         if (packet.SessionPresent)
         {
             bytesWritten += WriteByte(ref span, 0x01);
@@ -132,12 +132,12 @@ public static class Mqtt311Encoder
         return bytesWritten;
     }
 
-    public static int EncodeConnectPacket(ConnectPacket packet, ref Memory<byte> buffer, int estimatedSize)
+    public static int EncodeConnectPacket(ConnectPacket packet, ref Memory<byte> buffer, PacketSize estimatedSize)
     {
         var bytesWritten = 0;
         var span = buffer.Span;
         bytesWritten += WriteByte(ref span, CalculateFirstByteOfFixedPacketHeader(packet));
-        bytesWritten +=EncodeFrameHeaderWithByteShifting(ref span, estimatedSize);
+        bytesWritten +=EncodeFrameHeaderWithByteShifting(ref span, estimatedSize.ContentSize);
         bytesWritten +=EncodeUtf8String(ref span, packet.ProtocolName);
         bytesWritten +=WriteByte(ref span, (byte)packet.ProtocolVersion);
         bytesWritten +=WriteByte(ref span, packet.Flags.Encode());
@@ -156,8 +156,8 @@ public static class Mqtt311Encoder
 
         if (packet.Flags.UsernameFlag)
         {
-            Debug.Assert(packet.Username != null, "packet.UserName != null");
-            bytesWritten +=EncodeUtf8String(ref span, packet.Username);
+            Debug.Assert(packet.UserName != null, "packet.UserName != null");
+            bytesWritten +=EncodeUtf8String(ref span, packet.UserName);
         }
         
         if (packet.Flags.PasswordFlag)
@@ -169,16 +169,16 @@ public static class Mqtt311Encoder
         return bytesWritten;
     }
 
-    public static int EncodePublishPacket(PublishPacket packet, ref Memory<byte> buffer, int estimatedSize)
+    public static int EncodePublishPacket(PublishPacket packet, ref Memory<byte> buffer, PacketSize estimatedSize)
     {
         var bytesWritten = 0;
         var span = buffer.Span;
         bytesWritten += WriteByte(ref span, CalculateFirstByteOfFixedPacketHeader(packet));
-        bytesWritten += EncodeFrameHeaderWithByteShifting(ref span, estimatedSize);
+        bytesWritten += EncodeFrameHeaderWithByteShifting(ref span, estimatedSize.ContentSize);
         bytesWritten += EncodeUtf8String(ref span, packet.TopicName);
         if (packet.QualityOfService > QualityOfService.AtMostOnce)
         {
-            bytesWritten += WriteUnsignedShort(ref span, (int)packet.PacketId.Value);
+            bytesWritten += WriteUnsignedShort(ref span, packet.PacketId.Value);
         }
 
         if (!packet.Payload.IsEmpty)
@@ -191,7 +191,7 @@ public static class Mqtt311Encoder
         return bytesWritten;
     }
     
-    public static int EncodePacketWithFixedHeader(MqttPacket packet, ref Memory<byte> buffer, int estimatedSize)
+    public static int EncodePacketWithFixedHeader(MqttPacket packet, ref Memory<byte> buffer)
     {
         var span = buffer.Span;
         WriteByte(ref span, CalculateFirstByteOfFixedPacketHeader(packet));
@@ -199,11 +199,11 @@ public static class Mqtt311Encoder
         return 2;
     }
     
-    public static int EncodePacketWithIdOnly(MqttPacketWithId packet, ref Memory<byte> buffer, int estimatedSize)
+    public static int EncodePacketWithIdOnly(MqttPacketWithId packet, ref Memory<byte> buffer, PacketSize estimatedSize)
     {
         var span = buffer.Span;
         WriteByte(ref span, CalculateFirstByteOfFixedPacketHeader(packet));
-        EncodeFrameHeaderWithByteShifting(ref span, estimatedSize);
+        EncodeFrameHeaderWithByteShifting(ref span, estimatedSize.ContentSize);
         WriteUnsignedShort(ref span, (int)packet.PacketId.Value);
         return 4;
     }

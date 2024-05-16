@@ -59,7 +59,7 @@ public class ConnectPacketMqtt311Specs
         public void should_have_correct_username()
         {
             var packet = new ConnectPacket(MqttProtocolVersion.V3_1_1);
-            packet.Username.Should().BeNull();
+            packet.UserName.Should().BeNull();
         }
 
         [Fact]
@@ -111,10 +111,10 @@ public class ConnectPacketMqtt311Specs
         {
             var connectPacket = new ConnectPacket(MqttProtocolVersion.V3_1_1)
             {
-                Username = "username",
+                UserName = "username",
                 Password = "password"
             };
-            connectPacket.Username.Should().Be("username");
+            connectPacket.UserName.Should().Be("username");
             connectPacket.Flags.UsernameFlag.Should().BeTrue();
             connectPacket.Password.Should().Be("password");
             connectPacket.Flags.PasswordFlag.Should().BeTrue();
@@ -129,7 +129,7 @@ public class ConnectPacketMqtt311Specs
             var connectPacket = new ConnectPacket(MqttProtocolVersion.V3_1_1)
             {
                 ClientId = "clientId", 
-                Username = "username",
+                UserName = "username",
                 Password = "password",
                 Will = new MqttLastWill("topic", new byte[] { 1, 2, 3 }),
                 ReceiveMaximum = 10, // should be ignored - only supported in MQTT 5.0
@@ -137,7 +137,7 @@ public class ConnectPacketMqtt311Specs
                 TopicAliasMaximum = 5, // should be ignored - only supported in MQTT 5.0
             };
             
-            MqttPacketSizeEstimator.EstimatePacketSize(connectPacket, MqttProtocolVersion.V3_1_1).Should().Be(52);
+            MqttPacketSizeEstimator.EstimatePacketSize(connectPacket, MqttProtocolVersion.V3_1_1).Should().Be(new PacketSize(52));
         }
         
         // estimate the packet size without username and password
@@ -152,7 +152,7 @@ public class ConnectPacketMqtt311Specs
                 TopicAliasMaximum = 5, // should be ignored - only supported in MQTT 5.0
             };
             
-            MqttPacketSizeEstimator.EstimatePacketSize(connectPacket, MqttProtocolVersion.V3_1_1).Should().Be(32);
+            MqttPacketSizeEstimator.EstimatePacketSize(connectPacket, MqttProtocolVersion.V3_1_1).Should().Be(new PacketSize(32));
         }
     }
 }

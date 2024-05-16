@@ -59,7 +59,7 @@ public class ConnectPacketMqtt5Specs
         public void should_have_correct_username()
         {
             var packet = new ConnectPacket(MqttProtocolVersion.V5_0);
-            packet.Username.Should().BeNull();
+            packet.UserName.Should().BeNull();
         }
 
         [Fact]
@@ -86,7 +86,7 @@ public class ConnectPacketMqtt5Specs
             var packet = new ConnectPacket(MqttProtocolVersion.V5_0);
             packet.ClientId = "clientId";
             packet.ProtocolName = "MQTT";
-            MqttPacketSizeEstimator.EstimatePacketSize(packet, MqttProtocolVersion.V5_0).Should().Be(40);
+            MqttPacketSizeEstimator.EstimatePacketSize(packet, MqttProtocolVersion.V5_0).Should().Be(new PacketSize(40));
         }
 
         [Fact]
@@ -103,7 +103,7 @@ public class ConnectPacketMqtt5Specs
             packet.ClientId = "clientId";
             packet.ProtocolName = "MQTT";
 
-            MqttPacketSizeEstimator.EstimatePacketSize(packet, MqttProtocolVersion.V5_0).Should().Be(50);
+            MqttPacketSizeEstimator.EstimatePacketSize(packet, MqttProtocolVersion.V5_0).Should().Be(new PacketSize(50));
         }
 
         [Fact]
@@ -132,7 +132,7 @@ public class ConnectPacketMqtt5Specs
             packet.ProtocolName = "MQTT";
             
 
-            MqttPacketSizeEstimator.EstimatePacketSize(packet, MqttProtocolVersion.V5_0).Should().Be(75);
+            MqttPacketSizeEstimator.EstimatePacketSize(packet, MqttProtocolVersion.V5_0).Should().Be(new PacketSize(75));
         }
     }
 }

@@ -89,9 +89,7 @@ public class PacketGenerators
         {
             var estimatedSize = MqttPacketSizeEstimator.EstimateMqtt3PacketSize(packet);
             
-            // need to always add 1 for the fixed byte
-            var fullSize = MqttPacketSizeEstimator.GetPacketLengthHeaderSize(estimatedSize) + estimatedSize + 1;
-            Memory<byte> bytes = new byte[fullSize];
+            Memory<byte> bytes = new byte[estimatedSize.TotalSize];
             var serializedPacket = Mqtt311Encoder.EncodePacket(packet, ref bytes, estimatedSize);
 
             return (bytes, estimatedSize);

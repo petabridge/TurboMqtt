@@ -421,7 +421,7 @@ public class Mqtt311Decoder
 
         if (flags.UsernameFlag)
         {
-            packet.Username = DecodeString(ref buffer, ref remainingLength);
+            packet.UserName = DecodeString(ref buffer, ref remainingLength);
         }
 
         if (flags.PasswordFlag)
