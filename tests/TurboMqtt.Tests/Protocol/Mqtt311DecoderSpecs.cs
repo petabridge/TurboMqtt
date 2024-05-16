@@ -177,10 +177,12 @@ public class Mqtt311DecoderSpecs
             bytesWritten.Should().Be(totalSize);
             
             // compute frame 1 - should contain all of message 1 and part of message 2
-            ReadOnlyMemory<byte> frame1 = buffer.Slice(0, packetsAndSizes[0].estimatedSize.TotalSize + packetsAndSizes[1].estimatedSize.TotalSize - 1);
+            var msg2ChunkSize = packetsAndSizes[1].estimatedSize.VariableLengthHeaderSize + 1;
+            ReadOnlyMemory<byte> frame1 = buffer.Slice(0, packetsAndSizes[0].estimatedSize.TotalSize + msg2ChunkSize);
             
             // compute frame 2 - should contain the rest of message 2 and some of message 3
-            ReadOnlyMemory<byte> frame2 = buffer.Slice(frame1.Length, 4);
+            var msg3ChunkSize = 1; 
+            ReadOnlyMemory<byte> frame2 = buffer.Slice(frame1.Length, packetsAndSizes[1].estimatedSize.TotalSize - msg2ChunkSize + msg3ChunkSize);
             
             // compute frame 3 - should contain the rest of message 3 and all of message 4
             ReadOnlyMemory<byte> frame3 = buffer.Slice(frame1.Length + frame2.Length - 1);
