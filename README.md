@@ -148,11 +148,7 @@ If we've subscribed using `QualityOfService.AtMostOnce` or `QualityOfService.Exa
  
 ## Licensing
 
-You do not need a license for evaluation, development, test environments, or personal projects. Feel free to install TurboMqtt from NuGet.org if that's your situation.
-
-However, if you are a for-profit company earning in excess of $1m USD annually or a non-profit with a budget in excess of $1m USD annually, you will need to purchase an annual license to TurboMqtt. Licenses include support and troubleshooting.
-
-You can purchase a license and read our full commerical license terms here: [https://sdkbin.com/publisher/petabridge/product/turbomqtt#license](https://sdkbin.com/publisher/petabridge/product/turbomqtt#license)
+TurboMqtt is available under the Apache 2.0 license.
 
 ## Support
 

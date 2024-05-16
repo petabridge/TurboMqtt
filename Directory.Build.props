@@ -43,7 +43,7 @@ UnrollFactor=1  WarmupCount=10
   </PropertyGroup>
   <PropertyGroup Label="NuGetMetaData">
     <PackageProjectUrl>https://github.com/petabridge/TurboMqtt</PackageProjectUrl>
-    <PackageLicenseFile>LICENSE.md</PackageLicenseFile>
+    <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageIcon>logo.png</PackageIcon>
     <!-- Need the icon URL for Sdkbin -->
