@@ -7,6 +7,7 @@
 using System.Buffers;
 using System.IO.Pipelines;
 using System.Net;
+using System.Net.Security;
 using System.Net.Sockets;
 using System.Threading.Channels;
 using Akka.Actor;
@@ -43,11 +44,14 @@ internal sealed class TcpTransportActor : UntypedActor
             MaxFrameSize = maxFrameSize;
             WaitForPendingWrites = waitForPendingWrites;
         }
-        
+
         private volatile ConnectionStatus _status = ConnectionStatus.NotStarted;
 
-        public ConnectionStatus Status { get => _status; 
-            set => _status = value; }
+        public ConnectionStatus Status
+        {
+            get => _status;
+            set => _status = value;
+        }
 
         public CancellationTokenSource ShutDownCts { get; set; } = new();
 
@@ -110,6 +114,7 @@ internal sealed class TcpTransportActor : UntypedActor
     public ConnectionState State { get; private set; }
 
     private Socket? _tcpClient;
+    private Stream? _tcpStream;
 
     private readonly Channel<(IMemoryOwner<byte> buffer, int readableBytes)> _writesToTransport =
         Channel.CreateUnbounded<(IMemoryOwner<byte> buffer, int readableBytes)>();
@@ -130,7 +135,8 @@ internal sealed class TcpTransportActor : UntypedActor
         State = new ConnectionState(_writesToTransport.Writer, _readsFromTransport.Reader, _whenTerminated.Task,
             MaxFrameSize, _writesToTransport.Reader.Completion); // we signal completion when _writesToTransport is done
 
-        _pipe = new Pipe(new PipeOptions(pauseWriterThreshold: ScaleBufferSize(MaxFrameSize), resumeWriterThreshold: ScaleBufferSize(MaxFrameSize) / 2,
+        _pipe = new Pipe(new PipeOptions(pauseWriterThreshold: ScaleBufferSize(MaxFrameSize),
+            resumeWriterThreshold: ScaleBufferSize(MaxFrameSize) / 2,
             useSynchronizationContext: false));
     }
 
@@ -140,7 +146,7 @@ internal sealed class TcpTransportActor : UntypedActor
      * Connecting --> DoConnect --> Connecting (already connecting) --> ConnectResult (Connected) BECOME Running
      * Running --> DoWriteToPipeAsync --> Running (read data from socket) --> DoWriteToSocketAsync --> Running (write data to socket)
      */
-    
+
     /// <summary>
     /// Performs the max buffer size scaling for the socket.
     /// </summary>
@@ -150,11 +156,11 @@ internal sealed class TcpTransportActor : UntypedActor
         // if the max frame size is under 128kb, scale it up to 512kb
         if (maxFrameSize <= 128 * 1024)
             return 512 * 1024;
-        
+
         // between 128kb and 1mb, scale it up to 2mb
         if (maxFrameSize <= 1024 * 1024)
             return 2 * 1024 * 1024;
-        
+
         // if the max frame size is above 1mb, 2x it
         return maxFrameSize * 2;
     }
@@ -219,6 +225,7 @@ internal sealed class TcpTransportActor : UntypedActor
             Debug.Assert(_tcpClient != null, nameof(_tcpClient) + " != null");
             await _tcpClient.ConnectAsync(addresses, port, ct).ConfigureAwait(false);
             connectResult = new ConnectResult(ConnectionStatus.Connected, "Connected.");
+            _tcpStream = new NetworkStream(_tcpClient, true);
         }
         catch (Exception ex)
         {
@@ -244,7 +251,7 @@ internal sealed class TcpTransportActor : UntypedActor
                     _log.Info("Attempting to connect to [{0}:{1}]", TcpOptions.Host, TcpOptions.Port);
 
                     var sender = Sender;
-                    
+
                     // set status to connecting
                     State.Status = ConnectionStatus.Connecting;
 
@@ -264,7 +271,7 @@ internal sealed class TcpTransportActor : UntypedActor
                         await DoConnectAsync(resolved, TcpOptions.Port, sender, ct).ConfigureAwait(false);
                     }
                 });
-                
+
                 break;
             }
             case DoConnect:
@@ -322,19 +329,20 @@ internal sealed class TcpTransportActor : UntypedActor
                     try
                     {
                         var workingBuffer = buffer.Memory;
-                        while (readableBytes > 0 && _tcpClient is { Connected: true })
+                        if (readableBytes > 0 && _tcpClient is { Connected: true } && _tcpStream is { CanWrite: true })
                         {
-                            var sent = await _tcpClient!.SendAsync(workingBuffer.Slice(0, readableBytes), ct)
+                            await _tcpStream!.WriteAsync(workingBuffer.Slice(0, readableBytes), ct)
                                 .ConfigureAwait(false);
-                            if (sent == 0)
+                            await _tcpStream.FlushAsync(ct);
+                        }
+                        else
+                        {
+                            if (_tcpStream!.CanWrite == false)
                             {
-                                _log.Warning("Failed to write to socket - no bytes written.");
+                                _log.Warning("Socket is no longer writable - terminating");
                                 _closureSelf.Tell(ReadFinished.Instance);
                                 goto WritesFinished;
                             }
-
-                            readableBytes -= sent;
-                            workingBuffer = workingBuffer.Slice(sent);
                         }
                     }
                     finally
@@ -364,7 +372,7 @@ internal sealed class TcpTransportActor : UntypedActor
         }
 
         WritesFinished:
-            _writesToTransport.Writer.TryComplete(); // can't write anymore either
+        _writesToTransport.Writer.TryComplete(); // can't write anymore either
     }
 
     private async Task DoWriteToPipeAsync(CancellationToken ct)
@@ -374,7 +382,8 @@ internal sealed class TcpTransportActor : UntypedActor
             var memory = _pipe.Writer.GetMemory(TcpOptions.MaxFrameSize / 4);
             try
             {
-                int bytesRead = await _tcpClient!.ReceiveAsync(memory, SocketFlags.None, ct);
+                var bytesRead = await _tcpStream!.ReadAsync(memory, ct);
+                //int bytesRead = await _tcpClient!.ReceiveAsync(memory, SocketFlags.None, ct);
                 if (bytesRead == 0)
                 {
                     // we are done reading - socket was gracefully closed
@@ -476,10 +485,11 @@ internal sealed class TcpTransportActor : UntypedActor
     private async Task CleanUpGracefully(bool waitOnReads = false)
     {
         // add a simulated DisconnectPacket to help ensure the stream gets terminated
-        _readsFromTransport.Writer.TryWrite(DisconnectToBinary.NormalDisconnectPacket.ToBinary(MqttProtocolVersion.V3_1_1));
+        _readsFromTransport.Writer.TryWrite(
+            DisconnectToBinary.NormalDisconnectPacket.ToBinary(MqttProtocolVersion.V3_1_1));
 
         State.Status = ConnectionStatus.Disconnected;
-        
+
         // no more writes to transport
         _writesToTransport.Writer.TryComplete();
 
@@ -515,6 +525,8 @@ internal sealed class TcpTransportActor : UntypedActor
 
             _pipe.Reader.Complete();
             _pipe.Writer.Complete();
+            _tcpStream?.Close();
+            _tcpStream?.Dispose();
             _tcpClient?.Close();
             _tcpClient?.Dispose();
         }
@@ -524,6 +536,7 @@ internal sealed class TcpTransportActor : UntypedActor
         }
         finally
         {
+            _tcpStream = null;
             _tcpClient = null;
         }
     }
