@@ -333,7 +333,7 @@ internal sealed class TcpTransportActor : UntypedActor
                         {
                             await _tcpStream!.WriteAsync(workingBuffer.Slice(0, readableBytes), ct)
                                 .ConfigureAwait(false);
-                            await _tcpStream.FlushAsync(ct);
+                            //await _tcpStream.FlushAsync(ct);
                         }
                         else
                         {
