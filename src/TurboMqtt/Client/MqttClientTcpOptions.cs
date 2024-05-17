@@ -4,7 +4,6 @@
 // </copyright>
 // -----------------------------------------------------------------------
 
-using System.Net;
 using System.Net.Sockets;
 
 namespace TurboMqtt.Client;
