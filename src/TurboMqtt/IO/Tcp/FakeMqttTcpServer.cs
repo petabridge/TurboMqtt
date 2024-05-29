@@ -8,6 +8,7 @@ using System.Buffers;
 using System.Collections.Concurrent;
 using System.IO.Pipelines;
 using System.Net;
+using System.Net.Security;
 using System.Net.Sockets;
 using Akka.Event;
 using TurboMqtt.Protocol;
@@ -35,6 +36,8 @@ internal sealed class MqttTcpServerOptions
     public string Host { get; }
 
     public int Port { get; }
+
+    public SslServerAuthenticationOptions? SslOptions { get; set; }
 }
 
 /// <summary>
@@ -47,7 +50,7 @@ internal sealed class FakeMqttTcpServer
     private readonly CancellationTokenSource _shutdownTcs = new();
     private readonly ILoggingAdapter _log;
     private readonly ConcurrentDictionary<string, (CancellationTokenSource ct, Task shutdown)> _clientCts = new();
-    private readonly ConcurrentDictionary<string, Socket> _clientSockets = new();
+    private readonly ConcurrentDictionary<string, Stream> _clientSockets = new();
     private readonly TimeSpan _heatBeatDelay;
     private readonly IFakeServerHandleFactory _handleFactory;
     private Socket? _bindSocket;
@@ -118,16 +121,16 @@ internal sealed class FakeMqttTcpServer
 
     public bool TryDisconnectClientSocket(string clientId)
     {
-        if (!_clientSockets.TryRemove(clientId, out var socket)) 
+        if (!_clientSockets.TryRemove(clientId, out var clientTcpStream))
             return false;
 
-        if (!socket.Connected) 
+        if (!clientTcpStream.CanRead)
             return false;
-        
-        socket.Disconnect(true);
+
+        clientTcpStream.Dispose();
         return true;
     }
-    
+
     public void Shutdown()
     {
         _log.Info("Shutting down server.");
@@ -154,7 +157,17 @@ internal sealed class FakeMqttTcpServer
         while (!_shutdownTcs.IsCancellationRequested)
         {
             var socket = await _bindSocket!.AcceptAsync();
-            _ = ProcessClientAsync(socket);
+            Stream readingStream = new NetworkStream(socket, true);
+            
+            // check for TLS
+            if (_options.SslOptions != null)
+            {
+                var sslStream = new SslStream(readingStream, false);
+                await sslStream.AuthenticateAsServerAsync(_options.SslOptions, _shutdownTcs.Token);
+                readingStream = sslStream;
+            }
+            
+            _ = ProcessClientAsync(readingStream);
         }
     }
 
@@ -174,7 +187,7 @@ internal sealed class FakeMqttTcpServer
                     // once we hand the message over to the end-user.
                     var newMemory = new Memory<byte>(new byte[buffer.Length]);
                     buffer.CopyTo(newMemory.Span);
-                    
+
                     handle.HandleBytes(newMemory);
                 }
 
@@ -193,7 +206,9 @@ internal sealed class FakeMqttTcpServer
                     catch (Exception ex)
                     {
                         // junk exception that occurs during shutdown
-                        handle.Log.Debug(ex, "Error advancing the reader with buffer size [{0}] with read result of [Completed={1}, Cancelled={2}]", buffer.Length, result.IsCompleted, result.IsCanceled);
+                        handle.Log.Debug(ex,
+                            "Error advancing the reader with buffer size [{0}] with read result of [Completed={1}, Cancelled={2}]",
+                            buffer.Length, result.IsCompleted, result.IsCanceled);
                         return;
                     }
                 }
@@ -204,10 +219,10 @@ internal sealed class FakeMqttTcpServer
             }
         }
     }
-
-    private async Task ProcessClientAsync(Socket socket)
+    
+    private async Task ProcessClientAsync(Stream stream)
     {
-        using (socket)
+        await using (stream)
         {
             var closed = false;
             var pipe = new Pipe(new PipeOptions(
@@ -217,18 +232,18 @@ internal sealed class FakeMqttTcpServer
             var clientShutdownCts = new CancellationTokenSource();
             var linkedCts =
                 CancellationTokenSource.CreateLinkedTokenSource(clientShutdownCts.Token, _shutdownTcs.Token);
-            
+
             var handle = _handleFactory.CreateServerHandle(PushMessage, ClosingAction, _log, _version, _heatBeatDelay);
-            
+
             _ = handle.WhenClientIdAssigned.ContinueWith(t =>
             {
                 if (t.IsCompletedSuccessfully)
                 {
                     _clientCts.TryAdd(t.Result, (clientShutdownCts, handle.WhenTerminated));
-                    _clientSockets.TryAdd(t.Result, socket);
+                    _clientSockets.TryAdd(t.Result, stream);
                 }
             }, clientShutdownCts.Token);
-           
+
 
             _ = ReadFromPipeAsync(pipe.Reader, handle, linkedCts.Token);
 
@@ -239,7 +254,7 @@ internal sealed class FakeMqttTcpServer
                 try
                 {
                     var memory = pipe.Writer.GetMemory(_options.MaxFrameSize / 4);
-                    var bytesRead = await socket.ReceiveAsync(memory, SocketFlags.None, linkedCts.Token);
+                    var bytesRead = await stream.ReadAsync(memory, linkedCts.Token);
                     if (bytesRead == 0)
                     {
                         _log.Info("Client {0} disconnected from server.",
@@ -287,7 +302,7 @@ internal sealed class FakeMqttTcpServer
 
             // ensure we've cleaned up all resources
             await handle.WhenTerminated;
-            
+
             await pipe.Writer.CompleteAsync();
             await pipe.Reader.CompleteAsync();
 
@@ -297,21 +312,10 @@ internal sealed class FakeMqttTcpServer
             {
                 try
                 {
-                    if (socket.Connected && linkedCts.Token is { IsCancellationRequested: false })
+                    if (stream.CanWrite && linkedCts.Token is { IsCancellationRequested: false })
                     {
-                        var sent = socket.Send(msg.buffer.Memory.Span.Slice(0, msg.estimatedSize));
-                        while (sent < msg.estimatedSize)
-                        {
-                            if (sent == 0) return false; // we are shutting down
-
-                            var remaining = msg.buffer.Memory.Slice(sent);
-                            var sent2 = socket.Send(remaining.Span);
-                            if (sent2 == remaining.Length)
-                                sent += sent2;
-                            else
-                                return false;
-                        }
-
+                        var task = stream.WriteAsync(msg.buffer.Memory.Slice(0, msg.estimatedSize), linkedCts.Token);
+                        task.GetAwaiter().GetResult();
                         return true;
                     }
 
@@ -333,7 +337,16 @@ internal sealed class FakeMqttTcpServer
                 closed = true;
                 // ReSharper disable once AccessToModifiedClosure
                 await clientShutdownCts.CancelAsync();
-                if (socket.Connected) socket.Close();
+                try
+                {
+                    stream?.Close();
+                    // ReSharper disable once MethodHasAsyncOverload
+                    stream?.Dispose();
+                }
+                catch
+                {
+                    // suppress exceptions during stream disposal
+                }
             }
         }
     }
