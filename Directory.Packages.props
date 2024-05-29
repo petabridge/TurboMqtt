@@ -4,10 +4,10 @@
   </PropertyGroup>
   <!-- Akka.NET Package Versions -->
   <ItemGroup>
-    <PackageVersion Include="Akka" Version="1.5.20" />
+    <PackageVersion Include="Akka" Version="1.5.21" />
     <PackageVersion Include="Akka.Hosting" Version="1.5.20" />
     <PackageVersion Include="Akka.Hosting.TestKit" Version="1.5.20" />
-    <PackageVersion Include="Akka.Streams" Version="1.5.20" />
+    <PackageVersion Include="Akka.Streams" Version="1.5.21" />
     <PackageVersion Include="Akka.Streams.TestKit" Version="1.5.20" />
     <PackageVersion Include="BenchmarkDotNet" Version="0.13.12" />
     <PackageVersion Include="FsCheck.Xunit" Version="2.16.6" />
