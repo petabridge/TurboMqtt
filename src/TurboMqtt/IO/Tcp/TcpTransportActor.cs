@@ -9,6 +9,7 @@ using System.IO.Pipelines;
 using System.Net;
 using System.Net.Security;
 using System.Net.Sockets;
+using System.Security.Cryptography.X509Certificates;
 using System.Threading.Channels;
 using Akka.Actor;
 using Akka.Event;
@@ -226,6 +227,14 @@ internal sealed class TcpTransportActor : UntypedActor
             await _tcpClient.ConnectAsync(addresses, port, ct).ConfigureAwait(false);
             connectResult = new ConnectResult(ConnectionStatus.Connected, "Connected.");
             _tcpStream = new NetworkStream(_tcpClient, true);
+            
+            // Check for TLS
+            if (TcpOptions.TlsOptions.UseTls)
+            {
+                var sslStream = new SslStream(_tcpStream, false);
+                _tcpStream = sslStream;
+                await sslStream.AuthenticateAsClientAsync(TcpOptions.TlsOptions.SslOptions!, ct);
+            }
         }
         catch (Exception ex)
         {

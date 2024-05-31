@@ -16,6 +16,10 @@ using Xunit.Abstractions;
 
 namespace TurboMqtt.Tests.End2End;
 
+[CollectionDefinition(nameof(TcpEnd2EndCollection))]
+public sealed class TcpEnd2EndCollection;
+
+[Collection(nameof(TcpEnd2EndCollection))]
 public class TcpMqtt311End2EndSpecs : TransportSpecBase
 {
     public static readonly Config DebugLogging = """
@@ -26,7 +30,7 @@ public class TcpMqtt311End2EndSpecs : TransportSpecBase
     {
         var logger = new BusLogging(Sys.EventStream, "FakeMqttTcpServer", typeof(FakeMqttTcpServer),
             Sys.Settings.LogFormatter);
-        _server = new FakeMqttTcpServer(new MqttTcpServerOptions("localhost", 21883), MqttProtocolVersion.V3_1_1,
+        _server = new FakeMqttTcpServer(DefaultTcpServerOptions, MqttProtocolVersion.V3_1_1,
             logger, TimeSpan.Zero, new DefaultFakeServerHandleFactory());
         _server.Bind();
     }
@@ -39,7 +43,8 @@ public class TcpMqtt311End2EndSpecs : TransportSpecBase
         return client;
     }
 
-    public MqttClientTcpOptions DefaultTcpOptions => new("localhost", 21883);
+    protected virtual MqttClientTcpOptions DefaultTcpOptions => new("localhost", 21883);
+    protected virtual MqttTcpServerOptions DefaultTcpServerOptions => new("localhost", 21883);
 
     protected override void AfterAll()
     {
@@ -128,7 +133,7 @@ public class TcpMqtt311End2EndSpecs : TransportSpecBase
         _server.Shutdown();
         
         var server = new FakeMqttTcpServer(
-            options: new MqttTcpServerOptions("localhost", 21883), 
+            options: DefaultTcpServerOptions, 
             version: MqttProtocolVersion.V3_1_1,
             log: Log,
             heartbeatDelay: TimeSpan.Zero,
@@ -259,10 +264,7 @@ public class TcpMqtt311End2EndSpecs : TransportSpecBase
     [Fact]
     public async Task ShouldFailToConnectToNonExistentServer()
     {
-        var updatedTcpOptions = new MqttClientTcpOptions("localhost", 21884)
-        {
-            MaxReconnectAttempts = 0
-        };
+        var updatedTcpOptions = DefaultTcpOptions with { Port = 21884, MaxReconnectAttempts = 0 };
         var client = await ClientFactory.CreateTcpClient(DefaultConnectOptions, updatedTcpOptions);
         
         // we are going to do this, intentionally, without a CTS here - this operation MUST FAIL if we are unable to connect
@@ -275,10 +277,7 @@ public class TcpMqtt311End2EndSpecs : TransportSpecBase
     [Fact]
     public async Task ShouldSuccessFullyConnectWhenBrokerAvailableAfterFailedConnectionAttempt()
     {
-        var updatedTcpOptions = new MqttClientTcpOptions("localhost", 21889)
-        {
-            MaxReconnectAttempts = 0
-        };
+        var updatedTcpOptions = DefaultTcpOptions with { Port = 21889, MaxReconnectAttempts = 0 };
         var client = await ClientFactory.CreateTcpClient(DefaultConnectOptions, updatedTcpOptions);
         
         // we are going to do this, intentionally, without a CTS here - this operation MUST FAIL if we are unable to connect
@@ -287,8 +286,9 @@ public class TcpMqtt311End2EndSpecs : TransportSpecBase
 
         client.IsConnected.Should().BeFalse();
         
+        var updatedServerOptions = DefaultTcpServerOptions with { Port = 21889 };
         // start up a new server
-        var newServer = new FakeMqttTcpServer(new MqttTcpServerOptions("localhost", 21889), MqttProtocolVersion.V3_1_1,
+        var newServer = new FakeMqttTcpServer(updatedServerOptions, MqttProtocolVersion.V3_1_1,
             Sys.Log, TimeSpan.Zero, new DefaultFakeServerHandleFactory());
         try
         {

@@ -15,7 +15,7 @@ using TurboMqtt.Protocol;
 
 namespace TurboMqtt.IO.Tcp;
 
-internal sealed class MqttTcpServerOptions
+public sealed record MqttTcpServerOptions
 {
     public MqttTcpServerOptions(string host, int port)
     {
@@ -26,18 +26,18 @@ internal sealed class MqttTcpServerOptions
     /// <summary>
     /// Would love to just do IPV6, but that still meets resistance everywhere
     /// </summary>
-    public AddressFamily AddressFamily { get; set; } = AddressFamily.Unspecified;
+    public AddressFamily AddressFamily { get; init; } = AddressFamily.Unspecified;
 
     /// <summary>
     /// Frames are limited to this size in bytes. A frame can contain multiple packets.
     /// </summary>
-    public int MaxFrameSize { get; set; } = 128 * 1024; // 128kb
+    public int MaxFrameSize { get; init; } = 128 * 1024; // 128kb
 
-    public string Host { get; }
+    public string Host { get; init; }
 
-    public int Port { get; }
+    public int Port { get; init; }
 
-    public SslServerAuthenticationOptions? SslOptions { get; set; }
+    public SslServerAuthenticationOptions? SslOptions { get; init; }
 }
 
 /// <summary>
@@ -162,9 +162,18 @@ internal sealed class FakeMqttTcpServer
             // check for TLS
             if (_options.SslOptions != null)
             {
-                var sslStream = new SslStream(readingStream, false);
-                await sslStream.AuthenticateAsServerAsync(_options.SslOptions, _shutdownTcs.Token);
-                readingStream = sslStream;
+                try
+                {
+                    var sslStream = new SslStream(readingStream, false);
+                    readingStream = sslStream;
+                    await sslStream.AuthenticateAsServerAsync(_options.SslOptions, _shutdownTcs.Token);
+                    _log.Info("Server authenticated successfully");
+                }
+                catch (Exception ex)
+                {
+                    _log.Error(ex, "Exception during authentication");
+                    throw;
+                }
             }
             
             _ = ProcessClientAsync(readingStream);

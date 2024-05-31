@@ -30,4 +30,18 @@
       <ProjectReference Include="..\..\src\TurboMqtt\TurboMqtt.csproj" />
     </ItemGroup>
 
+    <ItemGroup>
+      <None Include="..\certs\root_cert.pem">
+        <Link>certs\root_cert.pem</Link>
+        <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      </None>
+    </ItemGroup>
+
+    <ItemGroup>
+      <None Include="..\certs\server_cert.pem">
+        <Link>certs\server_cert.pem</Link>
+        <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      </None>
+    </ItemGroup>
+
 </Project>
