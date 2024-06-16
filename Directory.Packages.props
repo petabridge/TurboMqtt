@@ -4,11 +4,11 @@
   </PropertyGroup>
   <!-- Akka.NET Package Versions -->
   <ItemGroup>
-    <PackageVersion Include="Akka" Version="1.5.24" />
-    <PackageVersion Include="Akka.Hosting" Version="1.5.22" />
-    <PackageVersion Include="Akka.Hosting.TestKit" Version="1.5.22" />
-    <PackageVersion Include="Akka.Streams" Version="1.5.23" />
-    <PackageVersion Include="Akka.Streams.TestKit" Version="1.5.23" />
+    <PackageVersion Include="Akka" Version="1.5.25" />
+    <PackageVersion Include="Akka.Hosting" Version="1.5.24" />
+    <PackageVersion Include="Akka.Hosting.TestKit" Version="1.5.24" />
+    <PackageVersion Include="Akka.Streams" Version="1.5.25" />
+    <PackageVersion Include="Akka.Streams.TestKit" Version="1.5.25" />
     <PackageVersion Include="BenchmarkDotNet" Version="0.13.12" />
     <PackageVersion Include="FsCheck.Xunit" Version="2.16.6" />
     <PackageVersion Include="JetBrains.Annotations" Version="2023.3.0" />
