@@ -1,3 +1,8 @@
+#### 0.2.0 June 14th 2024 ####
+
+* License has been migrated to Apache 2.0
+* Upgraded to [Akka.NET v1.5.25](https://github.com/akkadotnet/akka.net/releases/tag/1.5.25).
+
 #### 0.1.1 May 2nd 2024 ####
 
 TurboMqtt v0.1.1 includes critical bug fixes and massive performance improvements over v0.1.0.
