@@ -20,7 +20,7 @@
   <!-- OTEL Package Versions -->
   <ItemGroup>
     <PackageVersion Include="OpenTelemetry.Api.ProviderBuilderExtensions" Version="1.9.0" />
-    <PackageVersion Include="OpenTelemetry.Exporter.Console" Version="1.8.1" />
+    <PackageVersion Include="OpenTelemetry.Exporter.Console" Version="1.9.0" />
     <PackageVersion Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.9.0" />
     <PackageVersion Include="OpenTelemetry.Extensions.Hosting" Version="1.9.0" />
   </ItemGroup>
