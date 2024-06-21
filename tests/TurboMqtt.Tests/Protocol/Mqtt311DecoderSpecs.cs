@@ -4,6 +4,7 @@
 // </copyright>
 // -----------------------------------------------------------------------
 
+using System.Collections.Immutable;
 using FsCheck;
 using TurboMqtt.PacketTypes;
 using TurboMqtt.Protocol;
@@ -214,21 +215,37 @@ public class Mqtt311DecoderSpecs
 
             var fragmentedPackets = PacketGenerators.FragmentedPackets(Arb.From(Gen.Constant(packet))).Generator
                 .Sample(0, 1).First();
+
+            var fragmentCount = fragmentedPackets.Length;
             
             var estimatedSize = MqttPacketSizeEstimator.EstimateMqtt3PacketSize(packet);
-            
-            fragmentedPackets.Sum(x => x.Length).Should().Be(estimatedSize.TotalSize);
+
+            var packetSumsAddUp =
+                (fragmentedPackets.Sum(x => x.Length) == estimatedSize.TotalSize)
+                .Label("Packet Lengths Match Estimate");
 
             try
             {
                 // Assuming you have a method to handle fragments
-                var decoded = false;
+                var decodedPackets = ImmutableList<MqttPacket>.Empty;
                 foreach (var fragment in fragmentedPackets)
                 {
-                    decoded = decoder.TryDecode(fragment, out var packets);
+                    var decoded = decoder.TryDecode(fragment, out var packets);
+                    if (decoded)
+                    {
+                        decodedPackets = decodedPackets.AddRange(packets);
+                    }
                 }
 
-                return decoded.Label($"Should be able to reassemble published packets");
+                var decodedPacketCountsMatch = (decodedPackets.Count == 1).Label($"Should be able to reassemble published packets");
+                return decodedPacketCountsMatch.And(packetSumsAddUp).When(fragmentCount > 1)
+                    .Classify(fragmentCount == 1, "packetCount == 1")
+                    .Classify(fragmentCount == 2, "packetCount == 2")
+                    .Classify(fragmentCount == 3, "packetCount == 3")
+                    .Classify(fragmentCount == 4, "packetCount == 4")
+                    .Classify(fragmentCount == 5, "packetCount == 5")
+                    .Classify(fragmentCount > 5, "packetCount > 5");
+                    //.Collect();
             }
             catch (Exception ex)
             {
