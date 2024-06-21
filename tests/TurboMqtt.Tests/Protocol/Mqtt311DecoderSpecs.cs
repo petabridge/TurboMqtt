@@ -216,7 +216,7 @@ public class Mqtt311DecoderSpecs
             var fragmentedPackets = PacketGenerators.FragmentedPackets(Arb.From(Gen.Constant(packet))).Generator
                 .Sample(0, 1).First();
 
-            var packetCount = fragmentedPackets.Length;
+            var fragmentCount = fragmentedPackets.Length;
             
             var estimatedSize = MqttPacketSizeEstimator.EstimateMqtt3PacketSize(packet);
 
@@ -238,7 +238,14 @@ public class Mqtt311DecoderSpecs
                 }
 
                 var decodedPacketCountsMatch = (decodedPackets.Count == 1).Label($"Should be able to reassemble published packets");
-                return decodedPacketCountsMatch.And(packetSumsAddUp).When(packetCount > 1);
+                return decodedPacketCountsMatch.And(packetSumsAddUp).When(fragmentCount > 1)
+                    .Classify(fragmentCount == 1, "packetCount == 1")
+                    .Classify(fragmentCount == 2, "packetCount == 2")
+                    .Classify(fragmentCount == 3, "packetCount == 3")
+                    .Classify(fragmentCount == 4, "packetCount == 4")
+                    .Classify(fragmentCount == 5, "packetCount == 5")
+                    .Classify(fragmentCount > 5, "packetCount > 5");
+                    //.Collect();
             }
             catch (Exception ex)
             {
