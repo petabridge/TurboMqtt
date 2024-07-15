@@ -104,6 +104,6 @@ jobs:
 
       - name: Publish Test Results
         if: always() && runner.os == 'Linux'
-        uses: EnricoMi/publish-unit-test-result-action@v2.16.1
+        uses: EnricoMi/publish-unit-test-result-action@v2.17.0
         with:
           trx_files: "${{ github.workspace }}/**/*.trx"
