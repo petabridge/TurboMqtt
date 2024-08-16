@@ -11,6 +11,12 @@ using TurboMqtt.PacketTypes;
 
 namespace TurboMqtt.IO;
 
+internal interface IDuplexTransport
+{
+    public ChannelWriter<(IMemoryOwner<byte> buffer, int readableBytes)> Writer { get; }
+    public ChannelReader<(IMemoryOwner<byte> buffer, int readableBytes)> Reader { get; }
+}
+
 /// <summary>
 /// Represents the underlying transport mechanism used to send and receive MQTT messages.
 ///
