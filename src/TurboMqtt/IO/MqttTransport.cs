@@ -17,6 +17,18 @@ internal interface IDuplexTransport
     public ChannelReader<(IMemoryOwner<byte> buffer, int readableBytes)> Reader { get; }
 }
 
+internal sealed class DuplexTransport : IDuplexTransport
+{
+    public DuplexTransport(ChannelWriter<(IMemoryOwner<byte> buffer, int readableBytes)> writer, ChannelReader<(IMemoryOwner<byte> buffer, int readableBytes)> reader)
+    {
+        Writer = writer;
+        Reader = reader;
+    }
+
+    public ChannelWriter<(IMemoryOwner<byte> buffer, int readableBytes)> Writer { get; }
+    public ChannelReader<(IMemoryOwner<byte> buffer, int readableBytes)> Reader { get; }
+}
+
 /// <summary>
 /// Represents the underlying transport mechanism used to send and receive MQTT messages.
 ///
@@ -95,14 +107,19 @@ internal interface IMqttTransport
     public int MaxFrameSize { get; }
     
     /// <summary>
-    /// Used to write data to the underlying transport.
+    /// Contains a reader and a writer used to send and receive data over the transport.
     /// </summary>
-    public ChannelWriter<(IMemoryOwner<byte> buffer, int readableBytes)> Writer { get; }
+    public IDuplexTransport Transport { get; }
     
-    /// <summary>
-    /// Used to read data from the underlying transport.
-    /// </summary>
-    public ChannelReader<(IMemoryOwner<byte> buffer, int readableBytes)> Reader { get; }
+    // /// <summary>
+    // /// Used to write data to the underlying transport.
+    // /// </summary>
+    // public ChannelWriter<(IMemoryOwner<byte> buffer, int readableBytes)> Writer { get; }
+    //
+    // /// <summary>
+    // /// Used to read data from the underlying transport.
+    // /// </summary>
+    // public ChannelReader<(IMemoryOwner<byte> buffer, int readableBytes)> Reader { get; }
 }
 
 public enum ConnectionStatus

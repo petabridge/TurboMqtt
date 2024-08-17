@@ -56,8 +56,7 @@ internal sealed class InMemoryMqttTransport : IMqttTransport
         MaxFrameSize = maxFrameSize;
         Log = log;
         ProtocolVersion = protocolVersion;
-        Reader = _readsFromTransport;
-        Writer = _writesToTransport;
+        Transport = new DuplexTransport(_writesToTransport, _readsFromTransport);
 
         _serverHandle = protocolVersion switch
         {
@@ -161,7 +160,6 @@ internal sealed class InMemoryMqttTransport : IMqttTransport
     }
 
     public int MaxFrameSize { get; }
-    public ChannelWriter<(IMemoryOwner<byte> buffer, int readableBytes)> Writer { get; }
-    public ChannelReader<(IMemoryOwner<byte> buffer, int readableBytes)> Reader { get; }
+    public IDuplexTransport Transport { get; }
     
 }

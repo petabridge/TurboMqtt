@@ -23,7 +23,7 @@ internal static class MqttClientStreams
     public static Sink<MqttPacket, NotUsed> Mqtt311OutboundPacketSink(string clientId, IMqttTransport transport,
         MemoryPool<byte> memoryPool, int maxFrameSize, int maxPacketSize, bool withTelemetry = true)
     {
-        var finalSink = Sink.FromWriter(transport.Writer, true);
+        var finalSink = Sink.FromWriter(transport.Transport.Writer, true);
         if (withTelemetry)
             return Flow.Create<MqttPacket>()
                 .Via(OpenTelemetryFlows.MqttPacketRateTelemetryFlow(MqttProtocolVersion.V3_1_1, clientId,
@@ -44,7 +44,7 @@ internal static class MqttClientStreams
 
     {
         if (withTelemetry)
-            return (ChannelSource.FromReader(transport.Reader)
+            return (ChannelSource.FromReader(transport.Transport.Reader)
                 .Via(OpenTelemetryFlows.MqttBitRateTelemetryFlow(MqttProtocolVersion.V3_1_1, clientId,
                     OpenTelemetrySupport.Direction.Inbound))
                 .Via(MqttDecodingFlows.Mqtt311Decoding())
@@ -57,7 +57,7 @@ internal static class MqttClientStreams
                 .Where(c => c.PacketType == MqttPacketType.Publish)
                 .Select(c => ((PublishPacket)c).FromPacket()));
 
-        return (ChannelSource.FromReader(transport.Reader)
+        return (ChannelSource.FromReader(transport.Transport.Reader)
             .Via(MqttDecodingFlows.Mqtt311Decoding())
             .Async()
             .Via(MqttReceiverFlows.ClientAckingFlow(outboundPackets, actors, disconnectPromise))

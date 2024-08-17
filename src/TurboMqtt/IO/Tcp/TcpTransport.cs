@@ -54,8 +54,7 @@ internal sealed class TcpTransport : IMqttTransport
         Log = log;
         State = state;
         _connectionActor = connectionActor;
-        Reader = state.Reader;
-        Writer = state.Writer;
+        Transport = new DuplexTransport(State.Writer, State.Reader);
         MaxFrameSize = state.MaxFrameSize;
     }
 
@@ -94,6 +93,5 @@ internal sealed class TcpTransport : IMqttTransport
     }
 
     public int MaxFrameSize { get; }
-    public ChannelWriter<(IMemoryOwner<byte> buffer, int readableBytes)> Writer { get; }
-    public ChannelReader<(IMemoryOwner<byte> buffer, int readableBytes)> Reader { get; }
+    public IDuplexTransport Transport { get; }
 }
