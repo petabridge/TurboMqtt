@@ -10,6 +10,7 @@
 
     <ItemGroup>
       <PackageReference Include="Akka.Hosting" />
+      <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
       <PackageReference Include="OpenTelemetry.Exporter.Console" />
       <PackageReference Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" />
       <PackageReference Include="OpenTelemetry.Extensions.Hosting" />

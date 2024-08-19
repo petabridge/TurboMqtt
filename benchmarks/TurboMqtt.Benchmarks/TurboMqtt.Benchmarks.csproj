@@ -15,6 +15,7 @@
 
     <ItemGroup>
       <PackageReference Include="BenchmarkDotNet" />
+      <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
     </ItemGroup>
 
 </Project>
