@@ -204,7 +204,7 @@ public static class Mqtt311Encoder
         var span = buffer.Span;
         WriteByte(ref span, CalculateFirstByteOfFixedPacketHeader(packet));
         EncodeFrameHeaderWithByteShifting(ref span, estimatedSize.ContentSize);
-        WriteUnsignedShort(ref span, (int)packet.PacketId.Value);
+        WriteUnsignedShort(ref span, packet.PacketId.Value);
         return 4;
     }
 
