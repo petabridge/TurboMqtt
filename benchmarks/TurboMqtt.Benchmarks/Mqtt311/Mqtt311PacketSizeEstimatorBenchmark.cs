@@ -10,6 +10,7 @@ using TurboMqtt.Protocol;
 
 namespace TurboMqtt.Benchmarks.Mqtt311;
 
+[Config(typeof(MicroBenchmarkConfig))]
 public class Mqtt311PacketSizeEstimatorBenchmark
 {
     public static IEnumerable<object> Packets() // for multiple arguments it's an IEnumerable of array of objects (object[])
