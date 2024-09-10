@@ -105,7 +105,7 @@ internal sealed class InMemoryMqttTransport : IMqttTransport
     {
         Status = ConnectionStatus.Disconnected;
         await _application.Output.CompleteAsync();
-        await _transport.Output.CompleteAsync();
+        await _transport.Input.CompleteAsync();
         await _waitForPendingWrites.Task;
         await _shutdownTokenSource.CancelAsync();
         _terminationSource.TrySetResult(DisconnectReasonCode.NormalDisconnection);
@@ -116,7 +116,7 @@ internal sealed class InMemoryMqttTransport : IMqttTransport
     {
         Status = ConnectionStatus.Disconnected;
         await _application.Output.CompleteAsync();
-        await _transport.Output.CompleteAsync();
+        await _transport.Input.CompleteAsync();
         _terminationSource.TrySetResult(DisconnectReasonCode.UnspecifiedError);
     }
 
@@ -160,9 +160,12 @@ internal sealed class InMemoryMqttTransport : IMqttTransport
 
             if (!buffer.IsEmpty)
             {
-                // TODO: eliminate copying
-                var newMem = new ReadOnlyMemory<byte>(buffer.ToArray());
-                _serverHandle.HandleBytes(newMem);
+                var seqPosition = buffer.Start;
+                while (buffer.TryGet(ref seqPosition, out var memory))
+                {
+                    _serverHandle.HandleBytes(memory);
+                }
+                
             }
 
             if (msg.IsCompleted)

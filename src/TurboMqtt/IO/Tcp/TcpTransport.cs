@@ -5,6 +5,7 @@
 // -----------------------------------------------------------------------
 
 using System.Buffers;
+using System.IO.Pipelines;
 using System.Threading.Channels;
 using Akka.Actor;
 using Akka.Event;
@@ -54,7 +55,7 @@ internal sealed class TcpTransport : IMqttTransport
         Log = log;
         State = state;
         _connectionActor = connectionActor;
-        Channel = new DuplexChannel(State.Writer, State.Reader);
+        Channel = state.Pipe;
         MaxFrameSize = state.MaxFrameSize;
     }
 
@@ -93,5 +94,5 @@ internal sealed class TcpTransport : IMqttTransport
     }
 
     public int MaxFrameSize { get; }
-    public IDuplexChannel Channel { get; }
+    public IDuplexPipe Channel { get; }
 }

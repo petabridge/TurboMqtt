@@ -11,7 +11,9 @@ using System.Net.Sockets;
 using System.Threading.Channels;
 using Akka.Actor;
 using Akka.Event;
+using Akka.Streams.Implementation.Fusing;
 using TurboMqtt.Client;
+using TurboMqtt.IO.Internal;
 using TurboMqtt.PacketTypes;
 using TurboMqtt.Protocol;
 using Debug = System.Diagnostics.Debug;
@@ -33,21 +35,22 @@ internal sealed class TcpTransportActor : UntypedActor
     /// </remarks>
     public sealed class ConnectionState
     {
-        public ConnectionState(ChannelWriter<(IMemoryOwner<byte> buffer, int readableBytes)> writer,
-            ChannelReader<(IMemoryOwner<byte> buffer, int readableBytes)> reader,
+        public ConnectionState(IDuplexPipe dataPipes,
             Task<DisconnectReasonCode> whenTerminated, int maxFrameSize, Task waitForPendingWrites)
         {
-            Writer = writer;
-            Reader = reader;
+            Pipe = dataPipes;
             WhenTerminated = whenTerminated;
             MaxFrameSize = maxFrameSize;
             WaitForPendingWrites = waitForPendingWrites;
         }
-        
+
         private volatile ConnectionStatus _status = ConnectionStatus.NotStarted;
 
-        public ConnectionStatus Status { get => _status; 
-            set => _status = value; }
+        public ConnectionStatus Status
+        {
+            get => _status;
+            set => _status = value;
+        }
 
         public CancellationTokenSource ShutDownCts { get; set; } = new();
 
@@ -57,12 +60,14 @@ internal sealed class TcpTransportActor : UntypedActor
 
         public Task WaitForPendingWrites { get; }
 
-        public ChannelWriter<(IMemoryOwner<byte> buffer, int readableBytes)> Writer { get; }
+        public IDuplexPipe Pipe { get; }
+
+        public PipeWriter Writer => Pipe.Output;
 
         /// <summary>
         /// Used to read data from the underlying transport.
         /// </summary>
-        public ChannelReader<(IMemoryOwner<byte> buffer, int readableBytes)> Reader { get; }
+        public PipeReader Reader => Pipe.Input;
     }
 
     /// <summary>
@@ -111,27 +116,29 @@ internal sealed class TcpTransportActor : UntypedActor
 
     private Socket? _tcpClient;
 
-    private readonly Channel<(IMemoryOwner<byte> buffer, int readableBytes)> _writesToTransport =
-        Channel.CreateUnbounded<(IMemoryOwner<byte> buffer, int readableBytes)>();
+    private readonly IDuplexPipe _transport;
 
-    private readonly Channel<(IMemoryOwner<byte> buffer, int readableBytes)> _readsFromTransport =
-        Channel.CreateUnbounded<(IMemoryOwner<byte> buffer, int readableBytes)>();
+    private readonly IDuplexPipe _application;
 
     private readonly TaskCompletionSource<DisconnectReasonCode> _whenTerminated = new();
+    private readonly TaskCompletionSource _writingCompleted = new();
     private readonly ILoggingAdapter _log = Context.GetLogger();
-
-    private readonly Pipe _pipe;
 
     public TcpTransportActor(MqttClientTcpOptions tcpOptions)
     {
         TcpOptions = tcpOptions;
         MaxFrameSize = tcpOptions.MaxFrameSize;
 
-        State = new ConnectionState(_writesToTransport.Writer, _readsFromTransport.Reader, _whenTerminated.Task,
-            MaxFrameSize, _writesToTransport.Reader.Completion); // we signal completion when _writesToTransport is done
+        var pipeOptions = new PipeOptions(pauseWriterThreshold: ScaleBufferSize(MaxFrameSize),
+            resumeWriterThreshold: ScaleBufferSize(MaxFrameSize) / 2,
+            useSynchronizationContext: false);
+        var pipes = DuplexPipe.CreateConnectionPair(pipeOptions, pipeOptions);
 
-        _pipe = new Pipe(new PipeOptions(pauseWriterThreshold: ScaleBufferSize(MaxFrameSize), resumeWriterThreshold: ScaleBufferSize(MaxFrameSize) / 2,
-            useSynchronizationContext: false));
+        _transport = pipes.Transport;
+        _application = pipes.Application;
+
+        State = new ConnectionState(pipes.Application, _whenTerminated.Task,
+            MaxFrameSize, _writingCompleted.Task); // we signal completion when _writesToTransport is done
     }
 
     /*
@@ -140,7 +147,7 @@ internal sealed class TcpTransportActor : UntypedActor
      * Connecting --> DoConnect --> Connecting (already connecting) --> ConnectResult (Connected) BECOME Running
      * Running --> DoWriteToPipeAsync --> Running (read data from socket) --> DoWriteToSocketAsync --> Running (write data to socket)
      */
-    
+
     /// <summary>
     /// Performs the max buffer size scaling for the socket.
     /// </summary>
@@ -150,11 +157,11 @@ internal sealed class TcpTransportActor : UntypedActor
         // if the max frame size is under 128kb, scale it up to 512kb
         if (maxFrameSize <= 128 * 1024)
             return 512 * 1024;
-        
+
         // between 128kb and 1mb, scale it up to 2mb
         if (maxFrameSize <= 1024 * 1024)
             return 2 * 1024 * 1024;
-        
+
         // if the max frame size is above 1mb, 2x it
         return maxFrameSize * 2;
     }
@@ -244,7 +251,7 @@ internal sealed class TcpTransportActor : UntypedActor
                     _log.Info("Attempting to connect to [{0}:{1}]", TcpOptions.Host, TcpOptions.Port);
 
                     var sender = Sender;
-                    
+
                     // set status to connecting
                     State.Status = ConnectionStatus.Connecting;
 
@@ -264,7 +271,7 @@ internal sealed class TcpTransportActor : UntypedActor
                         await DoConnectAsync(resolved, TcpOptions.Port, sender, ct).ConfigureAwait(false);
                     }
                 });
-                
+
                 break;
             }
             case DoConnect:
@@ -303,45 +310,61 @@ internal sealed class TcpTransportActor : UntypedActor
         Become(Running);
 
 #pragma warning disable CS4014 // Because this call is not awaited, execution of the current method continues before the call is completed
-        DoWriteToPipeAsync(State.ShutDownCts.Token);
-        ReadFromPipeAsync(State.ShutDownCts.Token);
+        DoWriteToOutputPipeAsync(State.ShutDownCts.Token);
         DoWriteToSocketAsync(State.ShutDownCts.Token);
 #pragma warning restore CS4014 // Because this call is not awaited, execution of the current method continues before the call is completed
     }
 
     private async Task DoWriteToSocketAsync(CancellationToken ct)
     {
-        while (!_writesToTransport.Reader.Completion.IsCompleted)
+        while (!ct.IsCancellationRequested)
         {
             try
             {
-                while (await _writesToTransport.Reader.WaitToReadAsync(ct).ConfigureAwait(false))
-                while (_writesToTransport.Reader.TryRead(out var item))
+                if (!_transport.Input.TryRead(out var readResult))
                 {
-                    var (buffer, readableBytes) = item;
                     try
                     {
-                        var workingBuffer = buffer.Memory;
-                        while (readableBytes > 0 && _tcpClient is { Connected: true })
-                        {
-                            var sent = await _tcpClient!.SendAsync(workingBuffer.Slice(0, readableBytes), ct)
-                                .ConfigureAwait(false);
-                            if (sent == 0)
-                            {
-                                _log.Warning("Failed to write to socket - no bytes written.");
-                                _closureSelf.Tell(ReadFinished.Instance);
-                                goto WritesFinished;
-                            }
+                        readResult = await _transport.Input.ReadAsync(ct).ConfigureAwait(false);
+                    }
+                    catch (OperationCanceledException)
+                    {
+                    }
+                }
+ 
 
-                            readableBytes -= sent;
-                            workingBuffer = workingBuffer.Slice(sent);
+                var buffer = readResult.Buffer;
+                
+                var totalSent = 0;
+                try
+                {
+                    var seqPosition = buffer.Start;
+                    
+                    while (buffer.TryGet(ref seqPosition, out var workingBuffer) && _tcpClient is { Connected: true })
+                    {
+                        var sent = await _tcpClient!.SendAsync(workingBuffer, ct)
+                            .ConfigureAwait(false);
+                        
+                        totalSent += sent;
+                        
+                        if (sent == 0)
+                        {
+                            _log.Warning("Failed to write to socket - no bytes written.");
+                            _closureSelf.Tell(ReadFinished.Instance);
+                            goto WritesFinished;
                         }
                     }
-                    finally
+                    
+                    if (readResult.IsCompleted)
                     {
-                        // free the pooled buffer
-                        buffer.Dispose();
+                        // reader is done reading
+                        break;
                     }
+                }
+                finally
+                {
+                    // free the pooled buffer
+                    _log.Debug("Sent {0} bytes to socket.", totalSent);
                 }
             }
             catch (OperationCanceledException)
@@ -364,14 +387,16 @@ internal sealed class TcpTransportActor : UntypedActor
         }
 
         WritesFinished:
-            _writesToTransport.Writer.TryComplete(); // can't write anymore either
+            await _application.Output.CompleteAsync(); // can't write anymore either
+            await _transport.Output.CompleteAsync();
+            _writingCompleted.TrySetResult(); // signal that we are done writing
     }
 
-    private async Task DoWriteToPipeAsync(CancellationToken ct)
+    private async Task DoWriteToOutputPipeAsync(CancellationToken ct)
     {
         while (!ct.IsCancellationRequested)
         {
-            var memory = _pipe.Writer.GetMemory(TcpOptions.MaxFrameSize / 4);
+            var memory = _transport.Output.GetMemory(TcpOptions.MaxFrameSize / 4);
             try
             {
                 int bytesRead = await _tcpClient!.ReceiveAsync(memory, SocketFlags.None, ct);
@@ -384,7 +409,7 @@ internal sealed class TcpTransportActor : UntypedActor
                     return;
                 }
 
-                _pipe.Writer.Advance(bytesRead);
+                _transport.Output.Advance(bytesRead);
             }
             catch (OperationCanceledException)
             {
@@ -404,7 +429,7 @@ internal sealed class TcpTransportActor : UntypedActor
             }
 
             // make data available to PipeReader
-            var result = await _pipe.Writer.FlushAsync(ct);
+            var result = await _transport.Output.FlushAsync(ct);
             if (result.IsCompleted)
             {
                 _closureSelf.Tell(ReadFinished.Instance);
@@ -412,40 +437,8 @@ internal sealed class TcpTransportActor : UntypedActor
             }
         }
 
-        await _pipe.Writer.CompleteAsync();
-    }
-
-    private async Task ReadFromPipeAsync(CancellationToken ct)
-    {
-        while (!ct.IsCancellationRequested)
-        {
-            try
-            {
-                var result = await _pipe.Reader.ReadAsync(ct);
-                var buffer = result.Buffer;
-
-                // consume this entire sequence by copying it into a new buffer
-                // have to copy because there's no guarantee we can safely release a shared buffer
-                // once we hand the message over to the end-user.
-                var newMemory = new Memory<byte>(new byte[buffer.Length]);
-                var unshared = new UnsharedMemoryOwner<byte>(newMemory);
-                buffer.CopyTo(newMemory.Span);
-                _readsFromTransport.Writer.TryWrite((unshared, newMemory.Length));
-
-                // tell the pipe we're done with this data
-                _pipe.Reader.AdvanceTo(buffer.End);
-
-                if (result.IsCompleted)
-                {
-                    _closureSelf.Tell(ReadFinished.Instance);
-                    return;
-                }
-            }
-            catch (OperationCanceledException)
-            {
-                _closureSelf.Tell(ReadFinished.Instance);
-            }
-        }
+        // we are done reading from the transport
+        await _transport.Output.CompleteAsync();
     }
 
     private void Running(object message)
@@ -476,12 +469,13 @@ internal sealed class TcpTransportActor : UntypedActor
     private async Task CleanUpGracefully(bool waitOnReads = false)
     {
         // add a simulated DisconnectPacket to help ensure the stream gets terminated
-        _readsFromTransport.Writer.TryWrite(DisconnectToBinary.NormalDisconnectPacket.ToBinary(MqttProtocolVersion.V3_1_1));
+        // _readsFromTransport.Writer.TryWrite(
+        //     DisconnectToBinary.NormalDisconnectPacket.ToBinary(MqttProtocolVersion.V3_1_1));
 
         State.Status = ConnectionStatus.Disconnected;
-        
+
         // no more writes to transport
-        _writesToTransport.Writer.TryComplete();
+        await _transport.Input.CompleteAsync();
 
         // wait for any pending writes to finish
         await State.WaitForPendingWrites;
@@ -489,11 +483,11 @@ internal sealed class TcpTransportActor : UntypedActor
         if (waitOnReads)
         {
             // wait for any reads to finish (should be terminated by Akka.Streams once the `DisconnectPacket` is processed.)
-            await _readsFromTransport.Reader.Completion;
+            await _application.Input.CompleteAsync();
         }
         else // if we're not waiting on reads, just complete the reader
         {
-            _readsFromTransport.Writer.TryComplete();
+            await _application.Output.CompleteAsync();
         }
 
         _closureSelf.Tell(PoisonPill.Instance);
@@ -513,8 +507,8 @@ internal sealed class TcpTransportActor : UntypedActor
             // stop reading from the socket
             State.ShutDownCts.Cancel();
 
-            _pipe.Reader.Complete();
-            _pipe.Writer.Complete();
+            _transport.Input.Complete();
+            _transport.Output.Complete();
             _tcpClient?.Close();
             _tcpClient?.Dispose();
         }
@@ -534,8 +528,8 @@ internal sealed class TcpTransportActor : UntypedActor
     private void FullShutdown(DisconnectReasonCode reason = DisconnectReasonCode.NormalDisconnection)
     {
         // mark the channels as complete (should have already been done by the time we get here, but doesn't hurt)
-        _writesToTransport.Writer.TryComplete();
-        _readsFromTransport.Writer.TryComplete();
+        _application.Output.Complete();
+        _transport.Output.Complete();
 
         var newStatus = reason switch
         {
