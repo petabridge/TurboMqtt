@@ -85,6 +85,7 @@ internal sealed class MqttEncoderSink : GraphStage<SinkShape<List<(MqttPacket pa
             Log.Debug("Encoded {0} messages using {1} bytes", packets.Count, bytesWritten);
 
             DoFlush().GetAwaiter().GetResult();
+            Pull(_graphStage.In);
             return;
 
             async Task DoFlush()
