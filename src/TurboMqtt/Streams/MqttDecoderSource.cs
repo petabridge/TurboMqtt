@@ -116,7 +116,7 @@ internal sealed class MqttDecoderSource : GraphStage<SourceShape<ImmutableList<M
                     Push(_graphStage.Out, decoded);
                 }
                 var nextPost = buffer.GetPosition(memory.Length);
-                _pipeReader.AdvanceTo(seqPosition, nextPost);
+                _pipeReader.AdvanceTo(nextPost);
             }
         }
     }
