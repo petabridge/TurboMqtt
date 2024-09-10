@@ -321,16 +321,7 @@ internal sealed class TcpTransportActor : UntypedActor
         {
             try
             {
-                if (!_transport.Input.TryRead(out var readResult))
-                {
-                    try
-                    {
-                        readResult = await _transport.Input.ReadAsync(ct).ConfigureAwait(false);
-                    }
-                    catch (OperationCanceledException)
-                    {
-                    }
-                }
+                var readResult = await _transport.Input.ReadAsync(ct).ConfigureAwait(false);
  
 
                 var buffer = readResult.Buffer;

@@ -62,7 +62,7 @@ internal sealed class InMemoryMqttTransport : IMqttTransport
         var pipes = DuplexPipe.CreateConnectionPair(pipeOptions, pipeOptions);
         _transport = pipes.Transport;
         _application = pipes.Application;
-        Channel = _transport;
+        Channel = _application;
 
         _serverHandle = protocolVersion switch
         {
@@ -144,32 +144,32 @@ internal sealed class InMemoryMqttTransport : IMqttTransport
         Log.Debug("Starting to read from transport.");
         while (ct.IsCancellationRequested == false)
         {
-            if (!_transport.Input.TryRead(out var msg))
+            try
             {
-                try
+                var msg = await _transport.Input.ReadAsync(ct);
+
+                var buffer = msg.Buffer;
+                Log.Debug("Received {0} bytes from transport.", buffer.Length);
+
+                if (!buffer.IsEmpty)
                 {
-                    msg = await _transport.Input.ReadAsync(ct);
+                    var seqPosition = buffer.Start;
+                    while (buffer.TryGet(ref seqPosition, out var memory))
+                    {
+                        _serverHandle.HandleBytes(memory);
+                    }
+
                 }
-                catch (OperationCanceledException)
+
+                if (msg.IsCompleted)
                 {
+                    break;
                 }
             }
-            
-            var buffer = msg.Buffer;
-            Log.Debug("Received {0} bytes from transport.", buffer.Length);
-
-            if (!buffer.IsEmpty)
+            catch (Exception exception)
             {
-                var seqPosition = buffer.Start;
-                while (buffer.TryGet(ref seqPosition, out var memory))
-                {
-                    _serverHandle.HandleBytes(memory);
-                }
-                
-            }
-
-            if (msg.IsCompleted)
-            {
+                Log.Error(exception, "Error reading from transport.");
+                _transport.Input.CancelPendingRead();
                 break;
             }
         }
