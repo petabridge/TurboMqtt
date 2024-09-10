@@ -104,6 +104,7 @@ internal sealed class MqttDecoderSource : GraphStage<SourceShape<ImmutableList<M
             // once we hand the message over to the end-user.
             var newMemory = new Memory<byte>(new byte[buffer.Length]);
             buffer.CopyTo(newMemory.Span);
+            _pipeReader.AdvanceTo(buffer.End);
 
             if (_mqtt311Decoder.TryDecode(newMemory, out var decoded))
             {

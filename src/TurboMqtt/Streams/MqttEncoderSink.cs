@@ -90,7 +90,8 @@ internal sealed class MqttEncoderSink : GraphStage<SinkShape<List<(MqttPacket pa
             async Task DoFlush()
             {
                 using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
-                _flushCallback(await _pipeWriter.WriteAsync(buffer, cts.Token));
+                _pipeWriter.Advance(totalBytes);
+                _flushCallback(await _pipeWriter.FlushAsync(cts.Token));
             }
         }
         

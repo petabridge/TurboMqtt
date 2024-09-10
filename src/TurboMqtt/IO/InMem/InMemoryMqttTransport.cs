@@ -157,6 +157,7 @@ internal sealed class InMemoryMqttTransport : IMqttTransport
                     while (buffer.TryGet(ref seqPosition, out var memory))
                     {
                         _serverHandle.HandleBytes(memory);
+                        _transport.Input.AdvanceTo(seqPosition);
                     }
 
                 }
