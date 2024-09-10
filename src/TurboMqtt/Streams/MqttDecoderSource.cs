@@ -79,7 +79,7 @@ internal sealed class MqttDecoderSource : GraphStage<SourceShape<ImmutableList<M
                         _onReadReady(r);
                     }
 
-                    _ = WaitForRead();
+                    WaitForRead().GetAwaiter().GetResult();
                 }
             }
         }
@@ -103,14 +103,20 @@ internal sealed class MqttDecoderSource : GraphStage<SourceShape<ImmutableList<M
             // consume this entire sequence by copying it into a new buffer
             // have to copy because there's no guarantee we can safely release a shared buffer
             // once we hand the message over to the end-user.
-            var newMemory = new Memory<byte>(new byte[buffer.Length]);
-            buffer.CopyTo(newMemory.Span);
-            _pipeReader.AdvanceTo(buffer.Start, buffer.End);
-
-            if (_mqtt311Decoder.TryDecode(newMemory, out var decoded))
+            // var newMemory = new Memory<byte>(new byte[buffer.Length]);
+            // buffer.CopyTo(newMemory.Span);
+            // _pipeReader.AdvanceTo(buffer.End);
+            
+            var seqPosition = buffer.Start;
+            while (buffer.TryGet(ref seqPosition, out var memory))
             {
-                Log.Debug("Decoded [{0}] packets totaling [{1}] bytes", decoded.Count, newMemory.Length);
-                Push(_graphStage.Out, decoded);
+                if (_mqtt311Decoder.TryDecode(memory, out var decoded))
+                {
+                    Log.Debug("Decoded [{0}] packets totaling [{1}] bytes", decoded.Count,memory.Length);
+                    Push(_graphStage.Out, decoded);
+                }
+                var nextPost = buffer.GetPosition(memory.Length);
+                _pipeReader.AdvanceTo(seqPosition, nextPost);
             }
         }
     }

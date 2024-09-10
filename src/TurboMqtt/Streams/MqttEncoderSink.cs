@@ -84,16 +84,11 @@ internal sealed class MqttEncoderSink : GraphStage<SinkShape<List<(MqttPacket pa
 
             Log.Debug("Encoded {0} messages using {1} bytes", packets.Count, bytesWritten);
 
-            DoFlush().GetAwaiter().GetResult();
+            _pipeWriter.Advance(totalBytes);
+            OnFlushComplete(_pipeWriter.FlushAsync().GetAwaiter().GetResult());
+            
+            
             Pull(_graphStage.In);
-            return;
-
-            async Task DoFlush()
-            {
-                using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
-                _pipeWriter.Advance(totalBytes);
-                _flushCallback(await _pipeWriter.FlushAsync(cts.Token));
-            }
         }
         
         public override void PreStart()

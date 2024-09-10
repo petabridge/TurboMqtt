@@ -86,6 +86,7 @@ internal sealed class InMemoryMqttTransport : IMqttTransport
             }
             finally
             {
+                _waitForPendingWrites.TrySetResult(true);
                 msg.buffer.Dispose();
             }
         }
