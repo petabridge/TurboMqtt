@@ -337,7 +337,8 @@ internal sealed class TcpTransportActor : UntypedActor
                             .ConfigureAwait(false);
                         
                         totalSent += sent;
-                        
+                        var position = buffer.GetPosition(workingBuffer.Length);
+                        _transport.Input.AdvanceTo(seqPosition, position);
                         if (sent == 0)
                         {
                             _log.Warning("Failed to write to socket - no bytes written.");
