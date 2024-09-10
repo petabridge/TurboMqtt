@@ -5,6 +5,7 @@
 // -----------------------------------------------------------------------
 
 using System.Buffers;
+using System.IO.Pipelines;
 using System.Threading.Channels;
 using Akka.Event;
 using TurboMqtt.PacketTypes;
@@ -91,7 +92,7 @@ internal interface IMqttTransport
     /// <summary>
     /// Contains a reader and a writer used to send and receive data over the transport.
     /// </summary>
-    public IDuplexChannel Channel { get; }
+    public IDuplexPipe Channel { get; }
     
     // /// <summary>
     // /// Used to write data to the underlying transport.

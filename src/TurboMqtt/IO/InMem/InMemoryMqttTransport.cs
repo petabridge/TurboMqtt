@@ -5,8 +5,10 @@
 // -----------------------------------------------------------------------
 
 using System.Buffers;
+using System.IO.Pipelines;
 using System.Threading.Channels;
 using Akka.Event;
+using TurboMqtt.IO.Internal;
 using TurboMqtt.IO.Tcp;
 using TurboMqtt.PacketTypes;
 using TurboMqtt.Protocol;
@@ -42,12 +44,10 @@ internal sealed class InMemoryMqttTransport : IMqttTransport
 {
     private readonly TaskCompletionSource<DisconnectReasonCode> _terminationSource = new();
 
-    private readonly Channel<(IMemoryOwner<byte> buffer, int readableBytes)> _writesToTransport =
-        System.Threading.Channels.Channel.CreateUnbounded<(IMemoryOwner<byte> buffer, int readableBytes)>();
+    private readonly IDuplexPipe _transport;
 
-    private readonly Channel<(IMemoryOwner<byte> buffer, int readableBytes)> _readsFromTransport =
-        System.Threading.Channels.Channel.CreateUnbounded<(IMemoryOwner<byte> buffer, int readableBytes)>();
-    
+    private readonly IDuplexPipe _application;
+
     private readonly CancellationTokenSource _shutdownTokenSource = new();
     private readonly IFakeServerHandle _serverHandle;
 
@@ -56,7 +56,13 @@ internal sealed class InMemoryMqttTransport : IMqttTransport
         MaxFrameSize = maxFrameSize;
         Log = log;
         ProtocolVersion = protocolVersion;
-        Channel = new DuplexChannel(_writesToTransport, _readsFromTransport);
+        var pipeOptions = new PipeOptions(pauseWriterThreshold: MaxFrameSize,
+            resumeWriterThreshold: MaxFrameSize / 2,
+            useSynchronizationContext: false);
+        var pipes = DuplexPipe.CreateConnectionPair(pipeOptions, pipeOptions);
+        _transport = pipes.Transport;
+        _application = pipes.Application;
+        Channel = _transport;
 
         _serverHandle = protocolVersion switch
         {
@@ -70,7 +76,18 @@ internal sealed class InMemoryMqttTransport : IMqttTransport
             await CloseAsync();
         }
 
-        bool PushFn((IMemoryOwner<byte> buffer, int estimatedSize) msg) => _readsFromTransport.Writer.TryWrite(msg);
+        bool PushFn((IMemoryOwner<byte> buffer, int estimatedSize) msg)
+        {
+            try
+            {
+                _application.Output.Write(msg.buffer.Memory.Span);
+                return true;
+            }
+            finally
+            {
+                msg.buffer.Dispose();
+            }
+        }
     }
 
     public MqttProtocolVersion ProtocolVersion { get; }
@@ -79,30 +96,28 @@ internal sealed class InMemoryMqttTransport : IMqttTransport
     public ConnectionStatus Status { get; private set; } = ConnectionStatus.NotStarted;
 
     public Task<DisconnectReasonCode> WhenTerminated => _terminationSource.Task;
-    
+
     private readonly TaskCompletionSource<bool> _waitForPendingWrites = new();
     public Task WaitForPendingWrites => _waitForPendingWrites.Task;
-    
 
 
     public async Task<bool> CloseAsync(CancellationToken ct = default)
     {
         Status = ConnectionStatus.Disconnected;
-        _writesToTransport.Writer.TryComplete();
+        await _application.Output.CompleteAsync();
+        await _transport.Output.CompleteAsync();
         await _waitForPendingWrites.Task;
         await _shutdownTokenSource.CancelAsync();
-        _readsFromTransport.Writer.TryComplete();
         _terminationSource.TrySetResult(DisconnectReasonCode.NormalDisconnection);
         return true;
     }
 
-    public Task AbortAsync(CancellationToken ct = default)
+    public async Task AbortAsync(CancellationToken ct = default)
     {
         Status = ConnectionStatus.Disconnected;
-        _writesToTransport.Writer.TryComplete();
-        _readsFromTransport.Writer.TryComplete();
+        await _application.Output.CompleteAsync();
+        await _transport.Output.CompleteAsync();
         _terminationSource.TrySetResult(DisconnectReasonCode.UnspecifiedError);
-        return Task.CompletedTask;
     }
 
     public Task<bool> ConnectAsync(CancellationToken ct = default)
@@ -110,7 +125,7 @@ internal sealed class InMemoryMqttTransport : IMqttTransport
         if (Status == ConnectionStatus.NotStarted)
         {
             Status = ConnectionStatus.Connected;
-            
+
 #pragma warning disable CS4014 // Because this call is not awaited, execution of the current method continues before the call is completed
             DoByteWritesAsync(_shutdownTokenSource.Token);
 #pragma warning restore CS4014 // Because this call is not awaited, execution of the current method continues before the call is completed
@@ -127,31 +142,32 @@ internal sealed class InMemoryMqttTransport : IMqttTransport
     private async Task DoByteWritesAsync(CancellationToken ct)
     {
         Log.Debug("Starting to read from transport.");
-        while(!_writesToTransport.Reader.Completion.IsCompleted)
+        while (ct.IsCancellationRequested == false)
         {
-            if (!_writesToTransport.Reader.TryRead(out var msg))
+            if (!_transport.Input.TryRead(out var msg))
             {
                 try
                 {
-                    await _writesToTransport.Reader.WaitToReadAsync(ct);
+                    msg = await _transport.Input.ReadAsync(ct);
                 }
-                catch(OperationCanceledException)
+                catch (OperationCanceledException)
                 {
-                    
                 }
-                continue;
             }
             
-            try
+            var buffer = msg.Buffer;
+            Log.Debug("Received {0} bytes from transport.", buffer.Length);
+
+            if (!buffer.IsEmpty)
             {
-                ReadOnlyMemory<byte> buffer = msg.buffer.Memory.Slice(0, msg.readableBytes);
-                Log.Debug("Received {0} bytes from transport.", buffer.Length);
-                _serverHandle.HandleBytes(buffer);
+                // TODO: eliminate copying
+                var newMem = new ReadOnlyMemory<byte>(buffer.ToArray());
+                _serverHandle.HandleBytes(newMem);
             }
-            finally
+
+            if (msg.IsCompleted)
             {
-                // have to free the shared buffer
-                msg.buffer.Dispose();
+                break;
             }
         }
 
@@ -160,6 +176,5 @@ internal sealed class InMemoryMqttTransport : IMqttTransport
     }
 
     public int MaxFrameSize { get; }
-    public IDuplexChannel Channel { get; }
-    
+    public IDuplexPipe Channel { get; }
 }
