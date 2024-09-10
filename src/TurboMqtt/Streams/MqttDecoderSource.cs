@@ -37,7 +37,7 @@ internal sealed class MqttDecoderSource : GraphStage<SourceShape<ImmutableList<M
 
     protected override GraphStageLogic CreateLogic(Attributes inheritedAttributes)
     {
-        throw new NotImplementedException();
+        return new Logic(this);
     }
 
     private class Logic : OutGraphStageLogic
