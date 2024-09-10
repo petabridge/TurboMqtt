@@ -5,6 +5,7 @@
 // -----------------------------------------------------------------------
 
 using System.Buffers;
+using System.IO.Pipelines;
 using Akka;
 using Akka.Event;
 using Akka.Streams;
@@ -43,6 +44,45 @@ public static class MqttEncodingFlows
             .Via(new Mqtt311EncoderFlow(memoryPool)));
 
         return g;
+    }
+}
+
+internal sealed class MqttEncoderSink : GraphStage<SinkShape<List<(MqttPacket packet, PacketSize predictedSize)>>>
+{
+    private readonly PipeWriter _writer;
+    private readonly MqttProtocolVersion _protocolVersion;
+
+    public MqttEncoderSink(PipeWriter writer, MqttProtocolVersion protocolVersion = MqttProtocolVersion.V3_1_1)
+    {
+        _writer = writer;
+        _protocolVersion = protocolVersion;
+        In = new Inlet<List<(MqttPacket packet, PacketSize predictedSize)>>($"MqttEncoderFlow{_protocolVersion}.In");
+        Shape = new SinkShape<List<(MqttPacket packet, PacketSize predictedSize)>>(In);
+    }
+    
+    public Inlet<List<(MqttPacket packet, PacketSize predictedSize)>> In { get; }
+
+    public override SinkShape<List<(MqttPacket packet, PacketSize predictedSize)>> Shape { get; }
+    protected override Attributes InitialAttributes => DefaultAttributes.Select;
+    protected override GraphStageLogic CreateLogic(Attributes inheritedAttributes)
+    {
+        throw new NotImplementedException();
+    }
+
+    private sealed class Logic : InGraphStageLogic
+    {
+        private readonly PipeWriter _pipeWriter;
+        
+        public Logic(MqttEncoderSink encoderSink) : base(encoderSink.Shape)
+        {
+            _pipeWriter = encoderSink._writer;
+            SetHandler(encoderSink.In, this);
+        }
+
+        public override void OnPush()
+        {
+            
+        }
     }
 }
 
