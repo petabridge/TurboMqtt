@@ -86,12 +86,15 @@ internal sealed class MqttEncoderSink : GraphStage<SinkShape<List<(MqttPacket pa
 
             _pipeWriter.Advance(totalBytes);
             OnFlushComplete(_pipeWriter.FlushAsync().GetAwaiter().GetResult());
+
+            if (IsClosed(_graphStage.In))
+            {
+                CompleteStage();
+                return;
+            }
             
             if(!HasBeenPulled(_graphStage.In))
                 Pull(_graphStage.In);
-            
-            if(IsClosed(_graphStage.In))
-                CompleteStage();
         }
         
         public override void PreStart()
