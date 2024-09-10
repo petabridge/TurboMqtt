@@ -43,10 +43,10 @@ internal sealed class InMemoryMqttTransport : IMqttTransport
     private readonly TaskCompletionSource<DisconnectReasonCode> _terminationSource = new();
 
     private readonly Channel<(IMemoryOwner<byte> buffer, int readableBytes)> _writesToTransport =
-        Channel.CreateUnbounded<(IMemoryOwner<byte> buffer, int readableBytes)>();
+        System.Threading.Channels.Channel.CreateUnbounded<(IMemoryOwner<byte> buffer, int readableBytes)>();
 
     private readonly Channel<(IMemoryOwner<byte> buffer, int readableBytes)> _readsFromTransport =
-        Channel.CreateUnbounded<(IMemoryOwner<byte> buffer, int readableBytes)>();
+        System.Threading.Channels.Channel.CreateUnbounded<(IMemoryOwner<byte> buffer, int readableBytes)>();
     
     private readonly CancellationTokenSource _shutdownTokenSource = new();
     private readonly IFakeServerHandle _serverHandle;
@@ -56,7 +56,7 @@ internal sealed class InMemoryMqttTransport : IMqttTransport
         MaxFrameSize = maxFrameSize;
         Log = log;
         ProtocolVersion = protocolVersion;
-        Transport = new DuplexTransport(_writesToTransport, _readsFromTransport);
+        Channel = new DuplexChannel(_writesToTransport, _readsFromTransport);
 
         _serverHandle = protocolVersion switch
         {
@@ -160,6 +160,6 @@ internal sealed class InMemoryMqttTransport : IMqttTransport
     }
 
     public int MaxFrameSize { get; }
-    public IDuplexTransport Transport { get; }
+    public IDuplexChannel Channel { get; }
     
 }
