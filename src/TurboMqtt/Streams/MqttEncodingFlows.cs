@@ -5,7 +5,6 @@
 // -----------------------------------------------------------------------
 
 using System.Buffers;
-using System.IO.Pipelines;
 using Akka;
 using Akka.Event;
 using Akka.Streams;
@@ -44,66 +43,6 @@ public static class MqttEncodingFlows
             .Via(new Mqtt311EncoderFlow(memoryPool)));
 
         return g;
-    }
-}
-
-internal sealed class MqttEncoderSink : GraphStage<SinkShape<List<(MqttPacket packet, PacketSize predictedSize)>>>
-{
-    private readonly PipeWriter _writer;
-    private readonly MqttProtocolVersion _protocolVersion;
-
-    public MqttEncoderSink(PipeWriter writer, MqttProtocolVersion protocolVersion = MqttProtocolVersion.V3_1_1)
-    {
-        _writer = writer;
-        _protocolVersion = protocolVersion;
-        In = new Inlet<List<(MqttPacket packet, PacketSize predictedSize)>>($"MqttEncoderFlow{_protocolVersion}.In");
-        Shape = new SinkShape<List<(MqttPacket packet, PacketSize predictedSize)>>(In);
-    }
-    
-    public Inlet<List<(MqttPacket packet, PacketSize predictedSize)>> In { get; }
-
-    public override SinkShape<List<(MqttPacket packet, PacketSize predictedSize)>> Shape { get; }
-    protected override Attributes InitialAttributes => DefaultAttributes.Select;
-    protected override GraphStageLogic CreateLogic(Attributes inheritedAttributes)
-    {
-        throw new NotImplementedException();
-    }
-
-    private sealed class Logic : InGraphStageLogic
-    {
-        private readonly PipeWriter _pipeWriter;
-        private readonly MqttProtocolVersion _protocolVersion;
-        private readonly MqttEncoderSink _graphStage;
-        
-        public Logic(MqttEncoderSink encoderSink) : base(encoderSink.Shape)
-        {
-            _pipeWriter = encoderSink._writer;
-            _protocolVersion = encoderSink._protocolVersion;
-            _graphStage = encoderSink;
-            SetHandler(encoderSink.In, this);
-        }
-
-        public override void OnPush()
-        {
-            var elements = Grab(_graphStage.In);
-            var totalSize = elements.Sum(c => c.predictedSize.TotalSize);
-            var buffer = _pipeWriter.GetMemory(totalSize);
-            var bytesWritten = Mqtt311Encoder.EncodePackets(elements, ref buffer);
-            
-            CODE BOMB
-        }
-        
-        public override void PreStart()
-        {
-            Pull(_graphStage.In);
-            base.PreStart();
-        }
-        
-        public override void OnUpstreamFailure(Exception e)
-        {
-            base.OnUpstreamFailure(e);
-            _pipeWriter.Complete(e);
-        }
     }
 }
 
