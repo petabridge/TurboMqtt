@@ -145,7 +145,6 @@ internal sealed class ClientStreamInstance : UntypedActor
                 var outboundMessages = MqttClientStreams.Mqtt311OutboundPacketSink(
                     clientConnectOptions.ClientId,
                     transport,
-                    MemoryPool<byte>.Shared,
                     maxFrameSize, (int)clientConnectOptions.MaximumPacketSize,
                     clientConnectOptions.EnableOpenTelemetry);
 

@@ -6,6 +6,7 @@
 
 using System.Buffers;
 using System.IO.Pipelines;
+using Akka;
 using Akka.Event;
 using Akka.Streams;
 using Akka.Streams.Implementation.Stages;
