@@ -4,10 +4,8 @@
   </PropertyGroup>
    <PropertyGroup Label="SharedVersions">
     <AkkaVersion>1.5.28</AkkaVersion>
-    <PbmVersion>1.3.1</PbmVersion>
     <AkkaHostingVersion>1.5.27</AkkaHostingVersion>
-    <EFVersion>8.0.7</EFVersion>
-    <AspNetVersion>8.0.8</AspNetVersion>
+    <OtelVersion>1.9.0</OtelVersion>
   </PropertyGroup>
   <!-- Akka.NET Package Versions -->
   <ItemGroup Label="Akka.NET">
@@ -20,10 +18,10 @@
   </ItemGroup>
   <!-- OTEL Package Versions -->
   <ItemGroup Label="OpenTelemetry">
-    <PackageVersion Include="OpenTelemetry.Api.ProviderBuilderExtensions" Version="1.9.0" />
-    <PackageVersion Include="OpenTelemetry.Exporter.Console" Version="1.9.0" />
-    <PackageVersion Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.9.0" />
-    <PackageVersion Include="OpenTelemetry.Extensions.Hosting" Version="1.9.0" />
+    <PackageVersion Include="OpenTelemetry.Api.ProviderBuilderExtensions" Version="$(OtelVersion)" />
+    <PackageVersion Include="OpenTelemetry.Exporter.Console" Version="$(OtelVersion)" />
+    <PackageVersion Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="$(OtelVersion)" />
+    <PackageVersion Include="OpenTelemetry.Extensions.Hosting" Version="$(OtelVersion)" />
   </ItemGroup>
   <!-- Utility Package Versions -->
   <ItemGroup>
