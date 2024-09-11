@@ -322,22 +322,22 @@ internal sealed class TcpTransportActor : UntypedActor
             try
             {
                 var readResult = await _transport.Input.ReadAsync(ct).ConfigureAwait(false);
- 
+
 
                 var buffer = readResult.Buffer;
-                
+
                 var totalSent = 0;
                 try
                 {
-                    if(_tcpClient is { Connected: true })
+                    if (_tcpClient is { Connected: true })
                     {
                         foreach (var workingBuffer in buffer)
                         {
                             var sent = await _tcpClient!.SendAsync(workingBuffer, ct)
                                 .ConfigureAwait(false);
-                            
+
                             totalSent += sent;
-                            
+
                             if (sent == 0)
                             {
                                 _log.Warning("Failed to write to socket - no bytes written.");
@@ -358,12 +358,19 @@ internal sealed class TcpTransportActor : UntypedActor
                     // free the pooled buffer
                     _log.Debug("Sent {0} bytes to socket.", totalSent);
                 }
-                
+
                 if (readResult.IsCompleted)
                 {
                     // reader is done reading
                     break;
                 }
+            }
+            catch (InvalidOperationException)
+            {
+                // reads were finished without signaling `.IsCompleted`
+                _log.Debug("Shutting down write to socket.");
+                _closureSelf.Tell(ReadFinished.Instance);
+                goto WritesFinished;
             }
             catch (OperationCanceledException)
             {

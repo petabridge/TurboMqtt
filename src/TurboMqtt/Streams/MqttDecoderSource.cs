@@ -70,7 +70,10 @@ internal sealed class MqttDecoderSource : GraphStage<SourceShape<ImmutableList<M
 
                 if (result.IsCompleted)
                 {
+                    _onReadReady(ImmutableList<MqttPacket>.Empty.Add(new DisconnectPacket(){ ReasonCode = DisconnectReasonCode.NormalDisconnection}));
+                    SetKeepGoing(true);
                     CompleteStage();
+                    await _shutdownCts.CancelAsync(); // stop us from reading again
                 }
 
                 if (result.IsCanceled)
