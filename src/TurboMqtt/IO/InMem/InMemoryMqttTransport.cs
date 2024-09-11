@@ -156,11 +156,13 @@ internal sealed class InMemoryMqttTransport : IMqttTransport
                 if (!buffer.IsEmpty)
                 {
                     var seqPosition = buffer.Start;
-                    while (buffer.TryGet(ref seqPosition, out var memory))
+                    var copyBuffer = new ReadOnlyMemory<byte>(buffer.ToArray());
+                    _serverHandle.HandleBytes(copyBuffer);
+                        
+                    if (!msg.IsCompleted)
                     {
-                        _serverHandle.HandleBytes(memory);
-                        var nextPost = buffer.GetPosition(memory.Length);
-                        _transport.Input.AdvanceTo(seqPosition, nextPost);
+                        // we will throw if we try to advance past the end of the buffer
+                        _transport.Input.AdvanceTo(buffer.End);
                     }
                 }
 
