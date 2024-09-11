@@ -330,9 +330,14 @@ internal sealed class TcpTransportActor : UntypedActor
                 try
                 {
                     var seqPosition = buffer.Start;
-                    
-                    while (buffer.TryGet(ref seqPosition, out var workingBuffer) && _tcpClient is { Connected: true })
+                    var keepDelivering = true;
+                    var remainingLength = buffer.Length;
+                    while (keepDelivering && _tcpClient is { Connected: true })
                     {
+                        var frameToSend = buffer.IsSingleSegment
+                            ? buffer.First
+                            : buffer.Slice(seqPosition, Math.Min(MaxFrameSize, buffer.Length)).;
+                        
                         var sent = await _tcpClient!.SendAsync(workingBuffer, ct)
                             .ConfigureAwait(false);
                         
