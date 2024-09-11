@@ -107,6 +107,13 @@ internal sealed class ClientStreamInstance : UntypedActor
 
         // begin inbound stream
         inboundStream
+            .WatchTermination(async (_, task) =>
+            {
+                await task;
+                
+                // guarantee that we kill the client in the event that the stream terminates
+                disconnectPromise.TrySetResult(DisconnectPacket.Instance);
+            })
             // setting IsOwner to false here is crucial - otherwise, we can't reboot the client after broker disconnects
             .To(ChannelSink.FromWriter(inboundPackets.Writer, false))
             .Run(_materializer);
