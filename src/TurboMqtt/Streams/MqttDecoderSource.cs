@@ -46,7 +46,11 @@ internal sealed class MqttDecoderSource : GraphStage<SourceShape<ImmutableList<M
         private readonly MqttProtocolVersion _protocolVersion;
         private readonly MqttDecoderSource _graphStage;
         private readonly Mqtt311Decoder _mqtt311Decoder;
-        private readonly Action<ReadResult> _onReadReady;
+        private readonly Action<ImmutableList<MqttPacket>> _onReadReady;
+        private readonly CancellationTokenSource _shutdownCts = new();
+
+        // ImmutableLists are returned by the decoder, and we queue them to preserve order before emission
+        private ImmutableQueue<ImmutableList<MqttPacket>> _packets = ImmutableQueue<ImmutableList<MqttPacket>>.Empty;
         
         public Logic(MqttDecoderSource graphStage) : base(graphStage.Shape)
         {
@@ -54,69 +58,89 @@ internal sealed class MqttDecoderSource : GraphStage<SourceShape<ImmutableList<M
             _pipeReader = graphStage._reader;
             _protocolVersion = graphStage._protocolVersion;
             _mqtt311Decoder = new Mqtt311Decoder();
-            _onReadReady = GetAsyncCallback<ReadResult>(HandleReadResult);
+            _onReadReady = GetAsyncCallback<ImmutableList<MqttPacket>>(HandleReadResult);
             SetHandler(graphStage.Out, this);
+        }
+
+        private async Task ReadLoop()
+        {
+            while (!_shutdownCts.IsCancellationRequested)
+            {
+                var result = await _pipeReader.ReadAsync(_shutdownCts.Token);
+
+                if (result.IsCompleted)
+                {
+                    CompleteStage();
+                }
+
+                if (result.IsCanceled)
+                {
+                    continue;
+                }
+
+                var buffer = result.Buffer;
+            
+                if (!buffer.IsEmpty)
+                {
+                    // consume this entire sequence by copying it into a new buffer
+                    // have to copy because there's no guarantee we can safely release a shared buffer
+                    // once we hand the message over to the end-user.
+                    // var newMemory = new Memory<byte>(new byte[buffer.Length]);
+                    // buffer.CopyTo(newMemory.Span);
+                    // _pipeReader.AdvanceTo(buffer.End);
+            
+                    var seqPosition = buffer.Start;
+                    while (buffer.TryGet(ref seqPosition, out var memory))
+                    {
+                        if (_mqtt311Decoder.TryDecode(memory, out var decoded))
+                        {
+                            Log.Debug("Decoded [{0}] packets totaling [{1}] bytes", decoded.Count, memory.Length);
+                            _onReadReady(decoded);
+                        }
+                        var nextPost = buffer.GetPosition(memory.Length);
+                        _pipeReader.AdvanceTo(nextPost);
+                    }
+                }
+            }
+        }
+
+        public override void PostStop()
+        {
+            _shutdownCts.Cancel();
+            base.PostStop();
+        }
+
+        public override void PreStart()
+        {
+            // start the read loop asynchronously
+            _  =  ReadLoop();
+            base.PreStart();
         }
 
         public override void OnPull()
         {
-            if (_pipeReader.TryRead(out var readResult))
+            if (_packets.IsEmpty) return;
+            
+            // aggregate all the packets we've decoded so far
+            var builder = ImmutableList.CreateBuilder<MqttPacket>();
+            foreach (var packetSet in _packets)
             {
-                HandleReadResult(readResult);
+                builder.AddRange(packetSet);
+            }
+            _packets = ImmutableQueue<ImmutableList<MqttPacket>>.Empty;
+            Push(_graphStage.Out, builder.ToImmutable());
+        }
+
+        private void HandleReadResult(ImmutableList<MqttPacket> decoded)
+        {
+            
+            if (IsAvailable(_graphStage.Out))
+            {
+                Push(_graphStage.Out, decoded);
             }
             else
             {
-                var continuation = _pipeReader.ReadAsync();
-                if (continuation.IsCompletedSuccessfully)
-                {
-                    HandleReadResult(continuation.GetAwaiter().GetResult());
-                }
-                else
-                {
-                    async Task WaitForRead()
-                    {
-                        var r = await continuation;
-                        _onReadReady(r);
-                    }
-
-                    WaitForRead().GetAwaiter().GetResult();
-                }
-            }
-        }
-
-        private void HandleReadResult(ReadResult readResult)
-        {
-            if (!readResult.Buffer.IsEmpty)
-            {
-                PushReadBytes(readResult.Buffer);
-            }
-
-            if (readResult.IsCompleted)
-            {
-                // we are done reading
-                CompleteStage();
-            }
-        }
-
-        private void PushReadBytes(in ReadOnlySequence<byte> buffer)
-        {
-            // consume this entire sequence by copying it into a new buffer
-            // have to copy because there's no guarantee we can safely release a shared buffer
-            // once we hand the message over to the end-user.
-            // var newMemory = new Memory<byte>(new byte[buffer.Length]);
-            // buffer.CopyTo(newMemory.Span);
-            // _pipeReader.AdvanceTo(buffer.End);
-            
-            var seqPosition = buffer.Start;
-            while (buffer.TryGet(ref seqPosition, out var memory))
-            {
-                if (_mqtt311Decoder.TryDecode(memory, out var decoded))
-                {
-                    Log.Debug("Decoded [{0}] packets totaling [{1}] bytes", decoded.Count,memory.Length);
-                    Push(_graphStage.Out, decoded);
-                }
-                var nextPost = buffer.GetPosition(memory.Length);
-                _pipeReader.AdvanceTo(nextPost);
+                _packets = _packets.Enqueue(decoded);
             }
         }
     }
