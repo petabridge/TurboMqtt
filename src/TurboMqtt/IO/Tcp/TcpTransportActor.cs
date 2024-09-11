@@ -329,45 +329,40 @@ internal sealed class TcpTransportActor : UntypedActor
                 var totalSent = 0;
                 try
                 {
-                    var seqPosition = buffer.Start;
-                    var keepDelivering = true;
-                    var remainingLength = buffer.Length;
-                    while (keepDelivering && _tcpClient is { Connected: true })
+                    if(_tcpClient is { Connected: true })
                     {
-                        var frameToSend = buffer.IsSingleSegment
-                            ? buffer.First
-                            : buffer.Slice(seqPosition, Math.Min(MaxFrameSize, buffer.Length)).;
-                        
-                        var sent = await _tcpClient!.SendAsync(workingBuffer, ct)
-                            .ConfigureAwait(false);
-                        
-                        totalSent += sent;
+                        foreach (var workingBuffer in buffer)
+                        {
+                            var sent = await _tcpClient!.SendAsync(workingBuffer, ct)
+                                .ConfigureAwait(false);
+                            
+                            totalSent += sent;
+                            
+                            if (sent == 0)
+                            {
+                                _log.Warning("Failed to write to socket - no bytes written.");
+                                _closureSelf.Tell(ReadFinished.Instance);
+                                goto WritesFinished;
+                            }
+                        }
 
                         if (!readResult.IsCompleted)
                         {
-                            // can't advance the pipe reader if we're done reading
-                            var position = buffer.GetPosition(workingBuffer.Length);
-                            _transport.Input.AdvanceTo(seqPosition, position);
+                            //advance the pipe reader if we're not done reading
+                            _transport.Input.AdvanceTo(buffer.End);
                         }
-                       
-                        if (sent == 0)
-                        {
-                            _log.Warning("Failed to write to socket - no bytes written.");
-                            _closureSelf.Tell(ReadFinished.Instance);
-                            goto WritesFinished;
-                        }
-                    }
-                    
-                    if (readResult.IsCompleted)
-                    {
-                        // reader is done reading
-                        break;
                     }
                 }
                 finally
                 {
                     // free the pooled buffer
                     _log.Debug("Sent {0} bytes to socket.", totalSent);
+                }
+                
+                if (readResult.IsCompleted)
+                {
+                    // reader is done reading
+                    break;
                 }
             }
             catch (OperationCanceledException)
