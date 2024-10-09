@@ -53,6 +53,9 @@ public sealed class MqttClientFactory : IMqttClientFactory, IInternalMqttClientF
     public async Task<IMqttClient> CreateTcpClient(MqttClientConnectOptions options, MqttClientTcpOptions tcpOptions)
     {
         AssertMqtt311(options);
+        if (tcpOptions.TlsOptions is { UseTls: true, SslOptions: null })
+            throw new NullReferenceException("TlsOptions.SslOptions can not be null if TlsOptions.UseTls is true");
+        
         var transportManager = new TcpMqttTransportManager(tcpOptions, _mqttClientManager, options.ProtocolVersion);
 
         // create the client
