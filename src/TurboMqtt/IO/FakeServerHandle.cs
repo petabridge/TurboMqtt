@@ -91,7 +91,7 @@ internal class FakeMqtt311ServerHandle : IFakeServerHandle
         }
         else
         {
-            Log.Debug("Successfully wrote N packets {0} [{1} bytes] to transport.", _pendingPackets.Count, totalSize);
+            Log.Debug("Successfully wrote {0} packets [{1} bytes] to transport.", _pendingPackets.Count, totalSize);
         }
 
         bufferPooled.Dispose();

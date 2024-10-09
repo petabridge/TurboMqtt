@@ -5,6 +5,7 @@
 // -----------------------------------------------------------------------
 
 using System.Buffers;
+using System.IO.Pipelines;
 using System.Threading.Channels;
 using Akka.Event;
 using TurboMqtt.PacketTypes;
@@ -89,14 +90,19 @@ internal interface IMqttTransport
     public int MaxFrameSize { get; }
     
     /// <summary>
-    /// Used to write data to the underlying transport.
+    /// Contains a reader and a writer used to send and receive data over the transport.
     /// </summary>
-    public ChannelWriter<(IMemoryOwner<byte> buffer, int readableBytes)> Writer { get; }
+    public IDuplexPipe Channel { get; }
     
-    /// <summary>
-    /// Used to read data from the underlying transport.
-    /// </summary>
-    public ChannelReader<(IMemoryOwner<byte> buffer, int readableBytes)> Reader { get; }
+    // /// <summary>
+    // /// Used to write data to the underlying transport.
+    // /// </summary>
+    // public ChannelWriter<(IMemoryOwner<byte> buffer, int readableBytes)> Writer { get; }
+    //
+    // /// <summary>
+    // /// Used to read data from the underlying transport.
+    // /// </summary>
+    // public ChannelReader<(IMemoryOwner<byte> buffer, int readableBytes)> Reader { get; }
 }
 
 public enum ConnectionStatus
