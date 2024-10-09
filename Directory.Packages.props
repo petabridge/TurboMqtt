@@ -12,7 +12,7 @@
     <PackageVersion Include="Akka" Version="$(AkkaVersion)" />
     <PackageVersion Include="Akka.Hosting" Version="$(AkkaHostingVersion)" />
     <PackageVersion Include="Akka.Streams" Version="$(AkkaVersion)" />
-    <PackageVersion Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="8.0.1" />
+    <PackageVersion Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="8.0.2" />
     <PackageVersion Include="System.IO.Pipelines" Version="8.0.0" />
 
   </ItemGroup>
