@@ -5,6 +5,7 @@
 // -----------------------------------------------------------------------
 
 using System.Buffers;
+using System.IO.Pipelines;
 using Akka;
 using Akka.Event;
 using Akka.Streams;
@@ -41,6 +42,24 @@ public static class MqttEncodingFlows
                     return list;
                 }) // group packets into a single frame
             .Via(new Mqtt311EncoderFlow(memoryPool)));
+
+        return g;
+    }
+
+    public static IGraph<SinkShape<MqttPacket>, NotUsed> Mqtt311EncodingSink(
+        PipeWriter writer, int maxFrameSize, int maxPacketSize)
+    {
+        var g = Flow.Create<MqttPacket>()
+            .Select(c => (c, MqttPacketSizeEstimator.EstimateMqtt3PacketSize(c)))
+            .Via(new PacketSizeFilter(
+                maxPacketSize)) // drops any packets bigger than the maximum frame size with a warning (accounts for header too)
+            .BatchWeighted(maxFrameSize, tuple => tuple.Item2.TotalSize, tuple => new List<(MqttPacket packet, PacketSize readableBytes)>(){ tuple },
+                (list, tuple) =>
+                {
+                    list.Add(tuple);
+                    return list;
+                }) // group packets into a single frame
+            .To(new MqttEncoderSink(writer));
 
         return g;
     }

@@ -6,6 +6,7 @@
 
 using System.Buffers;
 using System.Collections.Immutable;
+using System.IO.Pipelines;
 using Akka;
 using Akka.Event;
 using Akka.Streams;
@@ -36,6 +37,12 @@ public static class MqttDecodingFlows
             .Via(new Mqtt311DecoderFlow()); // flatten the IEnumerable<MqttPacket> into a stream of MqttPacket
 
         return g;
+    }
+
+    public static Source<ImmutableList<MqttPacket>, NotUsed> Mqtt311DecoderSource(PipeReader reader)
+    {
+        var g = new MqttDecoderSource(reader);
+        return Source.FromGraph(g);
     }
 }
 
