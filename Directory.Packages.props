@@ -5,14 +5,14 @@
    <PropertyGroup Label="SharedVersions">
     <AkkaVersion>1.5.30</AkkaVersion>
     <AkkaHostingVersion>1.5.30.1</AkkaHostingVersion>
-    <OtelVersion>1.9.0</OtelVersion>
+    <OtelVersion>1.10.0</OtelVersion>
   </PropertyGroup>
   <!-- Akka.NET Package Versions -->
   <ItemGroup Label="Akka.NET">
     <PackageVersion Include="Akka" Version="$(AkkaVersion)" />
     <PackageVersion Include="Akka.Hosting" Version="$(AkkaHostingVersion)" />
     <PackageVersion Include="Akka.Streams" Version="$(AkkaVersion)" />
-    <PackageVersion Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="8.0.2" />
+    <PackageVersion Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="9.0.0" />
     <PackageVersion Include="System.IO.Pipelines" Version="8.0.0" />
 
   </ItemGroup>
