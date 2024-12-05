@@ -3,7 +3,7 @@
     <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
   </PropertyGroup>
    <PropertyGroup Label="SharedVersions">
-    <AkkaVersion>1.5.31</AkkaVersion>
+    <AkkaVersion>1.5.32</AkkaVersion>
     <AkkaHostingVersion>1.5.31.1</AkkaHostingVersion>
     <OtelVersion>1.10.0</OtelVersion>
   </PropertyGroup>
