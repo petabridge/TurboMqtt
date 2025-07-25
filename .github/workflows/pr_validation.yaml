@@ -63,7 +63,7 @@ jobs:
 
       - name: Combine Coverage Reports
         if: runner.os == 'Linux'
-        uses: danielpalme/ReportGenerator-GitHub-Action@5.4.5
+        uses: danielpalme/ReportGenerator-GitHub-Action@5.4.10
         with:
           reports: "**/*.cobertura.xml"
           targetdir: "${{ github.workspace }}"
