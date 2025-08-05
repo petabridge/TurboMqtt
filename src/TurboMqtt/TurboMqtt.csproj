@@ -17,6 +17,7 @@
       <PackageReference Include="Akka" />
       <PackageReference Include="Akka.Streams" />
       <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
+    <PackageReference Include="Microsoft.NET.ILLink.Tasks" />
       <PackageReference Include="OpenTelemetry.Api.ProviderBuilderExtensions" />
       <PackageReference Include="System.IO.Pipelines" />
     </ItemGroup>
