@@ -43,6 +43,6 @@
     <PackageVersion Include="Testcontainers" Version="4.1.0" />
     <PackageVersion Include="Testcontainers.ActiveMq" Version="3.8.0" />
     <PackageVersion Include="BenchmarkDotNet" Version="0.14.0" />
-    <PackageVersion Include="FsCheck.Xunit" Version="2.16.6" />
+    <PackageVersion Include="FsCheck.Xunit" Version="3.3.0" />
   </ItemGroup>
 </Project>
