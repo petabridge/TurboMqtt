@@ -1,4 +1,4 @@
-﻿// -----------------------------------------------------------------------
+// -----------------------------------------------------------------------
 // <copyright file="TcpTransportActor.cs" company="Petabridge, LLC">
 //      Copyright (C) 2024 - 2024 Petabridge, LLC <https://petabridge.com>
 // </copyright>
@@ -8,7 +8,6 @@ using System.Buffers;
 using System.IO.Pipelines;
 using System.Net;
 using System.Net.Sockets;
-using System.Threading;
 using System.Threading.Channels;
 using Akka.Actor;
 using Akka.Event;
@@ -533,8 +532,8 @@ internal sealed class TcpTransportActor : UntypedActor
         {
             try
             {
-                // Wait up to 5 seconds for tasks to complete gracefully
-                using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+                // Wait up to 2 seconds for tasks to complete gracefully to avoid interfering with reconnection
+                using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(2));
                 await Task.WhenAll(allTasks).WaitAsync(cts.Token);
             }
             catch (OperationCanceledException)
