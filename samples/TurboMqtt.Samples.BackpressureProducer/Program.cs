@@ -61,6 +61,6 @@ builder
         
     });
 
-var host = builder.Build();
+using var host = builder.Build();
 
 await host.RunAsync();
