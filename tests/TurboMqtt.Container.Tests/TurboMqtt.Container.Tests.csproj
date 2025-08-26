@@ -28,6 +28,7 @@
     </ItemGroup>
 
     <ItemGroup>
+      <PackageReference Include="FsCheck.Xunit" />
       <ProjectReference Include="..\TestContainers.TurboMqtt\TestContainers.TurboMqtt.csproj" />
       <ProjectReference Include="..\TurboMqtt.Tests\TurboMqtt.Tests.csproj" />
     </ItemGroup>
