@@ -1,4 +1,4 @@
-﻿// -----------------------------------------------------------------------
+// -----------------------------------------------------------------------
 // <copyright file="FakeMqttTcpServer.cs" company="Petabridge, LLC">
 //      Copyright (C) 2024 - 2024 Petabridge, LLC <https://petabridge.com>
 // </copyright>
@@ -124,8 +124,16 @@ internal sealed class FakeMqttTcpServer
         if (!socket.Connected) 
             return false;
         
-        socket.Disconnect(true);
-        return true;
+        try
+        {
+            socket.Disconnect(true);
+            return true;
+        }
+        catch (ObjectDisposedException)
+        {
+            // Socket was already disposed, which means disconnection already occurred
+            return false;
+        }
     }
     
     public void Shutdown()

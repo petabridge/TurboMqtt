@@ -1,4 +1,4 @@
-﻿// -----------------------------------------------------------------------
+// -----------------------------------------------------------------------
 // <copyright file="TcpTransportActor.cs" company="Petabridge, LLC">
 //      Copyright (C) 2024 - 2024 Petabridge, LLC <https://petabridge.com>
 // </copyright>
@@ -44,10 +44,22 @@ internal sealed class TcpTransportActor : UntypedActor
             WaitForPendingWrites = waitForPendingWrites;
         }
         
-        private volatile ConnectionStatus _status = ConnectionStatus.NotStarted;
+        private int _status = (int)ConnectionStatus.NotStarted;
 
-        public ConnectionStatus Status { get => _status; 
-            set => _status = value; }
+        public ConnectionStatus Status 
+        { 
+            get => (ConnectionStatus)Volatile.Read(ref _status);
+            set => Volatile.Write(ref _status, (int)value);
+        }
+        
+        /// <summary>
+        /// Atomically update the status if current value matches expected.
+        /// </summary>
+        /// <returns>True if the update was successful, false otherwise.</returns>
+        public bool CompareAndSetStatus(ConnectionStatus expected, ConnectionStatus newValue)
+        {
+            return Interlocked.CompareExchange(ref _status, (int)newValue, (int)expected) == (int)expected;
+        }
 
         public CancellationTokenSource ShutDownCts { get; set; } = new();
 
@@ -121,6 +133,9 @@ internal sealed class TcpTransportActor : UntypedActor
     private readonly ILoggingAdapter _log = Context.GetLogger();
 
     private readonly Pipe _pipe;
+    
+    // Track task completion for graceful shutdown
+    private readonly TaskCompletionSource _shutdownComplete = new();
 
     public TcpTransportActor(MqttClientTcpOptions tcpOptions)
     {
@@ -495,6 +510,19 @@ internal sealed class TcpTransportActor : UntypedActor
         {
             _readsFromTransport.Writer.TryComplete();
         }
+        
+        // Cancel the background tasks gracefully
+        try
+        {
+            await State.ShutDownCts.CancelAsync();
+        }
+        catch (ObjectDisposedException)
+        {
+            // Already cancelled, ignore
+        }
+        
+        // Brief delay to allow ongoing operations to complete
+        await Task.Delay(100);
 
         _closureSelf.Tell(PoisonPill.Instance);
     }
