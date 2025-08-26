@@ -186,7 +186,8 @@ public class Mqtt311DecoderSpecs
             ReadOnlyMemory<byte> frame2 = buffer.Slice(frame1.Length, packetsAndSizes[1].estimatedSize.TotalSize - msg2ChunkSize + msg3ChunkSize);
             
             // compute frame 3 - should contain the rest of message 3 and all of message 4
-            ReadOnlyMemory<byte> frame3 = buffer.Slice(frame1.Length + frame2.Length - 1);
+            // Fix: Don't subtract 1 to avoid overlapping frames that break packet boundaries
+            ReadOnlyMemory<byte> frame3 = buffer.Slice(frame1.Length + frame2.Length);
             
             // act
             var decoded1 = _decoder.TryDecode(frame1, out var decodedPackets1);

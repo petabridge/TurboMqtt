@@ -16,11 +16,15 @@ namespace TurboMqtt.Protocol;
 /// </summary>
 public class Mqtt311Decoder
 {
+    // MQTT protocol maximum packet size (256MB - 1)
+    private const int MaxPacketSize = 268435455; // 0xFFFFFFF
+    
     private ReadOnlyMemory<byte> _remainder = ReadOnlyMemory<byte>.Empty;
 
     public bool TryDecode(in ReadOnlyMemory<byte> additionalData, out ImmutableList<MqttPacket> packets)
     {
-        packets = [];
+        var packetsBuilder = ImmutableList.CreateBuilder<MqttPacket>();
+        packets = ImmutableList<MqttPacket>.Empty;
         var rValue = false;
 
         ReadOnlyMemory<byte> workingBuffer = additionalData;
@@ -59,14 +63,32 @@ public class Mqtt311Decoder
 
             // extract packet size (the packet span will automatically advance past the size header)
             if (!TryGetPacketLength(ref currentPacket, out packetSize))
-                return rValue; // we need more data to decode the packet size
+            {
+                // save the remainder before returning
+                _remainder = workingBuffer;
+                break; // exit the loop but still convert builder to list if we have packets
+            }
+
+            // validate packet size against MQTT protocol limits
+            if (packetSize > MaxPacketSize)
+            {
+                throw new MqttDecoderException($"Packet size {packetSize} exceeds maximum allowed size of {MaxPacketSize}", 
+                    MqttProtocolVersion.V3_1_1, packetType);
+            }
 
             // check to see if we have enough data to decode the packet
             if (currentPacket.Length < packetSize)
             {
+                // validate that we're not accumulating too much data (potential DoS)
+                if (workingBuffer.Length > MaxPacketSize)
+                {
+                    throw new MqttDecoderException($"Accumulated buffer size {workingBuffer.Length} exceeds maximum packet size {MaxPacketSize}",
+                        MqttProtocolVersion.V3_1_1, packetType);
+                }
+                
                 // save the remainder
                 _remainder = workingBuffer;
-                return rValue;
+                break; // exit the loop but still convert builder to list if we have packets
             }
 
             headerLength =
@@ -89,67 +111,67 @@ public class Mqtt311Decoder
                 {
                     case MqttPacketType.Publish:
                     {
-                        packets = packets.Add(DecodePublish(ref bufferForMsg, packetSize, headerLength));
+                        packetsBuilder.Add(DecodePublish(ref bufferForMsg, packetSize, headerLength));
                         break;
                     }
                     case MqttPacketType.PubAck:
                     {
-                        packets = packets.Add(DecodePubAck(ref bufferForMsg, packetSize, headerLength));
+                        packetsBuilder.Add(DecodePubAck(ref bufferForMsg, packetSize, headerLength));
                         break;
                     }
                     case MqttPacketType.PubRec:
                     {
-                        packets = packets.Add(DecodePubRec(ref bufferForMsg, packetSize, headerLength));
+                        packetsBuilder.Add(DecodePubRec(ref bufferForMsg, packetSize, headerLength));
                         break;
                     }
                     case MqttPacketType.PubRel:
                     {
-                        packets = packets.Add(DecodePubRel(ref bufferForMsg, packetSize, headerLength));
+                        packetsBuilder.Add(DecodePubRel(ref bufferForMsg, packetSize, headerLength));
                         break;
                     }
                     case MqttPacketType.PubComp:
                     {
-                        packets = packets.Add(DecodePubComp(ref bufferForMsg, packetSize, headerLength));
+                        packetsBuilder.Add(DecodePubComp(ref bufferForMsg, packetSize, headerLength));
                         break;
                     }
                     case MqttPacketType.PingReq:
-                        packets = packets.Add(PingReqPacket.Instance);
+                        packetsBuilder.Add(PingReqPacket.Instance);
                         break;
                     case MqttPacketType.PingResp:
-                        packets = packets.Add(PingRespPacket.Instance);
+                        packetsBuilder.Add(PingRespPacket.Instance);
                         break;
                     case MqttPacketType.Connect:
                     {
-                        packets = packets.Add(DecodeConnect(ref bufferForMsg, packetSize, headerLength));
+                        packetsBuilder.Add(DecodeConnect(ref bufferForMsg, packetSize, headerLength));
                         break;
                     }
                     case MqttPacketType.ConnAck:
                     {
-                        packets = packets.Add(DecodeConnAck(ref bufferForMsg, packetSize, headerLength));
+                        packetsBuilder.Add(DecodeConnAck(ref bufferForMsg, packetSize, headerLength));
                         break;
                     }
                     case MqttPacketType.SubAck:
                     {
-                        packets = packets.Add(DecodeSubAck(ref bufferForMsg, packetSize, headerLength));
+                        packetsBuilder.Add(DecodeSubAck(ref bufferForMsg, packetSize, headerLength));
                         break;
                     }
                     case MqttPacketType.Subscribe:
                     {
-                        packets = packets.Add(DecodeSubscribe(ref bufferForMsg, packetSize, headerLength));
+                        packetsBuilder.Add(DecodeSubscribe(ref bufferForMsg, packetSize, headerLength));
                         break;
                     }
                     case MqttPacketType.Unsubscribe:
                     {
-                        packets = packets.Add(DecodeUnsubscribe(ref bufferForMsg, packetSize, headerLength));
+                        packetsBuilder.Add(DecodeUnsubscribe(ref bufferForMsg, packetSize, headerLength));
                         break;
                     }
                     case MqttPacketType.UnsubAck:
                     {
-                        packets = packets.Add(DecodeUnsubAck(ref bufferForMsg, packetSize, headerLength));
+                        packetsBuilder.Add(DecodeUnsubAck(ref bufferForMsg, packetSize, headerLength));
                         break;
                     }
                     case MqttPacketType.Disconnect:
-                        packets = packets.Add(DecodeDisconnect(ref bufferForMsg, packetSize, headerLength));
+                        packetsBuilder.Add(DecodeDisconnect(ref bufferForMsg, packetSize, headerLength));
                         break;
                     case MqttPacketType.Auth: // MQTT 5.0 only - should throw an exception if we see this
                         throw new NotSupportedException("MQTT 5.0 packets are not supported.");
@@ -171,6 +193,13 @@ public class Mqtt311Decoder
             }
         }
 
+        // Convert builder to immutable list before returning
+        if (packetsBuilder.Count > 0)
+        {
+            packets = packetsBuilder.ToImmutable();
+            rValue = true; // We decoded at least one packet
+        }
+        
         return rValue;
     }
 

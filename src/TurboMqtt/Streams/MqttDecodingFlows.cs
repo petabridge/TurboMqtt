@@ -95,7 +95,7 @@ internal sealed class Mqtt311DecoderFlow : GraphStage<FlowShape<(
             if (buffer is not UnsharedMemoryOwner<byte>)
             {
                 safeBytes = new Memory<byte>(new byte[readableBytes]);
-                buffer.Memory[..(readableBytes-1)].CopyTo(safeBytes);
+                buffer.Memory[..readableBytes].CopyTo(safeBytes);
             }
             buffer.Dispose();
             

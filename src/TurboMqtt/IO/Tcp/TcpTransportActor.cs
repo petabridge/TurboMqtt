@@ -8,6 +8,7 @@ using System.Buffers;
 using System.IO.Pipelines;
 using System.Net;
 using System.Net.Sockets;
+using System.Threading;
 using System.Threading.Channels;
 using Akka.Actor;
 using Akka.Event;
@@ -44,10 +45,22 @@ internal sealed class TcpTransportActor : UntypedActor
             WaitForPendingWrites = waitForPendingWrites;
         }
         
-        private volatile ConnectionStatus _status = ConnectionStatus.NotStarted;
+        private int _status = (int)ConnectionStatus.NotStarted;
 
-        public ConnectionStatus Status { get => _status; 
-            set => _status = value; }
+        public ConnectionStatus Status 
+        { 
+            get => (ConnectionStatus)Volatile.Read(ref _status);
+            set => Volatile.Write(ref _status, (int)value);
+        }
+        
+        /// <summary>
+        /// Atomically update the status if current value matches expected.
+        /// </summary>
+        /// <returns>True if the update was successful, false otherwise.</returns>
+        public bool CompareAndSetStatus(ConnectionStatus expected, ConnectionStatus newValue)
+        {
+            return Interlocked.CompareExchange(ref _status, (int)newValue, (int)expected) == (int)expected;
+        }
 
         public CancellationTokenSource ShutDownCts { get; set; } = new();
 
@@ -121,6 +134,11 @@ internal sealed class TcpTransportActor : UntypedActor
     private readonly ILoggingAdapter _log = Context.GetLogger();
 
     private readonly Pipe _pipe;
+    
+    // Track background tasks for proper coordination during shutdown
+    private Task? _writeToSocketTask;
+    private Task? _readFromPipeTask;
+    private Task? _writeToPipeTask;
 
     public TcpTransportActor(MqttClientTcpOptions tcpOptions)
     {
@@ -302,11 +320,10 @@ internal sealed class TcpTransportActor : UntypedActor
     {
         Become(Running);
 
-#pragma warning disable CS4014 // Because this call is not awaited, execution of the current method continues before the call is completed
-        DoWriteToPipeAsync(State.ShutDownCts.Token);
-        ReadFromPipeAsync(State.ShutDownCts.Token);
-        DoWriteToSocketAsync(State.ShutDownCts.Token);
-#pragma warning restore CS4014 // Because this call is not awaited, execution of the current method continues before the call is completed
+        // Start background tasks and track them for proper coordination
+        _writeToPipeTask = Task.Run(() => DoWriteToPipeAsync(State.ShutDownCts.Token));
+        _readFromPipeTask = Task.Run(() => ReadFromPipeAsync(State.ShutDownCts.Token));
+        _writeToSocketTask = Task.Run(() => DoWriteToSocketAsync(State.ShutDownCts.Token));
     }
 
     private async Task DoWriteToSocketAsync(CancellationToken ct)
@@ -494,6 +511,40 @@ internal sealed class TcpTransportActor : UntypedActor
         else // if we're not waiting on reads, just complete the reader
         {
             _readsFromTransport.Writer.TryComplete();
+        }
+        
+        // Cancel the background tasks gracefully
+        try
+        {
+            await State.ShutDownCts.CancelAsync();
+        }
+        catch (ObjectDisposedException)
+        {
+            // Already cancelled, ignore
+        }
+        
+        // Wait for all background tasks to complete with a reasonable timeout
+        var allTasks = new List<Task>();
+        if (_writeToSocketTask != null) allTasks.Add(_writeToSocketTask);
+        if (_readFromPipeTask != null) allTasks.Add(_readFromPipeTask);
+        if (_writeToPipeTask != null) allTasks.Add(_writeToPipeTask);
+        
+        if (allTasks.Count > 0)
+        {
+            try
+            {
+                // Wait up to 5 seconds for tasks to complete gracefully
+                using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+                await Task.WhenAll(allTasks).WaitAsync(cts.Token);
+            }
+            catch (OperationCanceledException)
+            {
+                _log.Warning("Background tasks did not complete within timeout during graceful shutdown");
+            }
+            catch (Exception ex)
+            {
+                _log.Error(ex, "Error waiting for background tasks during graceful shutdown");
+            }
         }
 
         _closureSelf.Tell(PoisonPill.Instance);
