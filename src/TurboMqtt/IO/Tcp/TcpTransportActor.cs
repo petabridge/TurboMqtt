@@ -134,10 +134,8 @@ internal sealed class TcpTransportActor : UntypedActor
 
     private readonly Pipe _pipe;
     
-    // Track background tasks for proper coordination during shutdown
-    private Task? _writeToSocketTask;
-    private Task? _readFromPipeTask;
-    private Task? _writeToPipeTask;
+    // Track task completion for graceful shutdown
+    private readonly TaskCompletionSource _shutdownComplete = new();
 
     public TcpTransportActor(MqttClientTcpOptions tcpOptions)
     {
@@ -319,10 +317,11 @@ internal sealed class TcpTransportActor : UntypedActor
     {
         Become(Running);
 
-        // Start background tasks and track them for proper coordination
-        _writeToPipeTask = Task.Run(() => DoWriteToPipeAsync(State.ShutDownCts.Token));
-        _readFromPipeTask = Task.Run(() => ReadFromPipeAsync(State.ShutDownCts.Token));
-        _writeToSocketTask = Task.Run(() => DoWriteToSocketAsync(State.ShutDownCts.Token));
+#pragma warning disable CS4014 // Because this call is not awaited, execution of the current method continues before the call is completed
+        DoWriteToPipeAsync(State.ShutDownCts.Token);
+        ReadFromPipeAsync(State.ShutDownCts.Token);
+        DoWriteToSocketAsync(State.ShutDownCts.Token);
+#pragma warning restore CS4014 // Because this call is not awaited, execution of the current method continues before the call is completed
     }
 
     private async Task DoWriteToSocketAsync(CancellationToken ct)
@@ -522,29 +521,8 @@ internal sealed class TcpTransportActor : UntypedActor
             // Already cancelled, ignore
         }
         
-        // Wait for all background tasks to complete with a reasonable timeout
-        var allTasks = new List<Task>();
-        if (_writeToSocketTask != null) allTasks.Add(_writeToSocketTask);
-        if (_readFromPipeTask != null) allTasks.Add(_readFromPipeTask);
-        if (_writeToPipeTask != null) allTasks.Add(_writeToPipeTask);
-        
-        if (allTasks.Count > 0)
-        {
-            try
-            {
-                // Wait up to 2 seconds for tasks to complete gracefully to avoid interfering with reconnection
-                using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(2));
-                await Task.WhenAll(allTasks).WaitAsync(cts.Token);
-            }
-            catch (OperationCanceledException)
-            {
-                _log.Warning("Background tasks did not complete within timeout during graceful shutdown");
-            }
-            catch (Exception ex)
-            {
-                _log.Error(ex, "Error waiting for background tasks during graceful shutdown");
-            }
-        }
+        // Brief delay to allow ongoing operations to complete
+        await Task.Delay(100);
 
         _closureSelf.Tell(PoisonPill.Instance);
     }
