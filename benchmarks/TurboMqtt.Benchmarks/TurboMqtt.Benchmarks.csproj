@@ -15,6 +15,7 @@
 
     <ItemGroup>
       <PackageReference Include="BenchmarkDotNet" />
+      <PackageReference Include="System.IO.Pipelines" VersionOverride="9.0.10" />
     </ItemGroup>
 
 </Project>
