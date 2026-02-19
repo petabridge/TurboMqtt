@@ -309,3 +309,12 @@ __pycache__/
 *.btm.cs
 *.odx.cs
 *.xsd.cs
+
+# RALPH flight recorder (ephemeral)
+.ralph/
+
+# Planning sessions (ephemeral)
+.planning/
+
+# Code health reports (ephemeral)
+.code-health/
