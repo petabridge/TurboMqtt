@@ -44,6 +44,21 @@
 - **Blocked on:** .NET QUIC API stability, MQTT over QUIC standard finalization
 - **Date parked:** 2026-02-19
 
+### TLS support (MQTT 3.1.1 and 5.0)
+- **Source:** Was Task 2.7 and Task 3.12 in `IMPLEMENTATION_PLAN.md`; parked 2026-02-19
+- **Issue:** TLS support exists in-flight on the `tls-support2` branch. The branch has not been reviewed for correctness or compatibility with the current `dev` branch. Task 3.12 (MQTT 5.0 TLS benchmarks) is blocked on this work.
+- **Decision needed:**
+  - Evaluate `tls-support2` branch: merge as-is, merge with modifications, or rewrite?
+  - Is TLS required before a 1.0 release, or is it a post-1.0 feature?
+- **Subtasks when unparked:**
+  - Review `tls-support2` for correctness against current `dev`
+  - Integrate TLS transport: `MqttClientConnectOptions` (certificate, server name, skip-validation for testing)
+  - Container test: connect to EMQX over TLS (port 8883), publish/subscribe at QoS 0 and QoS 1
+  - Unit tests: TLS option validation
+  - `PROJECT_CONTEXT.md` protocol support table: change TLS from "In-flight" to "Implemented"
+  - MQTT 5.0 TLS benchmarks (`Mqtt5TlsTcpBenchmarks.cs`): QoS 0/1, payloads 10 and 1024 bytes, TLS overhead quantified
+- **Date parked:** 2026-02-19
+
 ### AOT compatibility
 - **Source:** `PROJECT_CONTEXT.md` key constraints
 - **Issue:** AOT compilation support is blocked on Akka.NET v1.6 which has not shipped yet. The project currently uses reflection-heavy Akka.NET patterns that are not AOT-friendly.

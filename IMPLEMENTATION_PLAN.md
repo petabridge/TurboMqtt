@@ -258,6 +258,7 @@ is superseded by the `IStreamProvider` + `TlsStreamProvider` design in Phase 2.5
 Done when:
 - [x] Superseded by Phase 2.5-C — no action needed in Phase 2
 
+
 ### Task 2.8: Add MQTT 3.1.1 E2E tests with authentication enabled
 
 **PRD:** https://github.com/petabridge/TurboMqtt/issues/66
@@ -644,6 +645,7 @@ Done when:
 - [ ] Benchmarks cover QoS 0 and QoS 1 over TLS at payload sizes 10 and 1024 bytes
 - [ ] TLS overhead quantified relative to plain TCP benchmarks from Task 3.11
 - [ ] Benchmark results documented in PR description
+
 
 ---
 
