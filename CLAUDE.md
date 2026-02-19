@@ -77,6 +77,42 @@ All code must compile with zero warnings (`TreatWarningsAsErrors` is on).
 - `build.ps1` extracts version + notes and patches Directory.Build.props
 - Releases are triggered by pushing a git tag; GitHub Actions handles signing and publishing (migration from Azure DevOps tracked in #326)
 
+## Skills Index
+
+Use these skills by name when the task matches. Invoke with `/skill-name`.
+Skills prefixed with `dotnet-skills:` come from the [petabridge/dotnet-skills](https://github.com/petabridge/dotnet-skills) marketplace. If a skill is not installed, add it via Claude Code's `/install-skill` or the dotnet-skills README.
+
+### Akka.NET & Architecture
+`akka-best-practices` actors, supervision, error handling, work distribution
+`akka-testing-patterns` Akka.Hosting.TestKit, TestProbes, persistence testing
+`analyze-racy-test` flaky tests, race conditions, timing-dependent failures
+
+### C# & API Design
+`csharp-coding-standards` records, pattern matching, Span/Memory, async/await
+`csharp-concurrency-patterns` Channels, async, choosing concurrency abstractions
+`csharp-api-design` public API compat, versioning, extend-only design
+`csharp-type-design-performance` sealed classes, readonly structs, collection choices
+
+### Performance & Benchmarking
+`create-benchmark` design new BenchmarkDotNet benchmarks
+`run-benchmark` execute benchmarks and capture results
+`analyze-performance` analyze benchmark results, profiler data, regressions
+`benchmark-workflow` coordinated run + analyze workflow
+
+### Testing & Quality
+`testcontainers` E2E tests with real brokers in Docker
+`crap-analysis` code coverage + CRAP score risk hotspots
+`slopwatch` detect reward hacking in code changes
+
+### Project & Packages
+`project-structure` Directory.Build.props, CPM, SourceLink, versioning
+`package-management` NuGet CPM, dotnet add/remove/list
+
+### PR & Release
+`check-api-breaking` API breaking change detection
+`review-pr` comprehensive pull request review
+`create-release` release notes, git tags, publish workflow
+
 ## Continuous Improvement
 
 - If a workflow is repeated 3+ times, extract it into a repo skill or script
