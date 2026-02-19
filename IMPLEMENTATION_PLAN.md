@@ -249,23 +249,14 @@ Done when:
 - [ ] No `[Skip]` attribute or equivalent workaround -- the test runs normally
 - [ ] Issue #99 can be closed
 
-### Task 2.7: Evaluate and integrate TLS support
+### Task 2.7: TLS support
 
-**PRD:** TLS support (draft PRs referenced in PROJECT_CONTEXT.md, in-flight on `tls-support2` branch)
-**Surface area:** cross-cutting
-**Verification:** L2
-
-TLS support exists in-flight on the `tls-support2` branch. Evaluate the state of
-that branch, determine if it can be merged to `dev` or needs rewriting, and integrate it.
+**Replaced by Phase 2.5-C** (Transport Layer Redesign). The `tls-support2` branch approach
+is superseded by the `IStreamProvider` + `TlsStreamProvider` design in Phase 2.5. See
+[docs/prd/transport-redesign/README.md](docs/prd/transport-redesign/README.md) for rationale.
 
 Done when:
-- [ ] `tls-support2` branch code reviewed for correctness and compatibility with current `dev`
-- [ ] Decision documented: merge as-is, merge with modifications, or rewrite
-- [ ] TLS transport integrated into `dev` branch (either via merge or new implementation)
-- [ ] `MqttClientConnectOptions` (or equivalent) supports TLS configuration (certificate, server name, skip validation for testing)
-- [ ] Container test exists that connects to EMQX over TLS (port 8883) and publishes/subscribes at QoS 0 and QoS 1
-- [ ] Unit tests cover TLS option validation (e.g., TLS required but no certificate configured)
-- [ ] `PROJECT_CONTEXT.md` protocol support table updated: TLS status changed from "In-flight" to "Implemented"
+- [x] Superseded by Phase 2.5-C — no action needed in Phase 2
 
 ### Task 2.8: Add MQTT 3.1.1 E2E tests with authentication enabled
 
@@ -285,6 +276,118 @@ Done when:
 
 ---
 
+## Phase 2.5: Transport Layer Redesign
+
+> Goal: Fix 12+ race conditions in the transport/lifecycle layer, eliminate GC pressure
+> from unpooled read allocations, introduce a `Stream` abstraction to enable TLS, and
+> formalize the transport actor state machine. This must happen before MQTT 5.0 because
+> the transport layer needs to be solid before adding protocol complexity.
+>
+> **PRD:** [docs/prd/transport-redesign/README.md](docs/prd/transport-redesign/README.md)
+>
+> **Prerequisites:** Phase 2 tasks 2.1-2.6 should be complete (codec hardening provides
+> the test infrastructure to verify transport changes don't regress behavior).
+
+### Task 2.5-A: Extract Stream abstraction and pool read allocations
+
+**PRD:** [docs/prd/transport-redesign/README.md](docs/prd/transport-redesign/README.md) §4, §8
+**Surface area:** cross-cutting
+**Verification:** L2
+
+Introduce `IStreamProvider` + `TcpStreamProvider`, refactor `TcpTransportActor` to use
+`Stream.ReadAsync`/`Stream.WriteAsync` instead of `Socket.ReceiveAsync`/`Socket.SendAsync`,
+and replace `new byte[]` allocations in `ReadFromPipeAsync` with `MemoryPool<byte>.Shared.Rent()`.
+
+Done when:
+- [ ] `IStreamProvider` interface exists in `src/TurboMqtt/IO/Tcp/IStreamProvider.cs`
+- [ ] `TcpStreamProvider` implementation exists in `src/TurboMqtt/IO/Tcp/TcpStreamProvider.cs`
+- [ ] `TcpStreamProvider.ConnectAsync()` creates Socket, resolves DNS, connects, returns `NetworkStream`
+- [ ] `TcpTransportActor` constructor takes `IStreamProvider` instead of creating Socket directly
+- [ ] `DoWriteToPipeAsync` reads from `Stream.ReadAsync()` instead of `Socket.ReceiveAsync()`
+- [ ] `DoWriteToSocketAsync` writes to `Stream.WriteAsync()` instead of `Socket.SendAsync()`
+- [ ] `ReadFromPipeAsync` uses `MemoryPool<byte>.Shared.Rent()` instead of `new byte[buffer.Length]`
+- [ ] `UnsharedMemoryOwner` no longer used on the read path (may still be used elsewhere)
+- [ ] `TcpTransport.cs` updated to pass `IStreamProvider` through
+- [ ] `TcpConnectionManager.cs` updated to create appropriate `IStreamProvider`
+- [ ] All existing TCP unit tests pass unchanged
+- [ ] All container tests pass against EMQX
+- [ ] New unit tests for `TcpStreamProvider` (connect, DNS resolution, socket configuration)
+- [ ] BenchmarkDotNet before/after confirms no throughput regression (baseline: 193k msg/sec QoS 0)
+- [ ] Builds with zero warnings
+
+### Task 2.5-B: Fix transport race conditions
+
+**PRD:** [docs/prd/transport-redesign/README.md](docs/prd/transport-redesign/README.md) §1.2, §5, §6
+**Surface area:** cross-cutting
+**Verification:** L2
+
+Fix the 12+ identified race conditions in shutdown, reconnection, and transport swap.
+Can be developed in parallel with Task 2.5-A.
+
+Done when:
+- [ ] `TcpTransportActor` uses explicit `Become` states: `NotStarted → Created → Connecting → Connected → Draining → Closing → Stopped` (and `Aborted` short-circuit)
+- [ ] Background tasks in `BecomeRunning()` tracked with `Task.WhenAll` + `ContinueWith` self-tell `BackgroundTasksCompleted`
+- [ ] `CleanUpGracefully` replaced with state-driven transitions — no more fire-and-forget async
+- [ ] Duplicate `DoClose`/`ReadFinished`/`ConnectionUnexpectedlyClosed` messages in non-handling states are ignored
+- [ ] `MqttClient.SwapTransport()` uses `Interlocked.Exchange` + `volatile` field
+- [ ] TOCTOU on `IsConnected` in `PublishAsync` eliminated — rely on `TryWrite` returning false
+- [ ] `ClientStreamOwner.PostStop()` follows deterministic ordering: complete outbound → abort transport → complete inbound → signal death
+- [ ] `ClientStreamOwner` reconnect uses message-driven `Reconnecting` behavior (no fire-and-forget `DoReconnect`)
+- [ ] `ReadFromPipeAsync` catch block includes `return` after `Tell(ReadFinished.Instance)`
+- [ ] `DisposeSocket` CTS disposal is safe (no double-cancel race with `CleanUpGracefully`)
+- [ ] All existing E2E tests pass
+- [ ] New test: concurrent disconnect + publish does not deadlock or crash
+- [ ] New test: rapid sequential reconnects (3+ in < 1 second) complete without error
+- [ ] New test: server kills connection during QoS 2 exchange — client reconnects and retransmits
+- [ ] New test: disconnect while large publish in flight — verifies graceful drain
+- [ ] Builds with zero warnings
+
+### Task 2.5-C: Add TLS support via TlsStreamProvider
+
+**PRD:** [docs/prd/transport-redesign/README.md](docs/prd/transport-redesign/README.md) §7
+**Surface area:** cross-cutting
+**Verification:** L2
+**Depends on:** Task 2.5-A
+
+Implement TLS/SSL support. This is the payoff of the `IStreamProvider` abstraction.
+
+Done when:
+- [ ] `TlsStreamProvider` exists in `src/TurboMqtt/IO/Tcp/TlsStreamProvider.cs`
+- [ ] `TlsStreamProvider.ConnectAsync()` creates Socket → `NetworkStream` → `SslStream`, completes TLS handshake
+- [ ] `MqttClientTlsOptions` public options class exists in `src/TurboMqtt/Client/MqttClientTlsOptions.cs`
+- [ ] `MqttClientTlsOptions` supports: `ClientCertificates`, `ServerCertificateValidationCallback`, `EnabledSslProtocols`, `TargetHost`
+- [ ] `IMqttClientFactory.CreateTlsTcpClient()` factory method added
+- [ ] `TcpMqttTransportManager` accepts optional TLS options and creates appropriate `IStreamProvider`
+- [ ] Container test: connect to EMQX over TLS (port 8883) and publish/subscribe at QoS 0
+- [ ] Container test: connect to EMQX over TLS and publish/subscribe at QoS 1
+- [ ] Container test: TLS with custom `ServerCertificateValidationCallback` for self-signed certs
+- [ ] All existing TCP tests still pass (no regression)
+- [ ] `PROJECT_CONTEXT.md` protocol support table updated: TLS status changed from "In-flight" to "Implemented"
+- [ ] Builds with zero warnings
+
+### Task 2.5-D: Transport lifecycle hardening
+
+**PRD:** [docs/prd/transport-redesign/README.md](docs/prd/transport-redesign/README.md) §5, §6
+**Surface area:** cross-cutting
+**Verification:** L2
+**Depends on:** Tasks 2.5-A + 2.5-B
+
+Formalize the transport state machine and graceful drain to production quality.
+
+Done when:
+- [ ] Full FSM with explicit state transitions and structured logging at each transition
+- [ ] `ConnectionState` shared mutable state replaced with actor messages or thread-safe wrappers
+- [ ] Graceful drain: `Draining` state where outbound flushes before DISCONNECT is sent
+- [ ] Connect timeout with cancellation propagation (configurable, default 10s)
+- [ ] Actor test: verify all state transitions with TestProbe (`NotStarted → Created → Connecting → Connected → Draining → Closing → Stopped`)
+- [ ] Actor test: verify `Aborted` short-circuit path
+- [ ] Test: disconnect while large publish in flight — outbound flushes before close
+- [ ] Test: connect timeout fires when broker is unreachable
+- [ ] All E2E tests pass
+- [ ] Builds with zero warnings
+
+---
+
 ## Phase 3: MQTT 5.0 Implementation
 
 > Goal: Implement a functional MQTT 5.0 encoder and decoder, integrate them into
@@ -294,7 +397,8 @@ Done when:
 > **PRD:** [docs/prd/mqtt5/README.md](docs/prd/mqtt5/README.md) — detailed spec-to-code mapping
 >
 > **Prerequisites:** Phase 2 tasks 2.1-2.5 should be complete so the property-based
-> testing infrastructure can be reused for MQTT 5.0 codec validation.
+> testing infrastructure can be reused for MQTT 5.0 codec validation. Phase 2.5
+> (Transport Layer Redesign) should be complete so MQTT 5.0 builds on a solid transport.
 
 ### Task 3.0: Build MQTT 5.0 property encoding/decoding infrastructure
 
@@ -532,8 +636,8 @@ Done when:
 **Surface area:** cross-cutting
 **Verification:** L3
 
-Add TCP+TLS benchmarks for MQTT 5.0, building on the TLS support from Phase 2
-(Task 2.7) and MQTT 5.0 benchmarks from Task 3.11.
+Add TCP+TLS benchmarks for MQTT 5.0, building on the TLS support from Phase 2.5
+(Task 2.5-C) and MQTT 5.0 benchmarks from Task 3.11.
 
 Done when:
 - [ ] `Mqtt5TlsTcpBenchmarks.cs` exists in `benchmarks/TurboMqtt.Benchmarks/Mqtt5/`
@@ -558,10 +662,15 @@ Phase 2 (depends on Phase 1 completing):
   2.4 (independent, can run in parallel with 2.1-2.3)
   2.5 (independent, can run in parallel)
   2.6 (independent, can run in parallel)
-  2.7 (independent, can run in parallel)
-  2.8 (depends on 2.7 for TLS fixture if auth tests include TLS)
+  2.7 (superseded by Phase 2.5-C)
+  2.8 (independent, can run in parallel)
 
-Phase 3 (depends on Phase 2 tasks 2.1-2.5 for testing infrastructure):
+Phase 2.5 (depends on Phase 2 tasks 2.1-2.6 completing):
+  2.5-A (Stream abstraction) <--> 2.5-B (race fixes)  [can run in parallel]
+  2.5-A --> 2.5-C (TLS depends on IStreamProvider)
+  2.5-A + 2.5-B --> 2.5-D (hardening depends on both)
+
+Phase 3 (depends on Phase 2 tasks 2.1-2.5 for testing infrastructure + Phase 2.5):
   3.0 (property infrastructure, first task)
   3.1 (packet field additions, can parallel with 3.0)
   3.0 + 3.1 --> 3.2 (encoder uses property writer + needs complete packet types)
@@ -574,5 +683,5 @@ Phase 3 (depends on Phase 2 tasks 2.1-2.5 for testing infrastructure):
   3.5 --> 3.9 (E2E tests need pipeline)
   3.7 --> 3.10 (auth E2E needs auth flow)
   3.9 --> 3.11 (benchmarks need working E2E)
-  3.11 + 2.7 --> 3.12 (TLS benchmarks need both TLS and MQTT 5.0 benchmarks)
+  3.11 + 2.5-C --> 3.12 (TLS benchmarks need both TLS and MQTT 5.0 benchmarks)
 ```
