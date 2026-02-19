@@ -21,7 +21,7 @@ set -euo pipefail
 # doesn't fire and the loop continues to the next iteration.
 trap 'echo ""; echo "RALPH loop interrupted."; exit 130' INT TERM
 
-PLAN_FILE="IMPLEMENTATION_PLAN.md"
+PLAN_FILE="${RALPH_PLAN_FILE:-IMPLEMENTATION_PLAN.md}"
 ITERATIONS=5
 MODEL="${RALPH_MODEL:-claude-opus-4-6}"
 POSTMORTEM_MODEL="${RALPH_POSTMORTEM_MODEL:-$MODEL}"
@@ -332,11 +332,11 @@ for ((i=1; i<=ITERATIONS; i++)); do
 1. AGENTS.md and/or CLAUDE.md - Constitution (authority, constraints, quality bar, routing)
 2. PROJECT_CONTEXT.md - Current architecture and state (if present)
 3. TOOLING.md - Available tools/services (if present)
-4. IMPLEMENTATION_PLAN.md - Task breakdown
+4. $PLAN_FILE - Task breakdown
 
 ## Instructions (ONE TASK ONLY)
 
-1) Find the next incomplete task in IMPLEMENTATION_PLAN.md:
+1) Find the next incomplete task in $PLAN_FILE:
    - Look for '### Task:' blocks with unchecked 'Done when:' items
    - Work on the FIRST incomplete task you find
    - A task is complete only when ALL its Done-when checkboxes are satisfied
@@ -375,7 +375,7 @@ for ((i=1; i<=ITERATIONS; i++)); do
 
 8) If verification passes:
    - Commit to the current feature branch with a descriptive message
-   - Update IMPLEMENTATION_PLAN.md checkboxes in the SAME commit
+   - Update $PLAN_FILE checkboxes in the SAME commit
    - Update TOOLING.md if you used or discovered a new tool/resource
 
 9) Stop at checkpoints (UI approval, architecture decisions, credential setup) and ask the user if needed.
