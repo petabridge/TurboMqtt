@@ -82,11 +82,11 @@ Done when:
 Update Akka.NET and Akka.Hosting to the latest stable versions.
 
 Done when:
-- [ ] `AkkaVersion` in `Directory.Packages.props` updated to latest stable (currently 1.5.48, check NuGet for latest)
-- [ ] `AkkaHostingVersion` in `Directory.Packages.props` updated to latest stable (currently 1.5.55, check NuGet for latest)
-- [ ] `dotnet build -c Release` succeeds with zero warnings
-- [ ] `dotnet test tests/TurboMqtt.Tests/ -c Release` passes
-- [ ] No new deprecation warnings from Akka.NET API changes
+- [x] `AkkaVersion` in `Directory.Packages.props` updated to latest stable (currently 1.5.48, check NuGet for latest)
+- [x] `AkkaHostingVersion` in `Directory.Packages.props` updated to latest stable (currently 1.5.55, check NuGet for latest)
+- [x] `dotnet build -c Release` succeeds with zero warnings
+- [x] `dotnet test tests/TurboMqtt.Tests/ -c Release` passes
+- [x] No new deprecation warnings from Akka.NET API changes
 
 ### Task 1.5: Update OpenTelemetry packages to latest
 
