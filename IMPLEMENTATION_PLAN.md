@@ -99,11 +99,11 @@ between 1.x and 2.x (namespace reorganization, removal of some extension methods
 This may require source changes.
 
 Done when:
-- [ ] `OtelVersion` in `Directory.Packages.props` updated to latest stable (currently 1.10.0, check NuGet for latest)
-- [ ] If OTEL 2.x is adopted, any breaking API changes in `src/TurboMqtt/` are resolved
-- [ ] `dotnet build -c Release` succeeds with zero warnings
-- [ ] `dotnet test tests/TurboMqtt.Tests/ -c Release` passes
-- [ ] OpenTelemetry metrics and traces still function (verify sample app compiles)
+- [x] `OtelVersion` in `Directory.Packages.props` updated to latest stable (currently 1.10.0, check NuGet for latest)
+- [x] If OTEL 2.x is adopted, any breaking API changes in `src/TurboMqtt/` are resolved
+- [x] `dotnet build -c Release` succeeds with zero warnings
+- [x] `dotnet test tests/TurboMqtt.Tests/ -c Release` passes
+- [x] OpenTelemetry metrics and traces still function (verify sample app compiles)
 
 ### Task 1.6: Update test and tooling packages to latest
 
