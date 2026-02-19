@@ -1,5 +1,10 @@
 # Tooling
 
+## Repository
+
+- **Upstream**: [petabridge/TurboMqtt](https://github.com/petabridge/TurboMqtt) - PRs always target this repo's `dev` branch
+- **Default branch**: `dev`
+
 ## Build
 
 | Tool | Version | Access | Purpose |
