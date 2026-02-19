@@ -29,21 +29,21 @@ Introduce `IStreamProvider` + `TcpStreamProvider`, refactor `TcpTransportActor` 
 and replace `new byte[]` allocations in `ReadFromPipeAsync` with `MemoryPool<byte>.Shared.Rent()`.
 
 Done when:
-- [ ] `IStreamProvider` interface exists in `src/TurboMqtt/IO/Tcp/IStreamProvider.cs`
-- [ ] `TcpStreamProvider` implementation exists in `src/TurboMqtt/IO/Tcp/TcpStreamProvider.cs`
-- [ ] `TcpStreamProvider.ConnectAsync()` creates Socket, resolves DNS, connects, returns `NetworkStream`
-- [ ] `TcpTransportActor` constructor takes `IStreamProvider` instead of creating Socket directly
-- [ ] `DoWriteToPipeAsync` reads from `Stream.ReadAsync()` instead of `Socket.ReceiveAsync()`
-- [ ] `DoWriteToSocketAsync` writes to `Stream.WriteAsync()` instead of `Socket.SendAsync()`
-- [ ] `ReadFromPipeAsync` uses `MemoryPool<byte>.Shared.Rent()` instead of `new byte[buffer.Length]`
-- [ ] `UnsharedMemoryOwner` no longer used on the read path (may still be used elsewhere)
-- [ ] `TcpTransport.cs` updated to pass `IStreamProvider` through
-- [ ] `TcpConnectionManager.cs` updated to create appropriate `IStreamProvider`
-- [ ] All existing TCP unit tests pass unchanged
+- [x] `IStreamProvider` interface exists in `src/TurboMqtt/IO/Tcp/IStreamProvider.cs`
+- [x] `TcpStreamProvider` implementation exists in `src/TurboMqtt/IO/Tcp/TcpStreamProvider.cs`
+- [x] `TcpStreamProvider.ConnectAsync()` creates Socket, resolves DNS, connects, returns `NetworkStream`
+- [x] `TcpTransportActor` constructor takes `IStreamProvider` instead of creating Socket directly
+- [x] `DoWriteToPipeAsync` reads from `Stream.ReadAsync()` instead of `Socket.ReceiveAsync()`
+- [x] `DoWriteToSocketAsync` writes to `Stream.WriteAsync()` instead of `Socket.SendAsync()`
+- [x] `ReadFromPipeAsync` uses `MemoryPool<byte>.Shared.Rent()` instead of `new byte[buffer.Length]`
+- [x] `UnsharedMemoryOwner` no longer used on the read path (may still be used elsewhere)
+- [x] `TcpTransport.cs` updated to pass `IStreamProvider` through
+- [x] `TcpConnectionManager.cs` updated to create appropriate `IStreamProvider`
+- [x] All existing TCP unit tests pass unchanged
 - [ ] All container tests pass against EMQX
-- [ ] New unit tests for `TcpStreamProvider` (connect, DNS resolution, socket configuration)
+- [x] New unit tests for `TcpStreamProvider` (connect, DNS resolution, socket configuration)
 - [ ] BenchmarkDotNet before/after confirms no throughput regression (baseline: 193k msg/sec QoS 0)
-- [ ] Builds with zero warnings
+- [x] Builds with zero warnings
 
 ### Task 2.5-B: Fix transport race conditions
 

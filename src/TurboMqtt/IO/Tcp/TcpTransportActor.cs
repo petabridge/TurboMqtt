@@ -6,15 +6,12 @@
 
 using System.Buffers;
 using System.IO.Pipelines;
-using System.Net;
-using System.Net.Sockets;
 using System.Threading.Channels;
 using Akka.Actor;
 using Akka.Event;
 using TurboMqtt.Client;
 using TurboMqtt.PacketTypes;
 using TurboMqtt.Protocol;
-using Debug = System.Diagnostics.Debug;
 
 namespace TurboMqtt.IO.Tcp;
 
@@ -43,15 +40,15 @@ internal sealed class TcpTransportActor : UntypedActor
             MaxFrameSize = maxFrameSize;
             WaitForPendingWrites = waitForPendingWrites;
         }
-        
+
         private int _status = (int)ConnectionStatus.NotStarted;
 
-        public ConnectionStatus Status 
-        { 
+        public ConnectionStatus Status
+        {
             get => (ConnectionStatus)Volatile.Read(ref _status);
             set => Volatile.Write(ref _status, (int)value);
         }
-        
+
         /// <summary>
         /// Atomically update the status if current value matches expected.
         /// </summary>
@@ -121,7 +118,8 @@ internal sealed class TcpTransportActor : UntypedActor
 
     public ConnectionState State { get; private set; }
 
-    private Socket? _tcpClient;
+    private readonly IStreamProvider _streamProvider;
+    private Stream? _stream;
 
     private readonly Channel<(IMemoryOwner<byte> buffer, int readableBytes)> _writesToTransport =
         Channel.CreateUnbounded<(IMemoryOwner<byte> buffer, int readableBytes)>();
@@ -133,14 +131,15 @@ internal sealed class TcpTransportActor : UntypedActor
     private readonly ILoggingAdapter _log = Context.GetLogger();
 
     private readonly Pipe _pipe;
-    
+
     // Track task completion for graceful shutdown
     private readonly TaskCompletionSource _shutdownComplete = new();
 
-    public TcpTransportActor(MqttClientTcpOptions tcpOptions)
+    public TcpTransportActor(MqttClientTcpOptions tcpOptions, IStreamProvider streamProvider)
     {
         TcpOptions = tcpOptions;
         MaxFrameSize = tcpOptions.MaxFrameSize;
+        _streamProvider = streamProvider;
 
         State = new ConnectionState(_writesToTransport.Writer, _readsFromTransport.Reader, _whenTerminated.Task,
             MaxFrameSize, _writesToTransport.Reader.Completion); // we signal completion when _writesToTransport is done
@@ -153,9 +152,9 @@ internal sealed class TcpTransportActor : UntypedActor
      * FSM:
      * OnReceive (nothing has happened) --> CreateTcpTransport --> TransportCreated BECOME Connecting
      * Connecting --> DoConnect --> Connecting (already connecting) --> ConnectResult (Connected) BECOME Running
-     * Running --> DoWriteToPipeAsync --> Running (read data from socket) --> DoWriteToSocketAsync --> Running (write data to socket)
+     * Running --> DoWriteToPipeAsync --> Running (read data from stream) --> DoWriteToSocketAsync --> Running (write data to stream)
      */
-    
+
     /// <summary>
     /// Performs the max buffer size scaling for the socket.
     /// </summary>
@@ -165,11 +164,11 @@ internal sealed class TcpTransportActor : UntypedActor
         // if the max frame size is under 128kb, scale it up to 512kb
         if (maxFrameSize <= 128 * 1024)
             return 512 * 1024;
-        
+
         // between 128kb and 1mb, scale it up to 2mb
         if (maxFrameSize <= 1024 * 1024)
             return 2 * 1024 * 1024;
-        
+
         // if the max frame size is above 1mb, 2x it
         return maxFrameSize * 2;
     }
@@ -180,9 +179,6 @@ internal sealed class TcpTransportActor : UntypedActor
         {
             case CreateTcpTransport when State.Status == ConnectionStatus.NotStarted:
             {
-                // first things first - attempt to create the socket
-                CreateTcpClient();
-
                 // return the transport to the client
                 var tcpTransport = new TcpTransport(_log, State, Self);
                 Sender.Tell(tcpTransport);
@@ -202,50 +198,6 @@ internal sealed class TcpTransportActor : UntypedActor
         }
     }
 
-    private void CreateTcpClient()
-    {
-        if (TcpOptions.AddressFamily == AddressFamily.Unspecified)
-            _tcpClient = new Socket(SocketType.Stream, ProtocolType.Tcp)
-            {
-                NoDelay = true,
-                LingerState = new LingerOption(true, 2), // give us a little time to flush the socket
-                ReceiveBufferSize = ScaleBufferSize(TcpOptions.MaxFrameSize),
-                SendBufferSize = ScaleBufferSize(TcpOptions.MaxFrameSize)
-            };
-        else
-            _tcpClient = new Socket(TcpOptions.AddressFamily, SocketType.Stream, ProtocolType.Tcp)
-            {
-                ReceiveBufferSize = ScaleBufferSize(TcpOptions.MaxFrameSize),
-                SendBufferSize = ScaleBufferSize(TcpOptions.MaxFrameSize),
-                NoDelay = true,
-                LingerState = new LingerOption(true, 2) // give us a little time to flush the socket
-            };
-    }
-
-    private async Task DoConnectAsync(IPAddress[] addresses, int port, IActorRef destination,
-        CancellationToken ct = default)
-    {
-        ConnectResult connectResult;
-        try
-        {
-            if (addresses.Length == 0)
-                throw new ArgumentException("No IP addresses provided to connect to.", nameof(addresses));
-
-            Debug.Assert(_tcpClient != null, nameof(_tcpClient) + " != null");
-            await _tcpClient.ConnectAsync(addresses, port, ct).ConfigureAwait(false);
-            connectResult = new ConnectResult(ConnectionStatus.Connected, "Connected.");
-        }
-        catch (Exception ex)
-        {
-            _log.Error(ex, "Failed to connect to [{0}:{1}]", TcpOptions.Host, TcpOptions.Port);
-            connectResult = new ConnectResult(ConnectionStatus.Failed, ex.Message);
-        }
-
-        // let both parties know the result of the connection attempt
-        destination.Tell(connectResult);
-        _closureSelf.Tell(connectResult);
-    }
-
     private readonly IActorRef _closureSelf = Context.Self;
 
     private void TransportCreated(object message)
@@ -259,27 +211,27 @@ internal sealed class TcpTransportActor : UntypedActor
                     _log.Info("Attempting to connect to [{0}:{1}]", TcpOptions.Host, TcpOptions.Port);
 
                     var sender = Sender;
-                    
+
                     // set status to connecting
                     State.Status = ConnectionStatus.Connecting;
 
-                    await ResolveAndConnect(connect.Cancel);
-                    return;
-
-                    // need to resolve DNS to an IP address
-                    async Task ResolveAndConnect(CancellationToken ct)
+                    ConnectResult connectResult;
+                    try
                     {
-                        var resolved = await Dns.GetHostAddressesAsync(TcpOptions.Host, ct).ConfigureAwait(false);
-
-                        if (_log.IsDebugEnabled)
-                            _log.Debug("Attempting to connect to [{0}:{1}] - resolved to [{2}]", TcpOptions.Host,
-                                TcpOptions.Port,
-                                string.Join(", ", resolved.Select(c => c.ToString())));
-
-                        await DoConnectAsync(resolved, TcpOptions.Port, sender, ct).ConfigureAwait(false);
+                        _stream = await _streamProvider.ConnectAsync(TcpOptions.Host, TcpOptions.Port, connect.Cancel)
+                            .ConfigureAwait(false);
+                        connectResult = new ConnectResult(ConnectionStatus.Connected, "Connected.");
                     }
+                    catch (Exception ex)
+                    {
+                        _log.Error(ex, "Failed to connect to [{0}:{1}]", TcpOptions.Host, TcpOptions.Port);
+                        connectResult = new ConnectResult(ConnectionStatus.Failed, ex.Message);
+                    }
+
+                    sender.Tell(connectResult);
+                    _closureSelf.Tell(connectResult);
                 });
-                
+
                 break;
             }
             case DoConnect:
@@ -337,19 +289,11 @@ internal sealed class TcpTransportActor : UntypedActor
                     try
                     {
                         var workingBuffer = buffer.Memory;
-                        while (readableBytes > 0 && _tcpClient is { Connected: true })
+                        while (readableBytes > 0 && _stream is not null)
                         {
-                            var sent = await _tcpClient!.SendAsync(workingBuffer.Slice(0, readableBytes), ct)
-                                .ConfigureAwait(false);
-                            if (sent == 0)
-                            {
-                                _log.Warning("Failed to write to socket - no bytes written.");
-                                _closureSelf.Tell(ReadFinished.Instance);
-                                goto WritesFinished;
-                            }
-
-                            readableBytes -= sent;
-                            workingBuffer = workingBuffer.Slice(sent);
+                            var slice = workingBuffer.Slice(0, readableBytes);
+                            await _stream!.WriteAsync(slice, ct).ConfigureAwait(false);
+                            readableBytes = 0; // Stream.WriteAsync writes all bytes
                         }
                     }
                     finally
@@ -389,7 +333,7 @@ internal sealed class TcpTransportActor : UntypedActor
             var memory = _pipe.Writer.GetMemory(TcpOptions.MaxFrameSize / 4);
             try
             {
-                int bytesRead = await _tcpClient!.ReceiveAsync(memory, SocketFlags.None, ct);
+                int bytesRead = await _stream!.ReadAsync(memory, ct).ConfigureAwait(false);
                 if (bytesRead == 0)
                 {
                     // we are done reading - socket was gracefully closed
@@ -405,6 +349,7 @@ internal sealed class TcpTransportActor : UntypedActor
             {
                 // no need to log here
                 _closureSelf.Tell(ReadFinished.Instance);
+                return;
             }
             catch (Exception ex)
             {
@@ -439,13 +384,11 @@ internal sealed class TcpTransportActor : UntypedActor
                 var result = await _pipe.Reader.ReadAsync(ct);
                 var buffer = result.Buffer;
 
-                // consume this entire sequence by copying it into a new buffer
-                // have to copy because there's no guarantee we can safely release a shared buffer
-                // once we hand the message over to the end-user.
-                var newMemory = new Memory<byte>(new byte[buffer.Length]);
-                var unshared = new UnsharedMemoryOwner<byte>(newMemory);
-                buffer.CopyTo(newMemory.Span);
-                _readsFromTransport.Writer.TryWrite((unshared, newMemory.Length));
+                // consume this entire sequence by copying it into a pooled buffer
+                var length = (int)buffer.Length;
+                var pooled = MemoryPool<byte>.Shared.Rent(length);
+                buffer.CopyTo(pooled.Memory.Span);
+                _readsFromTransport.Writer.TryWrite((pooled, length));
 
                 // tell the pipe we're done with this data
                 _pipe.Reader.AdvanceTo(buffer.End);
@@ -459,6 +402,7 @@ internal sealed class TcpTransportActor : UntypedActor
             catch (OperationCanceledException)
             {
                 _closureSelf.Tell(ReadFinished.Instance);
+                return;
             }
         }
     }
@@ -494,7 +438,7 @@ internal sealed class TcpTransportActor : UntypedActor
         _readsFromTransport.Writer.TryWrite(DisconnectToBinary.NormalDisconnectPacket.ToBinary(MqttProtocolVersion.V3_1_1));
 
         State.Status = ConnectionStatus.Disconnected;
-        
+
         // no more writes to transport
         _writesToTransport.Writer.TryComplete();
 
@@ -510,7 +454,7 @@ internal sealed class TcpTransportActor : UntypedActor
         {
             _readsFromTransport.Writer.TryComplete();
         }
-        
+
         // Cancel the background tasks gracefully
         try
         {
@@ -520,31 +464,30 @@ internal sealed class TcpTransportActor : UntypedActor
         {
             // Already cancelled, ignore
         }
-        
+
         // Brief delay to allow ongoing operations to complete
         await Task.Delay(100);
 
         _closureSelf.Tell(PoisonPill.Instance);
     }
 
-    private void DisposeSocket(ConnectionStatus newStatus)
+    private void DisposeStreamProvider(ConnectionStatus newStatus)
     {
-        _log.Info("Disposing of TCP client socket.");
-        if (_tcpClient is null)
-            return; // already disposed
+        _log.Info("Disposing of TCP transport stream.");
 
         try
         {
             State.Status = newStatus;
-
 
             // stop reading from the socket
             State.ShutDownCts.Cancel();
 
             _pipe.Reader.Complete();
             _pipe.Writer.Complete();
-            _tcpClient?.Close();
-            _tcpClient?.Dispose();
+
+            _stream?.Close();
+            _stream?.Dispose();
+            _streamProvider.Close();
         }
         catch (Exception ex)
         {
@@ -552,7 +495,7 @@ internal sealed class TcpTransportActor : UntypedActor
         }
         finally
         {
-            _tcpClient = null;
+            _stream = null;
         }
     }
 
@@ -573,7 +516,7 @@ internal sealed class TcpTransportActor : UntypedActor
             _ => ConnectionStatus.Aborted
         };
 
-        DisposeSocket(newStatus);
+        DisposeStreamProvider(newStatus);
 
         // let upstairs know we're done
         _whenTerminated.TrySetResult(reason);

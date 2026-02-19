@@ -18,8 +18,9 @@ internal sealed class TcpConnectionManager : UntypedActor
 {
     public sealed record CreateTcpTransport(
         MqttClientTcpOptions Options,
-        MqttProtocolVersion ProtocolVersion);
-    
+        MqttProtocolVersion ProtocolVersion,
+        IStreamProvider? StreamProvider = null);
+
     private readonly ILoggingAdapter _log = Context.GetLogger();
 
     protected override void OnReceive(object message)
@@ -29,7 +30,8 @@ internal sealed class TcpConnectionManager : UntypedActor
             case CreateTcpTransport create:
             {
                 _log.Debug("Creating new TCP transport for [{0}]", create);
-                var tcpTransport = Context.ActorOf(Props.Create(() => new TcpTransportActor(create.Options)));
+                var streamProvider = create.StreamProvider ?? new TcpStreamProvider(create.Options);
+                var tcpTransport = Context.ActorOf(Props.Create(() => new TcpTransportActor(create.Options, streamProvider)));
                 Sender.Tell(tcpTransport);
                 break;
             }
