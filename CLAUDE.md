@@ -80,7 +80,7 @@ All code must compile with zero warnings (`TreatWarningsAsErrors` is on).
 ## Skills Index
 
 Use these skills by name when the task matches. Invoke with `/skill-name`.
-Skills prefixed with `dotnet-skills:` come from the [petabridge/dotnet-skills](https://github.com/petabridge/dotnet-skills) marketplace. If a skill is not installed, add it via Claude Code's `/install-skill` or the dotnet-skills README.
+Skills prefixed with `dotnet-skills:` come from the [Aaronontheweb/dotnet-skills](https://github.com/Aaronontheweb/dotnet-skills) marketplace. If a skill is not installed, add it via Claude Code's `/install-skill` or the dotnet-skills README.
 
 ### Akka.NET & Architecture
 `akka-best-practices` actors, supervision, error handling, work distribution
