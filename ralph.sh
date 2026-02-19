@@ -19,7 +19,21 @@ set -euo pipefail
 # Ensure Ctrl+C kills the whole loop, not just the current child process.
 # Without this, claude catches SIGINT and exits 0, so the `if !` block
 # doesn't fire and the loop continues to the next iteration.
-trap 'echo ""; echo "RALPH loop interrupted."; exit 130' INT TERM
+trap 'echo ""; echo "RALPH loop interrupted."; [[ -n "${CHILD_PID:-}" ]] && kill -9 "$CHILD_PID" 2>/dev/null; exit 130' INT TERM
+CHILD_PID=""
+
+# Run a command as a tracked background process so Ctrl+C can actually kill it.
+# The claude CLI absorbs SIGINT for its own purposes (cancel current tool), so the
+# bash trap cannot fire while waiting on a foreground claude process. Running it in
+# the background and tracking CHILD_PID lets the trap send SIGKILL explicitly.
+run_claude() {
+  "$@" &
+  CHILD_PID=$!
+  wait "$CHILD_PID"
+  local rc=$?
+  CHILD_PID=""
+  return $rc
+}
 
 PLAN_FILE="${RALPH_PLAN_FILE:-IMPLEMENTATION_PLAN.md}"
 ITERATIONS=5
@@ -153,7 +167,7 @@ run_mid_review() {
     [[ -f "$f" ]] && prior_reviews="$prior_reviews\n- $f"
   done
 
-  if ! claude --dangerously-skip-permissions --model "$POSTMORTEM_MODEL" -p "Run a full adversarial review using the adversarial review skill.
+  if ! run_claude claude --dangerously-skip-permissions --model "$POSTMORTEM_MODEL" -p "Run a full adversarial review using the adversarial review skill.
 
 ## Context
 - RUN_ID: $RUN_ID
@@ -320,7 +334,7 @@ for ((i=1; i<=ITERATIONS; i++)); do
   ITER_PAD=$(printf "%02d" "$i")
   ITER_LOG="${RUN_DIR}/iter-${ITER_PAD}.md"
 
-  if ! claude --dangerously-skip-permissions --model "$MODEL" -p "You are running RALPH iteration $i.
+  if ! run_claude claude --dangerously-skip-permissions --model "$MODEL" -p "You are running RALPH iteration $i.
 
 ## Run Metadata (MUST USE)
 - RUN_ID: $RUN_ID
@@ -440,7 +454,7 @@ grep -B5 '^\- \[ \]' "$PLAN_FILE" | grep '### Task:' | head -5 || echo "(none or
 
 echo ""
 echo "Running postmortem (OpenProse): ralph-after-action"
-if ! claude --dangerously-skip-permissions --model "$POSTMORTEM_MODEL" -p "/open-prose:prose-run @.prose/ralph-after-action.prose RUN_ID=$RUN_ID RUN_DIR=$RUN_DIR BRANCH=$(git branch --show-current)"; then
+if ! run_claude claude --dangerously-skip-permissions --model "$POSTMORTEM_MODEL" -p "/open-prose:prose-run @.prose/ralph-after-action.prose RUN_ID=$RUN_ID RUN_DIR=$RUN_DIR BRANCH=$(git branch --show-current)"; then
   POSTMORTEM_EXIT=$?
   echo ""
   echo "Postmortem exited with code $POSTMORTEM_EXIT"

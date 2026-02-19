@@ -25,16 +25,16 @@ workflow that triggers on git tag push, builds, signs with `dotnet sign`, publis
 to NuGet.org, and creates a GitHub Release with release notes and `.nupkg` artifacts.
 
 Done when:
-- [ ] New workflow file `.github/workflows/release.yaml` exists
-- [ ] Workflow triggers on `v*` tag push to `dev` or `main`
-- [ ] Workflow runs `build.ps1` to extract version and release notes
-- [ ] Workflow runs `dotnet pack -c Release -o ./bin/nuget`
-- [ ] Workflow uses `dotnet sign` (not SignClient) for NuGet package signing
-- [ ] Workflow pushes `.nupkg` to NuGet.org using a repository secret `NUGET_API_KEY`
-- [ ] Workflow creates a GitHub Release with title `TurboMqtt vX.Y.Z`, body from `RELEASE_NOTES.md`, and `.nupkg` attached
-- [ ] `.azure/build_release.yaml` is deleted
-- [ ] `.config/dotnet-tools.json` no longer references SignClient
-- [ ] `TOOLING.md` CI/CD table updated to reflect GitHub Actions release pipeline
+- [x] New workflow file `.github/workflows/release.yaml` exists
+- [x] Workflow triggers on `v*` tag push to `dev` or `main`
+- [x] Workflow runs `build.ps1` to extract version and release notes
+- [x] Workflow runs `dotnet pack -c Release -o ./bin/nuget`
+- [x] Workflow uses `dotnet sign` (not SignClient) for NuGet package signing
+- [x] Workflow pushes `.nupkg` to NuGet.org using a repository secret `NUGET_API_KEY`
+- [x] Workflow creates a GitHub Release with title `TurboMqtt vX.Y.Z`, body from `RELEASE_NOTES.md`, and `.nupkg` attached
+- [x] `.azure/build_release.yaml` is deleted
+- [x] `.config/dotnet-tools.json` no longer references SignClient
+- [x] `TOOLING.md` CI/CD table updated to reflect GitHub Actions release pipeline
 
 ### Task 1.2: Fix broken GitHub Release creation
 
@@ -47,9 +47,9 @@ format (full URL instead of `owner/repo`). This is resolved by Task 1.1's new
 workflow. Verify the fix explicitly.
 
 Done when:
-- [ ] GitHub Release creation uses `gh release create` or `softprops/action-gh-release` with correct `petabridge/TurboMqtt` repository reference
-- [ ] A dry-run or manual test confirms the release step does not fail with repository name errors
-- [ ] Issue #74 can be closed (add comment referencing the PR)
+- [x] GitHub Release creation uses `gh release create` or `softprops/action-gh-release` with correct `petabridge/TurboMqtt` repository reference
+- [x] A dry-run or manual test confirms the release step does not fail with repository name errors
+- [x] Issue #74 can be closed (add comment referencing the PR)
 
 ### Task 1.3: Upgrade to .NET 10
 
@@ -60,18 +60,18 @@ Done when:
 Update the SDK, TFMs, and all framework-coupled packages from .NET 8 to .NET 10.
 
 Done when:
-- [ ] `global.json` SDK version updated to `10.0.100` (or latest stable `10.0.x`), `rollForward` remains `latestMinor`
-- [ ] `src/TurboMqtt/TurboMqtt.csproj` TFM changed from `net8.0` to `net10.0`
-- [ ] All test project TFMs changed from `net8.0` to `net10.0`
-- [ ] `benchmarks/TurboMqtt.Benchmarks/TurboMqtt.Benchmarks.csproj` TFM changed to `net10.0`
-- [ ] Sample project TFMs changed to `net10.0`
-- [ ] `System.IO.Pipelines` version updated from `8.0.0` to `10.0.x` in `Directory.Packages.props`
-- [ ] `Microsoft.SourceLink.GitHub` updated to latest stable in `Directory.Packages.props`
-- [ ] `pr_validation.yaml` workflow installs .NET 10 SDK via `actions/setup-dotnet`
-- [ ] `release.yaml` workflow (from Task 1.1) installs .NET 10 SDK
-- [ ] `dotnet build -c Release` succeeds with zero warnings on .NET 10
-- [ ] `dotnet test tests/TurboMqtt.Tests/ -c Release` passes
-- [ ] `PROJECT_CONTEXT.md` "Key Constraints" updated to reflect `net10.0` target
+- [x] `global.json` SDK version updated to `10.0.100` (or latest stable `10.0.x`), `rollForward` remains `latestMinor`
+- [x] `src/TurboMqtt/TurboMqtt.csproj` TFM changed from `net8.0` to `net10.0`
+- [x] All test project TFMs changed from `net8.0` to `net10.0`
+- [x] `benchmarks/TurboMqtt.Benchmarks/TurboMqtt.Benchmarks.csproj` TFM changed to `net10.0`
+- [x] Sample project TFMs changed to `net10.0`
+- [x] `System.IO.Pipelines` version updated from `8.0.0` to `10.0.x` in `Directory.Packages.props`
+- [x] `Microsoft.SourceLink.GitHub` updated to latest stable in `Directory.Packages.props`
+- [x] `pr_validation.yaml` workflow installs .NET 10 SDK via `actions/setup-dotnet`
+- [x] `release.yaml` workflow (from Task 1.1) installs .NET 10 SDK
+- [x] `dotnet build -c Release` succeeds with zero warnings on .NET 10
+- [x] `dotnet test tests/TurboMqtt.Tests/ -c Release` passes
+- [x] `PROJECT_CONTEXT.md` "Key Constraints" updated to reflect `net10.0` target
 
 ### Task 1.4: Update Akka.NET packages to latest
 
@@ -82,11 +82,11 @@ Done when:
 Update Akka.NET and Akka.Hosting to the latest stable versions.
 
 Done when:
-- [ ] `AkkaVersion` in `Directory.Packages.props` updated to latest stable (currently 1.5.48, check NuGet for latest)
-- [ ] `AkkaHostingVersion` in `Directory.Packages.props` updated to latest stable (currently 1.5.55, check NuGet for latest)
-- [ ] `dotnet build -c Release` succeeds with zero warnings
-- [ ] `dotnet test tests/TurboMqtt.Tests/ -c Release` passes
-- [ ] No new deprecation warnings from Akka.NET API changes
+- [x] `AkkaVersion` in `Directory.Packages.props` updated to latest stable (currently 1.5.48, check NuGet for latest)
+- [x] `AkkaHostingVersion` in `Directory.Packages.props` updated to latest stable (currently 1.5.55, check NuGet for latest)
+- [x] `dotnet build -c Release` succeeds with zero warnings
+- [x] `dotnet test tests/TurboMqtt.Tests/ -c Release` passes
+- [x] No new deprecation warnings from Akka.NET API changes
 
 ### Task 1.5: Update OpenTelemetry packages to latest
 
@@ -99,11 +99,11 @@ between 1.x and 2.x (namespace reorganization, removal of some extension methods
 This may require source changes.
 
 Done when:
-- [ ] `OtelVersion` in `Directory.Packages.props` updated to latest stable (currently 1.10.0, check NuGet for latest)
-- [ ] If OTEL 2.x is adopted, any breaking API changes in `src/TurboMqtt/` are resolved
-- [ ] `dotnet build -c Release` succeeds with zero warnings
-- [ ] `dotnet test tests/TurboMqtt.Tests/ -c Release` passes
-- [ ] OpenTelemetry metrics and traces still function (verify sample app compiles)
+- [x] `OtelVersion` in `Directory.Packages.props` updated to latest stable (currently 1.10.0, check NuGet for latest)
+- [x] If OTEL 2.x is adopted, any breaking API changes in `src/TurboMqtt/` are resolved
+- [x] `dotnet build -c Release` succeeds with zero warnings
+- [x] `dotnet test tests/TurboMqtt.Tests/ -c Release` passes
+- [x] OpenTelemetry metrics and traces still function (verify sample app compiles)
 
 ### Task 1.6: Update test and tooling packages to latest
 
@@ -116,7 +116,8 @@ FsCheck, Microsoft.NET.Test.Sdk, coverlet, and other test/tooling dependencies.
 
 Done when:
 - [ ] All packages in `Directory.Packages.props` `Test Package Versions` ItemGroup updated to latest stable
-- [ ] `Microsoft.Extensions.DependencyInjection.Abstractions` and `Microsoft.Extensions.Hosting` updated to `10.0.x`
+- [ ] `Microsoft.Extensions.DependencyInjection.Abstractions` and `Microsoft.Extensions.Hosting` updated to `10.0.x` *(note: already completed in Task 1.5/iter-05 due to OTEL transitive dependency)*
+- [ ] Revert `NuGetAuditLevel=high` in `Directory.Build.props` (added in Task 1.3 for OTEL vulnerability, resolved by Task 1.5 OTEL 1.15.0 update; confirm `dotnet build -c Release` produces zero audit warnings after removal) *(source: RALPH run 20260219-215639 CLEANUP item)*
 - [ ] `FsCheck` and `FsCheck.Xunit` updated to latest 2.x stable (or 3.x if compatible)
 - [ ] `BenchmarkDotNet` updated to latest stable
 - [ ] `Testcontainers` updated to latest stable
@@ -134,6 +135,7 @@ Done when:
 - [ ] `PROJECT_CONTEXT.md` version updated to reflect 0.3.0-beta (or whatever version is chosen for this release cycle)
 - [ ] `PROJECT_CONTEXT.md` "Key Constraints" reflects `net10.0` and current Akka version
 - [ ] `TOOLING.md` reflects all updated tool/package versions
+- [ ] `TOOLING.md` Build table `.NET SDK` version updated from `8.0.400` to `10.0.100` *(source: RALPH run 20260219-215639 CLEANUP item -- stale after Task 1.3 .NET 10 upgrade)*
 - [ ] `TOOLING.md` CI/CD section describes GitHub Actions release pipeline (not Azure DevOps)
 - [ ] `Directory.Build.props` copyright year updated to 2025
 
@@ -257,6 +259,7 @@ is superseded by the `IStreamProvider` + `TlsStreamProvider` design in Phase 2.5
 
 Done when:
 - [x] Superseded by Phase 2.5-C — no action needed in Phase 2
+
 
 ### Task 2.8: Add MQTT 3.1.1 E2E tests with authentication enabled
 
@@ -644,6 +647,7 @@ Done when:
 - [ ] Benchmarks cover QoS 0 and QoS 1 over TLS at payload sizes 10 and 1024 bytes
 - [ ] TLS overhead quantified relative to plain TCP benchmarks from Task 3.11
 - [ ] Benchmark results documented in PR description
+
 
 ---
 

@@ -44,9 +44,30 @@
 - **Blocked on:** .NET QUIC API stability, MQTT over QUIC standard finalization
 - **Date parked:** 2026-02-19
 
+### TLS support (MQTT 3.1.1 and 5.0)
+- **Source:** Was Task 2.7 and Task 3.12 in `IMPLEMENTATION_PLAN.md`; parked 2026-02-19
+- **Issue:** TLS support exists in-flight on the `tls-support2` branch. The branch has not been reviewed for correctness or compatibility with the current `dev` branch. Task 3.12 (MQTT 5.0 TLS benchmarks) is blocked on this work.
+- **Decision needed:**
+  - Evaluate `tls-support2` branch: merge as-is, merge with modifications, or rewrite?
+  - Is TLS required before a 1.0 release, or is it a post-1.0 feature?
+- **Subtasks when unparked:**
+  - Review `tls-support2` for correctness against current `dev`
+  - Integrate TLS transport: `MqttClientConnectOptions` (certificate, server name, skip-validation for testing)
+  - Container test: connect to EMQX over TLS (port 8883), publish/subscribe at QoS 0 and QoS 1
+  - Unit tests: TLS option validation
+  - `PROJECT_CONTEXT.md` protocol support table: change TLS from "In-flight" to "Implemented"
+  - MQTT 5.0 TLS benchmarks (`Mqtt5TlsTcpBenchmarks.cs`): QoS 0/1, payloads 10 and 1024 bytes, TLS overhead quantified
+- **Date parked:** 2026-02-19
+
 ### AOT compatibility
 - **Source:** `PROJECT_CONTEXT.md` key constraints
 - **Issue:** AOT compilation support is blocked on Akka.NET v1.6 which has not shipped yet. The project currently uses reflection-heavy Akka.NET patterns that are not AOT-friendly.
 - **Decision needed:** Wait for Akka.NET 1.6, or investigate partial AOT compatibility (trimming warnings, source generators for serialization)?
 - **Blocked on:** Akka.NET v1.6 release
+- **Date parked:** 2026-02-19
+
+### Add test gate to release workflow
+- **Source:** RALPH run 20260219-215639, adversarial review of Task 1.1 (commit 4bb4612)
+- **Issue:** The `release.yaml` workflow builds, signs, and publishes to NuGet.org but does not include a `dotnet test` step. This matches the old Azure DevOps pipeline. The assumption is PR validation already ran tests. Risk: a tag pushed from an untested commit could publish broken packages.
+- **Decision needed:** Accept the current pattern (test in PR only) or add a test step to `release.yaml`? Adding tests costs ~2 minutes per release but prevents publishing broken packages.
 - **Date parked:** 2026-02-19

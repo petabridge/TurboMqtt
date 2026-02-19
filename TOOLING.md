@@ -11,7 +11,7 @@
 |------|---------|--------|---------|
 | .NET SDK | 8.0.400 (pinned in `global.json`, rollForward: latestMinor) | `dotnet` | Build, test, pack |
 | `build.ps1` | - | `pwsh build.ps1` | Extracts version + release notes from RELEASE_NOTES.md, updates Directory.Build.props |
-| `SignClient` | 1.2.109 | Local tool (`.config/dotnet-tools.json`) | NuGet package code signing (**deprecated** - migrating to `dotnet sign`, see #326) |
+| `dotnet sign` | 0.9.x | Installed in release workflow | NuGet package code signing (via Azure Key Vault) |
 
 ## Package Management
 
@@ -59,7 +59,7 @@ dotnet run -c Release --project benchmarks/TurboMqtt.Benchmarks/
 | System | Trigger | Purpose |
 |--------|---------|---------|
 | GitHub Actions (`pr_validation.yaml`) | Push / PR to dev, main, master | Build + test (Ubuntu + Windows), code coverage |
-| Azure DevOps (`build_release.yaml`) | Git tag push | **Being replaced** by GitHub Actions (see #326) |
+| GitHub Actions (`release.yaml`) | `v*` tag push | Build, sign (`dotnet sign`), publish to NuGet.org, create GitHub Release |
 | Dependabot | Daily at 11:00 UTC | NuGet + GitHub Actions dependency updates |
 
 ## Source Control

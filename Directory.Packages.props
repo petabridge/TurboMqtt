@@ -3,9 +3,9 @@
     <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
   </PropertyGroup>
   <PropertyGroup Label="SharedVersions">
-    <AkkaVersion>1.5.48</AkkaVersion>
-    <AkkaHostingVersion>1.5.55</AkkaHostingVersion>
-    <OtelVersion>1.10.0</OtelVersion>
+    <AkkaVersion>1.5.60</AkkaVersion>
+    <AkkaHostingVersion>1.5.60</AkkaHostingVersion>
+    <OtelVersion>1.15.0</OtelVersion>
   </PropertyGroup>
   <!-- Akka.NET Package Versions -->
   <ItemGroup Label="Akka.NET">
@@ -13,9 +13,8 @@
     <PackageVersion Include="Akka.Hosting" Version="$(AkkaHostingVersion)" />
     <PackageVersion Include="Akka.Streams" Version="$(AkkaVersion)" />
     <PackageVersion Include="FsCheck" Version="2.16.6" />
-    <PackageVersion Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="9.0.0" />
-    <PackageVersion Include="Microsoft.Extensions.Hosting" Version="9.0.8" />
-    <PackageVersion Include="System.IO.Pipelines" Version="8.0.0" />
+    <PackageVersion Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.3" />
+    <PackageVersion Include="Microsoft.Extensions.Hosting" Version="10.0.3" />
   </ItemGroup>
   <!-- OTEL Package Versions -->
   <ItemGroup Label="OpenTelemetry">
@@ -26,7 +25,7 @@
   </ItemGroup>
   <!-- Utility Package Versions -->
   <ItemGroup>
-    <PackageVersion Include="Microsoft.SourceLink.GitHub" Version="8.0.0" />
+    <PackageVersion Include="Microsoft.SourceLink.GitHub" Version="10.0.103" />
   </ItemGroup>
   <!-- Test Package Versions -->
   <ItemGroup>

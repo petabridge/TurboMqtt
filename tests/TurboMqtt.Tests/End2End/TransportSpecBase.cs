@@ -316,7 +316,10 @@ public abstract class TransportSpecBase : TestKit
         var a = async () =>
         {
             using var shortCts = new CancellationTokenSource(TimeSpan.FromMilliseconds(100));
-            var receivedMessage = await client.ReceivedMessages.ReadAllAsync(shortCts.Token).FirstOrDefaultAsync(shortCts.Token);
+            await foreach (var _ in client.ReceivedMessages.ReadAllAsync(shortCts.Token))
+            {
+                break; // we don't expect any messages - the CTS should cancel first
+            }
         };
         await a.Should().ThrowAsync<OperationCanceledException>();
     }
