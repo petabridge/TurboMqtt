@@ -1,0 +1,76 @@
+name: release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Build, Sign, and Publish
+    runs-on: ubuntu-latest
+    env:
+      SIGN_KEYVAULT_URL: ${{ secrets.SIGN_KEYVAULT_URL }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          lfs: true
+          fetch-depth: 0
+
+      - name: Install .NET SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: "./global.json"
+
+      - name: Update release notes
+        shell: pwsh
+        run: ./build.ps1
+
+      - name: Extract version from tag
+        id: version
+        run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Build
+        run: dotnet build -c Release
+
+      - name: Pack
+        run: dotnet pack -c Release -o ./bin/nuget
+
+      - name: Install dotnet-sign
+        if: env.SIGN_KEYVAULT_URL != ''
+        run: dotnet tool install --global sign --version 0.9.*
+
+      - name: Sign NuGet packages
+        if: env.SIGN_KEYVAULT_URL != ''
+        run: >
+          sign code azure-key-vault
+          ./bin/nuget/*.nupkg
+          --publisher-name "Petabridge"
+          --description "TurboMqtt"
+          --description-url "https://github.com/petabridge/TurboMqtt"
+          --azure-key-vault-url "${{ secrets.SIGN_KEYVAULT_URL }}"
+          --azure-key-vault-client-id "${{ secrets.SIGN_CLIENT_ID }}"
+          --azure-key-vault-client-secret "${{ secrets.SIGN_CLIENT_SECRET }}"
+          --azure-key-vault-tenant-id "${{ secrets.SIGN_TENANT_ID }}"
+          --azure-key-vault-certificate "${{ secrets.SIGN_CERTIFICATE_NAME }}"
+
+      - name: Push to NuGet.org
+        run: >
+          dotnet nuget push "./bin/nuget/*.nupkg"
+          --api-key ${{ secrets.NUGET_API_KEY }}
+          --source https://api.nuget.org/v3/index.json
+          --skip-duplicate
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: "TurboMqtt v${{ steps.version.outputs.version }}"
+          body_path: RELEASE_NOTES.md
+          files: |
+            bin/nuget/*.nupkg
+            bin/nuget/*.snupkg

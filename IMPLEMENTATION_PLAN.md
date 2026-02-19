@@ -25,16 +25,16 @@ workflow that triggers on git tag push, builds, signs with `dotnet sign`, publis
 to NuGet.org, and creates a GitHub Release with release notes and `.nupkg` artifacts.
 
 Done when:
-- [ ] New workflow file `.github/workflows/release.yaml` exists
-- [ ] Workflow triggers on `v*` tag push to `dev` or `main`
-- [ ] Workflow runs `build.ps1` to extract version and release notes
-- [ ] Workflow runs `dotnet pack -c Release -o ./bin/nuget`
-- [ ] Workflow uses `dotnet sign` (not SignClient) for NuGet package signing
-- [ ] Workflow pushes `.nupkg` to NuGet.org using a repository secret `NUGET_API_KEY`
-- [ ] Workflow creates a GitHub Release with title `TurboMqtt vX.Y.Z`, body from `RELEASE_NOTES.md`, and `.nupkg` attached
-- [ ] `.azure/build_release.yaml` is deleted
-- [ ] `.config/dotnet-tools.json` no longer references SignClient
-- [ ] `TOOLING.md` CI/CD table updated to reflect GitHub Actions release pipeline
+- [x] New workflow file `.github/workflows/release.yaml` exists
+- [x] Workflow triggers on `v*` tag push to `dev` or `main`
+- [x] Workflow runs `build.ps1` to extract version and release notes
+- [x] Workflow runs `dotnet pack -c Release -o ./bin/nuget`
+- [x] Workflow uses `dotnet sign` (not SignClient) for NuGet package signing
+- [x] Workflow pushes `.nupkg` to NuGet.org using a repository secret `NUGET_API_KEY`
+- [x] Workflow creates a GitHub Release with title `TurboMqtt vX.Y.Z`, body from `RELEASE_NOTES.md`, and `.nupkg` attached
+- [x] `.azure/build_release.yaml` is deleted
+- [x] `.config/dotnet-tools.json` no longer references SignClient
+- [x] `TOOLING.md` CI/CD table updated to reflect GitHub Actions release pipeline
 
 ### Task 1.2: Fix broken GitHub Release creation
 
