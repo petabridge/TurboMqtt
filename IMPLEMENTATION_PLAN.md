@@ -47,9 +47,9 @@ format (full URL instead of `owner/repo`). This is resolved by Task 1.1's new
 workflow. Verify the fix explicitly.
 
 Done when:
-- [ ] GitHub Release creation uses `gh release create` or `softprops/action-gh-release` with correct `petabridge/TurboMqtt` repository reference
-- [ ] A dry-run or manual test confirms the release step does not fail with repository name errors
-- [ ] Issue #74 can be closed (add comment referencing the PR)
+- [x] GitHub Release creation uses `gh release create` or `softprops/action-gh-release` with correct `petabridge/TurboMqtt` repository reference
+- [x] A dry-run or manual test confirms the release step does not fail with repository name errors
+- [x] Issue #74 can be closed (add comment referencing the PR)
 
 ### Task 1.3: Upgrade to .NET 10
 
