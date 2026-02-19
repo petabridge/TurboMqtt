@@ -20,7 +20,21 @@ set -euo pipefail
 # Ensure Ctrl+C kills the whole loop, not just the current child process.
 # Without this, the child CLI catches SIGINT and exits 0, so the `if !` block
 # doesn't fire and the loop continues to the next iteration.
-trap 'echo ""; echo "RALPH loop interrupted."; exit 130' INT TERM
+trap 'echo ""; echo "RALPH loop interrupted."; [[ -n "${CHILD_PID:-}" ]] && kill -9 "$CHILD_PID" 2>/dev/null; exit 130' INT TERM
+CHILD_PID=""
+
+# Run a command as a tracked background process so Ctrl+C can actually kill it.
+# opencode (like the claude CLI) absorbs SIGINT for its own purposes, so the bash
+# trap cannot fire while waiting on a foreground opencode process. Running it in
+# the background and tracking CHILD_PID lets the trap send SIGKILL explicitly.
+run_opencode() {
+  "$@" &
+  CHILD_PID=$!
+  wait "$CHILD_PID"
+  local rc=$?
+  CHILD_PID=""
+  return $rc
+}
 
 PLAN_FILE="${RALPH_PLAN_FILE:-IMPLEMENTATION_PLAN.md}"
 ITERATIONS=5
@@ -149,7 +163,7 @@ run_mid_review() {
     [[ -f "$f" ]] && prior_reviews="$prior_reviews\n- $f"
   done
 
-  if ! opencode run --model "$POSTMORTEM_MODEL" "Run a full adversarial review using the adversarial review skill.
+  if ! run_opencode opencode run --model "$POSTMORTEM_MODEL" "Run a full adversarial review using the adversarial review skill.
 
 ## Context
 - RUN_ID: $RUN_ID
@@ -316,7 +330,7 @@ for ((i=1; i<=ITERATIONS; i++)); do
   ITER_PAD=$(printf "%02d" "$i")
   ITER_LOG="${RUN_DIR}/iter-${ITER_PAD}.md"
 
-  if ! opencode run --model "$MODEL" "You are running RALPH iteration $i.
+  if ! run_opencode opencode run --model "$MODEL" "You are running RALPH iteration $i.
 
 ## Run Metadata (MUST USE)
 - RUN_ID: $RUN_ID
@@ -438,7 +452,7 @@ echo ""
 echo "Running postmortem (skill): ralph-after-action"
 # Note: OpenCode doesn't have OpenProse plugin, so we invoke the skill directly.
 # This runs sequentially. For parallel execution, use ralph.sh with Claude Code.
-if ! opencode run --model "$POSTMORTEM_MODEL" "/ralph-after-action RUN_ID=$RUN_ID RUN_DIR=$RUN_DIR branch=$(git branch --show-current)"; then
+if ! run_opencode opencode run --model "$POSTMORTEM_MODEL" "/ralph-after-action RUN_ID=$RUN_ID RUN_DIR=$RUN_DIR branch=$(git branch --show-current)"; then
   POSTMORTEM_EXIT=$?
   echo ""
   echo "Postmortem exited with code $POSTMORTEM_EXIT"
