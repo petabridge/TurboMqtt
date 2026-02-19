@@ -21,6 +21,8 @@ TurboMqtt is written on top of [Akka.NET](https://getakka.net/) and Akka.Streams
 
 Simple interface that works at very high rates of speed with minimal resource utilization.
 
+> **Built with reliability in mind** - TurboMqtt is production-tested and designed for always-on IoT systems that demand consistent uptime.
+
 ## Documentation
 
 1. [QuickStart](https://github.com/petabridge/TurboMqtt/tree/dev?tab=readme-ov-file#quickstart)
