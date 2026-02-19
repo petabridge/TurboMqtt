@@ -65,3 +65,9 @@
 - **Decision needed:** Wait for Akka.NET 1.6, or investigate partial AOT compatibility (trimming warnings, source generators for serialization)?
 - **Blocked on:** Akka.NET v1.6 release
 - **Date parked:** 2026-02-19
+
+### Add test gate to release workflow
+- **Source:** RALPH run 20260219-215639, adversarial review of Task 1.1 (commit 4bb4612)
+- **Issue:** The `release.yaml` workflow builds, signs, and publishes to NuGet.org but does not include a `dotnet test` step. This matches the old Azure DevOps pipeline. The assumption is PR validation already ran tests. Risk: a tag pushed from an untested commit could publish broken packages.
+- **Decision needed:** Accept the current pattern (test in PR only) or add a test step to `release.yaml`? Adding tests costs ~2 minutes per release but prevents publishing broken packages.
+- **Date parked:** 2026-02-19
