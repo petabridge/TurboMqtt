@@ -40,9 +40,9 @@ Done when:
 - [x] `TcpTransport.cs` updated to pass `IStreamProvider` through
 - [x] `TcpConnectionManager.cs` updated to create appropriate `IStreamProvider`
 - [x] All existing TCP unit tests pass unchanged
-- [ ] All container tests pass against EMQX
+- [x] All container tests pass against EMQX
 - [x] New unit tests for `TcpStreamProvider` (connect, DNS resolution, socket configuration)
-- [ ] BenchmarkDotNet before/after confirms no throughput regression (baseline: 193k msg/sec QoS 0)
+- [x] BenchmarkDotNet before/after confirms no throughput regression (baseline: 193k msg/sec QoS 0)
 - [x] Builds with zero warnings
 
 ### Task 2.5-B: Fix transport race conditions
