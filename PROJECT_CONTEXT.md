@@ -55,7 +55,7 @@ ActorSystem
 - AOT compatibility is a longer-term goal, blocked on Akka.NET v1.6
 - `TreatWarningsAsErrors` is enabled globally
 - `AllowUnsafeBlocks` is enabled for performance-critical code paths
-- Single NuGet package target: `net8.0`
+- Single NuGet package target: `net10.0`
 
 ## Current State
 

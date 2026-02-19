@@ -60,18 +60,18 @@ Done when:
 Update the SDK, TFMs, and all framework-coupled packages from .NET 8 to .NET 10.
 
 Done when:
-- [ ] `global.json` SDK version updated to `10.0.100` (or latest stable `10.0.x`), `rollForward` remains `latestMinor`
-- [ ] `src/TurboMqtt/TurboMqtt.csproj` TFM changed from `net8.0` to `net10.0`
-- [ ] All test project TFMs changed from `net8.0` to `net10.0`
-- [ ] `benchmarks/TurboMqtt.Benchmarks/TurboMqtt.Benchmarks.csproj` TFM changed to `net10.0`
-- [ ] Sample project TFMs changed to `net10.0`
-- [ ] `System.IO.Pipelines` version updated from `8.0.0` to `10.0.x` in `Directory.Packages.props`
-- [ ] `Microsoft.SourceLink.GitHub` updated to latest stable in `Directory.Packages.props`
-- [ ] `pr_validation.yaml` workflow installs .NET 10 SDK via `actions/setup-dotnet`
-- [ ] `release.yaml` workflow (from Task 1.1) installs .NET 10 SDK
-- [ ] `dotnet build -c Release` succeeds with zero warnings on .NET 10
-- [ ] `dotnet test tests/TurboMqtt.Tests/ -c Release` passes
-- [ ] `PROJECT_CONTEXT.md` "Key Constraints" updated to reflect `net10.0` target
+- [x] `global.json` SDK version updated to `10.0.100` (or latest stable `10.0.x`), `rollForward` remains `latestMinor`
+- [x] `src/TurboMqtt/TurboMqtt.csproj` TFM changed from `net8.0` to `net10.0`
+- [x] All test project TFMs changed from `net8.0` to `net10.0`
+- [x] `benchmarks/TurboMqtt.Benchmarks/TurboMqtt.Benchmarks.csproj` TFM changed to `net10.0`
+- [x] Sample project TFMs changed to `net10.0`
+- [x] `System.IO.Pipelines` version updated from `8.0.0` to `10.0.x` in `Directory.Packages.props`
+- [x] `Microsoft.SourceLink.GitHub` updated to latest stable in `Directory.Packages.props`
+- [x] `pr_validation.yaml` workflow installs .NET 10 SDK via `actions/setup-dotnet`
+- [x] `release.yaml` workflow (from Task 1.1) installs .NET 10 SDK
+- [x] `dotnet build -c Release` succeeds with zero warnings on .NET 10
+- [x] `dotnet test tests/TurboMqtt.Tests/ -c Release` passes
+- [x] `PROJECT_CONTEXT.md` "Key Constraints" updated to reflect `net10.0` target
 
 ### Task 1.4: Update Akka.NET packages to latest
 
