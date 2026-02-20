@@ -532,8 +532,8 @@ internal static class MqttPacketSizeEstimator
     /// </remarks>
     public static int GetPacketLengthHeaderSize(int packetBodyLength)
     {
-        // remove 1 bytes for the fixed header, which isn't included in the length
-        return (packetBodyLength - 1) switch
+        // MQTT variable-length encoding: 1 byte for 0-127, 2 bytes for 128-16383, etc.
+        return packetBodyLength switch
         {
             < 128 => 1,
             < 16384 => 2,

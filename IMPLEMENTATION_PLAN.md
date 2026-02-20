@@ -176,11 +176,11 @@ The current `ConnectPacketArb()` only generates `ClientId`, `CleanSession`, and
 retain), Username, and Password fields that are controlled by `ConnectFlags`.
 
 Done when:
-- [ ] `ConnectPacketArb()` randomly generates packets with and without Will messages
-- [ ] Will topic, Will message payload, Will QoS (0/1/2), and Will retain are randomized when Will is present
-- [ ] Username and Password fields are randomly included or omitted
-- [ ] `ConnectFlags` bits are consistent with the fields present (e.g., `HasWill=true` when Will topic is set)
-- [ ] Existing roundtrip codec tests still pass
+- [x] `ConnectPacketArb()` randomly generates packets with and without Will messages
+- [x] Will topic, Will message payload, Will QoS (0/1/2), and Will retain are randomized when Will is present
+- [x] Username and Password fields are randomly included or omitted
+- [x] `ConnectFlags` bits are consistent with the fields present (e.g., `HasWill=true` when Will topic is set)
+- [x] Existing roundtrip codec tests still pass
 
 ### Task 2.3: Add roundtrip encode/decode property tests for all packet types
 

@@ -39,21 +39,50 @@ public class PacketGenerators
 
     public static Arbitrary<MqttPacket> ConnectPacketArb()
     {
-        return (from protocolVersion in Gen.Constant(MqttProtocolVersion.V3_1_1)
-            from clientId in
-                Arb.Generate<string>()
-                    .Where(s => !string.IsNullOrWhiteSpace(s) && s.Length > 0 && MqttClientIdValidator.ValidateClientId(s).IsValid) // ensure clientId is not null or whitespace
+        var validWillTopic = Arb.Generate<string>()
+            .Where(s => !string.IsNullOrWhiteSpace(s) && s.Length > 0 && MqttTopicValidator.ValidatePublishTopic(s).IsValid);
+
+        var willPayloadGen = from length in Gen.Choose(0, 128)
+                             from bytes in Gen.ArrayOf(length, Arb.Generate<byte>())
+                             select new ReadOnlyMemory<byte>(bytes);
+
+        // Per MQTT 3.1.1 §1.5.3: U+0000 is forbidden in UTF-8 encoded strings
+        var validCredential = Arb.Generate<string>()
+            .Where(s => s != null && s.Length > 0 && !s.Contains('\0'));
+
+        return (
+            from clientId in Arb.Generate<string>()
+                .Where(s => !string.IsNullOrWhiteSpace(s) && s.Length > 0 && MqttClientIdValidator.ValidateClientId(s).IsValid)
             from cleanSession in Arb.Generate<bool>()
             from keepAlive in Arb.Generate<ushort>()
-            select (MqttPacket)new ConnectPacket(protocolVersion)
+            from hasWill in Arb.Generate<bool>()
+            from willTopic in hasWill ? validWillTopic : Gen.Constant(string.Empty)
+            from willPayload in hasWill ? willPayloadGen : Gen.Constant(ReadOnlyMemory<byte>.Empty)
+            from willQos in hasWill ? Arb.Generate<QualityOfService>() : Gen.Constant(QualityOfService.AtMostOnce)
+            from willRetain in hasWill ? Arb.Generate<bool>() : Gen.Constant(false)
+            from hasUsername in Arb.Generate<bool>()
+            from username in hasUsername ? validCredential : Gen.Constant(string.Empty)
+            // Password requires username per [MQTT-3.1.2-22]
+            from hasPassword in hasUsername ? Arb.Generate<bool>() : Gen.Constant(false)
+            from password in hasPassword ? validCredential : Gen.Constant(string.Empty)
+            select (MqttPacket)new ConnectPacket(MqttProtocolVersion.V3_1_1)
             {
                 ClientId = clientId,
-                ConnectFlags = new ConnectFlags()
+                KeepAliveSeconds = keepAlive,
+                Will = hasWill ? new MqttLastWill(willTopic, willPayload) : null,
+                UserName = hasUsername ? username : null,
+                Password = hasPassword ? password : null,
+                Flags = new ConnectFlags
                 {
-                    CleanSession = cleanSession
-                },
-                KeepAliveSeconds = keepAlive
-            }).ToArbitrary();
+                    CleanSession = cleanSession,
+                    WillFlag = hasWill,
+                    WillQoS = hasWill ? willQos : QualityOfService.AtMostOnce,
+                    WillRetain = hasWill && willRetain,
+                    UsernameFlag = hasUsername,
+                    PasswordFlag = hasPassword
+                }
+            }
+        ).ToArbitrary();
     }
 
     public static Arbitrary<MqttPacket> PublishPacketArb()
@@ -267,22 +296,22 @@ public class PacketGenerators
 
     public static Arbitrary<ReadOnlyMemory<byte>[]> FragmentedPackets(Arbitrary<MqttPacket> packetArb)
     {
-        // need help here
         var serializedPackets = packetArb.Generator.Select(packet =>
         {
             var estimatedSize = MqttPacketSizeEstimator.EstimateMqtt3PacketSize(packet);
-            
             Memory<byte> bytes = new byte[estimatedSize.TotalSize];
-            var serializedPacket = Mqtt311Encoder.EncodePacket(packet, ref bytes, estimatedSize);
-
-            return (bytes, estimatedSize);
+            Mqtt311Encoder.EncodePacket(packet, ref bytes, estimatedSize);
+            return bytes;
         });
-        
-        return (from d in serializedPackets
-            from fragmentCount in Gen.Choose(1, 10)
-            from sizes in Gen.ArrayOf(fragmentCount, Gen.Choose(1, d.bytes.Length / fragmentCount + 1))
-            where sizes.Sum() == d.bytes.Length
-            select CreateFragments(d.bytes, sizes)).ToArbitrary();
+
+        return (from bytes in serializedPackets
+            from fragmentCount in Gen.Choose(1, Math.Min(10, bytes.Length))
+            // Generate cut points in [1, bytes.Length-1]; sort+deduplicate to guarantee valid non-empty fragments
+            from cuts in Gen.ArrayOf(fragmentCount - 1, Gen.Choose(1, Math.Max(1, bytes.Length - 1)))
+            let boundaries = new[] { 0 }.Concat(cuts.Distinct().OrderBy(x => x)).Append(bytes.Length).ToArray()
+            let sizes = Enumerable.Range(0, boundaries.Length - 1)
+                                  .Select(i => boundaries[i + 1] - boundaries[i]).ToArray()
+            select CreateFragments(bytes, sizes)).ToArbitrary();
     }
     
     private static ReadOnlyMemory<byte>[] CreateFragments(in ReadOnlyMemory<byte> source, int[] sizes)
