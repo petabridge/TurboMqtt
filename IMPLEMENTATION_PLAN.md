@@ -132,12 +132,12 @@ Done when:
 **Verification:** L0
 
 Done when:
-- [ ] `PROJECT_CONTEXT.md` version updated to reflect 0.3.0-beta (or whatever version is chosen for this release cycle)
-- [ ] `PROJECT_CONTEXT.md` "Key Constraints" reflects `net10.0` and current Akka version
-- [ ] `TOOLING.md` reflects all updated tool/package versions
-- [ ] `TOOLING.md` Build table `.NET SDK` version updated from `8.0.400` to `10.0.100` *(source: RALPH run 20260219-215639 CLEANUP item -- stale after Task 1.3 .NET 10 upgrade)*
-- [ ] `TOOLING.md` CI/CD section describes GitHub Actions release pipeline (not Azure DevOps)
-- [ ] `Directory.Build.props` copyright year updated to 2025
+- [x] `PROJECT_CONTEXT.md` version updated to reflect 0.3.0-beta (or whatever version is chosen for this release cycle)
+- [x] `PROJECT_CONTEXT.md` "Key Constraints" reflects `net10.0` and current Akka version
+- [x] `TOOLING.md` reflects all updated tool/package versions
+- [x] `TOOLING.md` Build table `.NET SDK` version updated from `8.0.400` to `10.0.100` *(source: RALPH run 20260219-215639 CLEANUP item -- stale after Task 1.3 .NET 10 upgrade)*
+- [x] `TOOLING.md` CI/CD section describes GitHub Actions release pipeline (not Azure DevOps)
+- [x] `Directory.Build.props` copyright year updated to 2025
 
 ---
 
