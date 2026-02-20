@@ -271,11 +271,11 @@ The current EMQX container tests use anonymous connections. Add tests that exerc
 MQTT username/password authentication against the broker.
 
 Done when:
-- [ ] EMQX fixture configured with at least one username/password credential
-- [ ] Container test: successful connect with valid username/password
-- [ ] Container test: connect rejected with invalid username/password (expect ConnAck with appropriate return code)
-- [ ] Container test: publish and subscribe work over authenticated connection at QoS 0 and QoS 1
-- [ ] All new tests pass with `dotnet test tests/TurboMqtt.Container.Tests/ -c Release`
+- [x] EMQX fixture configured with at least one username/password credential
+- [x] Container test: successful connect with valid username/password
+- [x] Container test: connect rejected with invalid username/password (expect ConnAck with appropriate return code)
+- [x] Container test: publish and subscribe work over authenticated connection at QoS 0 and QoS 1
+- [x] All new tests pass with `dotnet test tests/TurboMqtt.Container.Tests/ -c Release`
 
 ---
 
