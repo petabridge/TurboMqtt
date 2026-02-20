@@ -23,8 +23,8 @@ public class EmqxAuthCollection : ICollectionFixture<EmqxAuthFixture>
 ///
 /// EMQX 5.x uses API key authentication for the management REST API (not dashboard
 /// credentials). The API key is bootstrapped via a file bind-mounted into the container
-/// before startup, using the EMQX_MANAGEMENT__API_KEY__BOOTSTRAP_FILE env var.
-/// File format: {AppID}:{ApiKey}:{ApiSecret}  (one entry per line)
+/// before startup, using the EMQX_API_KEY__BOOTSTRAP_FILE env var.
+/// File format: {ApiKey}:{ApiSecret}:{Role}  (one entry per line)
 /// HTTP Basic auth: Authorization: Basic base64({ApiKey}:{ApiSecret})
 /// </summary>
 public class EmqxAuthFixture : IAsyncLifetime

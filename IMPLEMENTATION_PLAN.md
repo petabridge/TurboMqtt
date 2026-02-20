@@ -391,6 +391,24 @@ Done when:
 
 ---
 
+## Review Fixes
+
+### FIX: Correct EmqxAuthFixture XML docstring
+
+**Source:** Adversarial review 20260220-202420 iter-05, finding F-2
+**Surface area:** documentation
+**Verification:** L0
+
+The XML summary comment on `EmqxAuthFixture` has two factual errors from the debugging journey:
+1. Says `EMQX_MANAGEMENT__API_KEY__BOOTSTRAP_FILE` — should be `EMQX_API_KEY__BOOTSTRAP_FILE`
+2. Says file format `{AppID}:{ApiKey}:{ApiSecret}` — should be `{ApiKey}:{ApiSecret}:{Role}`
+
+Done when:
+- [x] XML summary at `EmqxAuthFixture.cs` lines 22-28 corrected to match the actual env var name (`EMQX_API_KEY__BOOTSTRAP_FILE`) and file format (`{ApiKey}:{ApiSecret}:{Role}`)
+- [x] Builds with zero warnings
+
+---
+
 ## Phase 3: MQTT 5.0 Implementation
 
 > Goal: Implement a functional MQTT 5.0 encoder and decoder, integrate them into
