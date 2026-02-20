@@ -35,6 +35,12 @@ public sealed record MqttClientTcpOptions
     public int Port { get; }
     
     /// <summary>
+    /// Maximum time to wait for the TCP connection to be established before aborting.
+    /// Applied in addition to any caller-supplied <see cref="CancellationToken"/>.
+    /// </summary>
+    public TimeSpan ConnectTimeout { get; set; } = TimeSpan.FromSeconds(10);
+
+    /// <summary>
     /// How long should we wait before attempting to reconnect the client?
     /// </summary>
     public TimeSpan ReconnectInterval { get; set; } = TimeSpan.FromSeconds(5);

@@ -19,7 +19,7 @@ namespace TurboMqtt.IO.Tcp;
 /// Actor responsible for managing the TCP transport layer for MQTT.
 ///
 /// FSM:
-///   NotStarted (OnReceive) → Created (TransportCreated) → Connecting (via RunTask)
+///   NotStarted (OnReceive) → Created (TransportCreated) → Connecting
 ///   → Connected → Draining → Closing → Stopped
 ///                  Connected → Aborted → Stopped
 /// </summary>
@@ -28,11 +28,9 @@ internal sealed class TcpTransportActor : UntypedActor
     #region Internal Types
 
     /// <summary>
-    /// Mutable state shared between the TcpTransport and the TcpTransportActor.
+    /// Shared state between the TcpTransport wrapper and the TcpTransportActor.
+    /// Status is updated atomically by the actor; all other fields are immutable after construction.
     /// </summary>
-    /// <remarks>
-    /// Can values can only be set by the TcpTransportActor itself.
-    /// </remarks>
     public sealed class ConnectionState
     {
         public ConnectionState(ChannelWriter<(IMemoryOwner<byte> buffer, int readableBytes)> writer,
@@ -51,7 +49,7 @@ internal sealed class TcpTransportActor : UntypedActor
         public ConnectionStatus Status
         {
             get => (ConnectionStatus)Volatile.Read(ref _status);
-            set => Volatile.Write(ref _status, (int)value);
+            internal set => Volatile.Write(ref _status, (int)value);
         }
 
         /// <summary>
@@ -63,7 +61,7 @@ internal sealed class TcpTransportActor : UntypedActor
             return Interlocked.CompareExchange(ref _status, (int)newValue, (int)expected) == (int)expected;
         }
 
-        public CancellationTokenSource ShutDownCts { get; set; } = new();
+        public CancellationTokenSource ShutDownCts { get; } = new();
 
         public int MaxFrameSize { get; }
 
@@ -198,6 +196,14 @@ internal sealed class TcpTransportActor : UntypedActor
         return maxFrameSize * 2;
     }
 
+    /// <summary>
+    /// Logs a structured FSM transition at Info level.
+    /// </summary>
+    private void LogTransition(string fromState, string toState)
+    {
+        _log.Info("Transport [{0}:{1}] FSM: {2} -> {3}", TcpOptions.Host, TcpOptions.Port, fromState, toState);
+    }
+
     protected override void OnReceive(object message)
     {
         switch (message)
@@ -207,8 +213,7 @@ internal sealed class TcpTransportActor : UntypedActor
                 // return the transport to the client
                 var tcpTransport = new TcpTransport(_log, State, Self);
                 Sender.Tell(tcpTransport);
-                _log.Debug("Created new TCP transport for client connecting to [{0}:{1}]", TcpOptions.Host,
-                    TcpOptions.Port);
+                LogTransition("NotStarted", "Created");
                 Become(TransportCreated);
                 break;
             }
@@ -231,26 +236,41 @@ internal sealed class TcpTransportActor : UntypedActor
         {
             case DoConnect connect when State.Status == ConnectionStatus.NotStarted:
             {
+                State.Status = ConnectionStatus.Connecting;
+                LogTransition("Created", "Connecting");
+                Become(Connecting);
+
+                // Compose caller's token with configured connect timeout
+                var connectTimeout = TcpOptions.ConnectTimeout;
+                var timeoutCts = new CancellationTokenSource(connectTimeout);
+                var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(connect.Cancel, timeoutCts.Token);
+
                 RunTask(async () =>
                 {
-                    _log.Info("Attempting to connect to [{0}:{1}]", TcpOptions.Host, TcpOptions.Port);
-
                     var sender = Sender;
-
-                    // set status to connecting
-                    State.Status = ConnectionStatus.Connecting;
 
                     ConnectResult connectResult;
                     try
                     {
-                        _stream = await _streamProvider.ConnectAsync(TcpOptions.Host, TcpOptions.Port, connect.Cancel)
+                        _stream = await _streamProvider.ConnectAsync(TcpOptions.Host, TcpOptions.Port, linkedCts.Token)
                             .ConfigureAwait(false);
                         connectResult = new ConnectResult(ConnectionStatus.Connected, "Connected.");
+                    }
+                    catch (OperationCanceledException) when (timeoutCts.IsCancellationRequested && !connect.Cancel.IsCancellationRequested)
+                    {
+                        _log.Warning("Connect to [{0}:{1}] timed out after {2}", TcpOptions.Host, TcpOptions.Port, connectTimeout);
+                        connectResult = new ConnectResult(ConnectionStatus.Failed,
+                            $"Connect timed out after {connectTimeout.TotalSeconds:F0}s");
                     }
                     catch (Exception ex)
                     {
                         _log.Error(ex, "Failed to connect to [{0}:{1}]", TcpOptions.Host, TcpOptions.Port);
                         connectResult = new ConnectResult(ConnectionStatus.Failed, ex.Message);
+                    }
+                    finally
+                    {
+                        linkedCts.Dispose();
+                        timeoutCts.Dispose();
                     }
 
                     sender.Tell(connectResult);
@@ -269,17 +289,46 @@ internal sealed class TcpTransportActor : UntypedActor
                 Sender.Tell(new ConnectResult(ConnectionStatus.Connecting, formatted));
                 break;
             }
+            default:
+                Unhandled(message);
+                break;
+        }
+    }
+
+    /// <summary>
+    /// Connecting state — async connection attempt is in progress.
+    /// Valid transitions: ConnectResult(Connected) → Connected, ConnectResult(Failed) → Stopped
+    /// </summary>
+    private void Connecting(object message)
+    {
+        switch (message)
+        {
             case ConnectResult { Status: ConnectionStatus.Connected }:
             {
-                _log.Info("Successfully connected to [{0}:{1}]", TcpOptions.Host, TcpOptions.Port);
+                LogTransition("Connecting", "Connected");
                 State.Status = ConnectionStatus.Connected;
-
                 BecomeConnected();
                 break;
             }
-            case ConnectResult { Status: ConnectionStatus.Failed }:
+            case ConnectResult { Status: ConnectionStatus.Failed } result:
             {
-                _log.Error("Failed to connect to [{0}:{1}]: {2}", TcpOptions.Host, TcpOptions.Port, message);
+                _log.Error("Failed to connect to [{0}:{1}]: {2}", TcpOptions.Host, TcpOptions.Port, result.ReasonMessage);
+                LogTransition("Connecting", "Failed");
+                State.Status = ConnectionStatus.Failed;
+                Context.Stop(Self);
+                break;
+            }
+            case DoConnect:
+            {
+                _log.Debug("Ignoring DoConnect in Connecting state — connection attempt already in progress.");
+                Sender.Tell(new ConnectResult(ConnectionStatus.Connecting,
+                    $"Already attempting to connect to [{TcpOptions.Host}:{TcpOptions.Port}]"));
+                break;
+            }
+            case DoClose:
+            {
+                _log.Debug("Received DoClose while Connecting — will abort connection attempt.");
+                LogTransition("Connecting", "Failed");
                 State.Status = ConnectionStatus.Failed;
                 Context.Stop(Self);
                 break;
@@ -439,13 +488,11 @@ internal sealed class TcpTransportActor : UntypedActor
         {
             case DoClose:
             {
-                _log.Debug("Received DoClose in Connected state. Transitioning to Draining.");
                 BecomeDraining();
                 break;
             }
             case ReadFinished:
             {
-                _log.Debug("Received ReadFinished in Connected state. Transitioning to Closing.");
                 BecomeClosing();
                 break;
             }
@@ -460,6 +507,7 @@ internal sealed class TcpTransportActor : UntypedActor
             {
                 // Background tasks finished while still in Connected — go straight to shutdown
                 _log.Debug("Background tasks completed while in Connected state.");
+                LogTransition("Connected", "Stopped");
                 SendPoisonPillOnce();
                 break;
             }
@@ -474,16 +522,14 @@ internal sealed class TcpTransportActor : UntypedActor
     /// </summary>
     private void BecomeDraining()
     {
+        LogTransition("Connected", "Draining");
         State.Status = ConnectionStatus.Draining;
         Become(Draining);
 
-        // inject a DisconnectPacket into the reads channel to signal stream termination
-        _readsFromTransport.Writer.TryWrite(DisconnectToBinary.NormalDisconnectPacket.ToBinary(MqttProtocolVersion.V3_1_1));
-
-        // no more writes to transport
+        // no more writes to transport — completes the channel so the socket writer drains remaining data
         _writesToTransport.Writer.TryComplete();
 
-        // wait for pending writes, then self-tell OutboundFlushed
+        // wait for pending writes to flush, then inject DISCONNECT and transition
         State.WaitForPendingWrites.ContinueWith(_ =>
         {
             _closureSelf.Tell(OutboundFlushed.Instance);
@@ -496,13 +542,15 @@ internal sealed class TcpTransportActor : UntypedActor
         {
             case OutboundFlushed:
             {
-                _log.Debug("Outbound flushed in Draining state. Transitioning to Closing.");
+                // Outbound has flushed — now inject the DISCONNECT signal for Akka.Streams
+                _readsFromTransport.Writer.TryWrite(DisconnectToBinary.NormalDisconnectPacket.ToBinary(MqttProtocolVersion.V3_1_1));
                 BecomeClosing();
                 break;
             }
             case BackgroundTasksCompleted:
             {
-                _log.Debug("Background tasks completed while in Draining state. Transitioning to Stopped.");
+                _log.Debug("Background tasks completed while in Draining state.");
+                LogTransition("Draining", "Stopped");
                 SendPoisonPillOnce();
                 break;
             }
@@ -522,6 +570,7 @@ internal sealed class TcpTransportActor : UntypedActor
     /// </summary>
     private void BecomeClosing()
     {
+        LogTransition(State.Status == ConnectionStatus.Draining ? "Draining" : "Connected", "Closing");
         State.Status = ConnectionStatus.Closing;
         Become(Closing);
 
@@ -542,7 +591,7 @@ internal sealed class TcpTransportActor : UntypedActor
         {
             case BackgroundTasksCompleted:
             {
-                _log.Debug("Background tasks completed in Closing state. Transitioning to Stopped.");
+                LogTransition("Closing", "Stopped");
                 SendPoisonPillOnce();
                 break;
             }
@@ -563,6 +612,7 @@ internal sealed class TcpTransportActor : UntypedActor
     /// </summary>
     private void BecomeAborted()
     {
+        LogTransition("Connected", "Aborted");
         State.Status = ConnectionStatus.Aborted;
         Become(Aborted);
 
@@ -583,7 +633,7 @@ internal sealed class TcpTransportActor : UntypedActor
         {
             case BackgroundTasksCompleted:
             {
-                _log.Debug("Background tasks completed in Aborted state. Transitioning to Stopped.");
+                LogTransition("Aborted", "Stopped");
                 SendPoisonPillOnce();
                 break;
             }

@@ -105,16 +105,16 @@ Done when:
 Formalize the transport state machine and graceful drain to production quality.
 
 Done when:
-- [ ] Full FSM with explicit state transitions and structured logging at each transition
-- [ ] `ConnectionState` shared mutable state replaced with actor messages or thread-safe wrappers
-- [ ] Graceful drain: `Draining` state where outbound flushes before DISCONNECT is sent
-- [ ] Connect timeout with cancellation propagation (configurable, default 10s)
-- [ ] Actor test: verify all state transitions with TestProbe (`NotStarted → Created → Connecting → Connected → Draining → Closing → Stopped`)
-- [ ] Actor test: verify `Aborted` short-circuit path
-- [ ] Test: disconnect while large publish in flight — outbound flushes before close
-- [ ] Test: connect timeout fires when broker is unreachable
-- [ ] All E2E tests pass
-- [ ] Builds with zero warnings
+- [x] Full FSM with explicit state transitions and structured logging at each transition
+- [x] `ConnectionState` shared mutable state replaced with actor messages or thread-safe wrappers
+- [x] Graceful drain: `Draining` state where outbound flushes before DISCONNECT is sent
+- [x] Connect timeout with cancellation propagation (configurable, default 10s)
+- [x] Actor test: verify all state transitions with TestProbe (`NotStarted → Created → Connecting → Connected → Draining → Closing → Stopped`)
+- [x] Actor test: verify `Aborted` short-circuit path
+- [x] Test: disconnect while large publish in flight — outbound flushes before close
+- [x] Test: connect timeout fires when broker is unreachable
+- [x] All E2E tests pass
+- [x] Builds with zero warnings
 
 ---
 
