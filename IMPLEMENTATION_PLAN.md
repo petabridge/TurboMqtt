@@ -208,15 +208,15 @@ Done when:
 Test defensive behavior of the encoder and decoder against invalid or adversarial input.
 
 Done when:
-- [ ] Test: decoder rejects packets with invalid packet type byte (0x00, 0xFF)
-- [ ] Test: decoder handles truncated packets (fewer bytes than remaining length indicates)
-- [ ] Test: decoder handles packets where remaining length exceeds maximum (256 MB MQTT limit)
-- [ ] Test: decoder handles remaining length encoded with more than 4 bytes
-- [ ] Test: encoder/decoder roundtrip with maximum-size payload (close to 256 MB or a practical test limit)
-- [ ] Test: decoder handles PUBLISH with QoS 3 (invalid, reserved value)
-- [ ] Test: decoder handles CONNECT with invalid protocol name or version byte
-- [ ] Test: partial frame delivery across multiple buffers (extend `TestPacketReassembly` to all types)
-- [ ] All tests pass on both Linux and Windows
+- [x] Test: decoder rejects packets with invalid packet type byte (0x00, 0xFF)
+- [x] Test: decoder handles truncated packets (fewer bytes than remaining length indicates)
+- [x] Test: decoder handles packets where remaining length exceeds maximum (256 MB MQTT limit)
+- [x] Test: decoder handles remaining length encoded with more than 4 bytes
+- [x] Test: encoder/decoder roundtrip with maximum-size payload (close to 256 MB or a practical test limit)
+- [x] Test: decoder handles PUBLISH with QoS 3 (invalid, reserved value)
+- [x] Test: decoder handles CONNECT with invalid protocol name or version byte
+- [x] Test: partial frame delivery across multiple buffers (extend `TestPacketReassembly` to all types)
+- [x] All tests pass on both Linux and Windows
 
 ### Task 2.5: Code review MQTT 3.1.1 encoder/decoder and file issues
 
