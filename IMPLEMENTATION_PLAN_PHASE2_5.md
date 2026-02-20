@@ -9,6 +9,19 @@
 
 ---
 
+### FIX: Add missing F-5 PARK item to BACKLOG_PARKING_LOT.md
+
+**Source:** Adversarial review 20260220-000928 iter-06, finding R-1
+**Surface area:** documentation
+**Verification:** L0
+
+The prior review's finding F-5 (`_transport` field visibility in `IMqttClient.cs`) was dispositioned as PARK but not added to the parking lot.
+
+Done when:
+- [x] `BACKLOG_PARKING_LOT.md` has an entry for F-5: `_transport` field in `IMqttClient.cs` should be annotated with a comment noting that reads must go through the `Transport` property (which uses `Volatile.Read`)
+
+---
+
 ### FIX: Add logging for failed resubscribe during reconnect
 
 **Source:** Adversarial review 20260220-000928, finding F-3

@@ -99,3 +99,15 @@
 - **Source:** Adversarial review 20260220-000928, finding G-4
 - **Issue:** Two instances of fire-and-forget `AbortConnectionAsync()` in `ConnectAsync` error paths use pragma suppression. Should properly track the Task or use a discard with a comment.
 - **Date parked:** 2026-02-20
+
+### Annotate `_transport` field in `IMqttClient.cs` with thread-safety comment
+- **Source:** Adversarial review 20260220-000928, finding F-5
+- **Issue:** The `_transport` field in `MqttClient` (line 150 of `IMqttClient.cs`) is a bare `private IMqttTransport _transport;` with no annotation. All reads must go through the `Transport` property (which uses `Volatile.Read`) to ensure visibility across threads. A missing comment risks future developers reading the field directly, introducing a race condition.
+- **Decision needed:** Add a comment on the field declaration (e.g., `// Reads must use the Transport property (Volatile.Read); writes use Interlocked.Exchange in SwapTransport`) or enforce access through a Roslyn analyzer.
+- **Date parked:** 2026-02-20
+
+### IMPLEMENTATION_PLAN.md Phase 2.5 checkbox desync
+- **Source:** Adversarial review 20260220-000928, finding R-2 (also noted in review-after-iter-03.md)
+- **Issue:** `IMPLEMENTATION_PLAN.md` Phase 2.5 section (Tasks 2.5-A through 2.5-D) still shows `- [ ]` for all Done-when items, while `IMPLEMENTATION_PLAN_PHASE2_5.md` shows all `- [x]`. These should be synchronized.
+- **Decision needed:** Sync during PR merge to `dev`, or as part of Task 1.7?
+- **Date parked:** 2026-02-20
