@@ -347,7 +347,8 @@ public class Mqtt311Decoder
         var retain = (buffSpan[0] & 0x01) == 0x01;
         buffer = buffer.Slice(headerLength); // advance past the fixed + size header
 
-        var topicName = DecodeString(ref buffer, ref remainingLength, 2, int.MaxValue);
+        // MQTT 3.1.1 §4.7.3: topic names must be at least 1 character long
+        var topicName = DecodeString(ref buffer, ref remainingLength, 1, int.MaxValue);
         // TODO: validate topic name
         var packet = new PublishPacket(qualityOfService, duplicate, retain, topicName);
         if (qualityOfService > QualityOfService.AtMostOnce)

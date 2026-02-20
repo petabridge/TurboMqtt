@@ -193,11 +193,11 @@ encode a packet with `Mqtt311Encoder`, decode it with `Mqtt311Decoder`, and asse
 structural equality. Currently only `TestPacketReassembly` exists as a property test.
 
 Done when:
-- [ ] A property test class exists that tests roundtrip encode/decode for each of the 14 packet types individually
-- [ ] Each property test asserts that decoded packet fields match the original generated packet
-- [ ] A combined property test encodes a random packet from `PacketArb()`, decodes it, and asserts equality
-- [ ] All property tests pass with default FsCheck iteration count (100)
-- [ ] `TestPacketReassembly` property test updated to use the full `PacketArb()` (all 14 types)
+- [x] A property test class exists that tests roundtrip encode/decode for each of the 14 packet types individually
+- [x] Each property test asserts that decoded packet fields match the original generated packet
+- [x] A combined property test encodes a random packet from `PacketArb()`, decodes it, and asserts equality
+- [x] All property tests pass with default FsCheck iteration count (100)
+- [x] `TestPacketReassembly` property test updated to use the full `PacketArb()` (all 14 types) *(added `Arbitrary = new[] { typeof(PacketGenerators) }` attribute + per-type Classify labels; also fixed PUBLISH decoder bug: minBytes was 2, must be 1 per MQTT §4.7.3)*
 
 ### Task 2.4: Add error path and boundary condition tests
 

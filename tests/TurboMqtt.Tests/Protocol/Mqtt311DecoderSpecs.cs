@@ -209,7 +209,12 @@ public class Mqtt311DecoderSpecs
             decodedPackets3[1].Should().BeEquivalentTo(publishPacket3, options => options.Excluding(x => x.Payload));
         }
 
-        [FsCheck.Xunit.Property(MaxTest = 1000)]
+        /// <summary>
+        /// Verifies that every MQTT 3.1.1 packet type can be reassembled from arbitrarily
+        /// fragmented byte streams. Uses <see cref="PacketGenerators.PacketArb"/> to cover
+        /// all 14 packet types.
+        /// </summary>
+        [FsCheck.Xunit.Property(Arbitrary = new[] { typeof(PacketGenerators) }, MaxTest = 1000)]
         public Property TestPacketReassembly(MqttPacket packet)
         {
             var decoder = new Mqtt311Decoder();
@@ -218,7 +223,7 @@ public class Mqtt311DecoderSpecs
                 .Sample(0, 1).First();
 
             var fragmentCount = fragmentedPackets.Length;
-            
+
             var estimatedSize = MqttPacketSizeEstimator.EstimateMqtt3PacketSize(packet);
 
             var packetSumsAddUp =
@@ -245,7 +250,21 @@ public class Mqtt311DecoderSpecs
                     .Classify(fragmentCount == 3, "packetCount == 3")
                     .Classify(fragmentCount == 4, "packetCount == 4")
                     .Classify(fragmentCount == 5, "packetCount == 5")
-                    .Classify(fragmentCount > 5, "packetCount > 5");
+                    .Classify(fragmentCount > 5, "packetCount > 5")
+                    .Classify(packet.PacketType == MqttPacketType.Connect, "Connect")
+                    .Classify(packet.PacketType == MqttPacketType.ConnAck, "ConnAck")
+                    .Classify(packet.PacketType == MqttPacketType.Publish, "Publish")
+                    .Classify(packet.PacketType == MqttPacketType.PubAck, "PubAck")
+                    .Classify(packet.PacketType == MqttPacketType.PubRec, "PubRec")
+                    .Classify(packet.PacketType == MqttPacketType.PubRel, "PubRel")
+                    .Classify(packet.PacketType == MqttPacketType.PubComp, "PubComp")
+                    .Classify(packet.PacketType == MqttPacketType.Subscribe, "Subscribe")
+                    .Classify(packet.PacketType == MqttPacketType.SubAck, "SubAck")
+                    .Classify(packet.PacketType == MqttPacketType.Unsubscribe, "Unsubscribe")
+                    .Classify(packet.PacketType == MqttPacketType.UnsubAck, "UnsubAck")
+                    .Classify(packet.PacketType == MqttPacketType.PingReq, "PingReq")
+                    .Classify(packet.PacketType == MqttPacketType.PingResp, "PingResp")
+                    .Classify(packet.PacketType == MqttPacketType.Disconnect, "Disconnect");
                     //.Collect();
             }
             catch (Exception ex)
