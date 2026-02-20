@@ -453,13 +453,13 @@ Done when:
 These must be added before the decoder can populate them.
 
 Done when:
-- [ ] `ConnAckPacket.cs` has: `SessionExpiryInterval`, `AssignedClientIdentifier`, `ServerKeepAlive`, `AuthenticationMethod`, `AuthenticationData`, `ResponseInformation`, `ServerReference`, `TopicAliasMaximum`, `MaximumQoS`, `RetainAvailable`, `WildcardSubscriptionAvailable`, `SubscriptionIdentifiersAvailable`, `SharedSubscriptionAvailable`
-- [ ] `ConnAckReasonCode` enum has all MQTT 5.0 reason codes (OASIS Table 3-1)
-- [ ] `SubscribePacket` has `SubscriptionIdentifier` (uint?) property added
-- [ ] `PubAckPacket` has `UserProperties` field added (currently missing)
-- [ ] `PubAckPacket.ReasonString` changed from computed to stored property
-- [ ] `MqttPacketSizeEstimator.EstimateConnAckPacketSizeMqtt5()` updated to account for new properties
-- [ ] Builds with zero warnings
+- [x] `ConnAckPacket.cs` has: `SessionExpiryInterval`, `AssignedClientIdentifier`, `ServerKeepAlive`, `AuthenticationMethod`, `AuthenticationData`, `ResponseInformation`, `ServerReference`, `TopicAliasMaximum`, `MaximumQoS`, `RetainAvailable`, `WildcardSubscriptionAvailable`, `SubscriptionIdentifiersAvailable`, `SharedSubscriptionAvailable`
+- [x] `ConnAckReasonCode` enum has all MQTT 5.0 reason codes (OASIS Table 3-1) *(already complete — 22 reason codes present)*
+- [x] `SubscribePacket` has `SubscriptionIdentifier` (uint?) property added *(changed from NonZeroUInt16 to uint? to match VBI spec range and optionality)*
+- [x] `PubAckPacket` has `UserProperties` field added (currently missing)
+- [x] `PubAckPacket.ReasonString` changed from computed to stored property
+- [x] `MqttPacketSizeEstimator.EstimateConnAckPacketSizeMqtt5()` updated to account for new properties
+- [x] Builds with zero warnings
 
 ### Task 3.2: Implement Mqtt5Encoder
 

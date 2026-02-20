@@ -509,15 +509,78 @@ internal static class MqttPacketSizeEstimator
     private static int EstimateConnAckPacketSizeMqtt5(ConnAckPacket packet)
     {
         var size = 0; // fixed header not included in length calculation
-        size += 2; // Reason code is 1 byte, session created is 1 byte
+        size += 2; // Reason code is 1 byte, session present is 1 byte
 
         // Start calculating the properties size
         var propertiesSize = 0;
 
+        // Session Expiry Interval (0x11): 1 byte identifier + 4 bytes uint
+        if (packet.SessionExpiryInterval.HasValue)
+            propertiesSize += 1 + 4;
+
+        // Receive Maximum (0x21): 1 byte identifier + 2 bytes ushort
+        if (packet.ReceiveMaximum.HasValue)
+            propertiesSize += 1 + 2;
+
+        // Maximum QoS (0x24): 1 byte identifier + 1 byte value
+        if (packet.MaximumQoS.HasValue)
+            propertiesSize += 1 + 1;
+
+        // Retain Available (0x25): 1 byte identifier + 1 byte bool
+        if (packet.RetainAvailable.HasValue)
+            propertiesSize += 1 + 1;
+
+        // Maximum Packet Size (0x27): 1 byte identifier + 4 bytes uint
+        if (packet.MaximumPacketSize.HasValue)
+            propertiesSize += 1 + 4;
+
+        // Assigned Client Identifier (0x12): 1 byte identifier + 2 byte length prefix + string bytes
+        if (!string.IsNullOrEmpty(packet.AssignedClientIdentifier))
+            propertiesSize += 1 + 2 + Encoding.UTF8.GetByteCount(packet.AssignedClientIdentifier);
+
+        // Topic Alias Maximum (0x22): 1 byte identifier + 2 bytes ushort
+        if (packet.TopicAliasMaximum.HasValue)
+            propertiesSize += 1 + 2;
+
+        // Reason String (0x1F): 1 byte identifier + 2 byte length prefix + string bytes
+        if (!string.IsNullOrEmpty(packet.ReasonString))
+            propertiesSize += 1 + 2 + Encoding.UTF8.GetByteCount(packet.ReasonString);
+
+        // User Properties (0x26)
         if (packet.UserProperties != null && packet.UserProperties.Any())
-        {
-            propertiesSize = ComputeUserPropertiesSize(packet.UserProperties);
-        }
+            propertiesSize += ComputeUserPropertiesSize(packet.UserProperties);
+
+        // Wildcard Subscription Available (0x28): 1 byte identifier + 1 byte bool
+        if (packet.WildcardSubscriptionAvailable.HasValue)
+            propertiesSize += 1 + 1;
+
+        // Subscription Identifiers Available (0x29): 1 byte identifier + 1 byte bool
+        if (packet.SubscriptionIdentifiersAvailable.HasValue)
+            propertiesSize += 1 + 1;
+
+        // Shared Subscription Available (0x2A): 1 byte identifier + 1 byte bool
+        if (packet.SharedSubscriptionAvailable.HasValue)
+            propertiesSize += 1 + 1;
+
+        // Server Keep Alive (0x13): 1 byte identifier + 2 bytes ushort
+        if (packet.ServerKeepAlive.HasValue)
+            propertiesSize += 1 + 2;
+
+        // Response Information (0x1A): 1 byte identifier + 2 byte length prefix + string bytes
+        if (!string.IsNullOrEmpty(packet.ResponseInformation))
+            propertiesSize += 1 + 2 + Encoding.UTF8.GetByteCount(packet.ResponseInformation);
+
+        // Server Reference (0x1C): 1 byte identifier + 2 byte length prefix + string bytes
+        if (!string.IsNullOrEmpty(packet.ServerReference))
+            propertiesSize += 1 + 2 + Encoding.UTF8.GetByteCount(packet.ServerReference);
+
+        // Authentication Method (0x15): 1 byte identifier + 2 byte length prefix + string bytes
+        if (!string.IsNullOrEmpty(packet.AuthenticationMethod))
+            propertiesSize += 1 + 2 + Encoding.UTF8.GetByteCount(packet.AuthenticationMethod);
+
+        // Authentication Data (0x16): 1 byte identifier + 2 byte length prefix + data bytes
+        if (packet.AuthenticationData.HasValue && !packet.AuthenticationData.Value.IsEmpty)
+            propertiesSize += 1 + 2 + packet.AuthenticationData.Value.Length;
 
         return size + propertiesSize;
     }
