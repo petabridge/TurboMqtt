@@ -29,6 +29,8 @@ public class EmqxFixture: IAsyncLifetime
 
     public int MqttPort => Container.BrokerTcpPort;
 
+    public int MqttTlsPort => Container.BrokerSslPort;
+
     public async Task InitializeAsync()
     {
         await Container.StartAsync();

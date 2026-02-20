@@ -82,18 +82,18 @@ Done when:
 Implement TLS/SSL support. This is the payoff of the `IStreamProvider` abstraction.
 
 Done when:
-- [ ] `TlsStreamProvider` exists in `src/TurboMqtt/IO/Tcp/TlsStreamProvider.cs`
-- [ ] `TlsStreamProvider.ConnectAsync()` creates Socket → `NetworkStream` → `SslStream`, completes TLS handshake
-- [ ] `MqttClientTlsOptions` public options class exists in `src/TurboMqtt/Client/MqttClientTlsOptions.cs`
-- [ ] `MqttClientTlsOptions` supports: `ClientCertificates`, `ServerCertificateValidationCallback`, `EnabledSslProtocols`, `TargetHost`
-- [ ] `IMqttClientFactory.CreateTlsTcpClient()` factory method added
-- [ ] `TcpMqttTransportManager` accepts optional TLS options and creates appropriate `IStreamProvider`
-- [ ] Container test: connect to EMQX over TLS (port 8883) and publish/subscribe at QoS 0
-- [ ] Container test: connect to EMQX over TLS and publish/subscribe at QoS 1
-- [ ] Container test: TLS with custom `ServerCertificateValidationCallback` for self-signed certs
-- [ ] All existing TCP tests still pass (no regression)
-- [ ] `PROJECT_CONTEXT.md` protocol support table updated: TLS status changed from "In-flight" to "Implemented"
-- [ ] Builds with zero warnings
+- [x] `TlsStreamProvider` exists in `src/TurboMqtt/IO/Tcp/TlsStreamProvider.cs`
+- [x] `TlsStreamProvider.ConnectAsync()` creates Socket → `NetworkStream` → `SslStream`, completes TLS handshake
+- [x] `MqttClientTlsOptions` public options class exists in `src/TurboMqtt/Client/MqttClientTlsOptions.cs`
+- [x] `MqttClientTlsOptions` supports: `ClientCertificates`, `ServerCertificateValidationCallback`, `EnabledSslProtocols`, `TargetHost`
+- [x] `IMqttClientFactory.CreateTlsTcpClient()` factory method added
+- [x] `TcpMqttTransportManager` accepts optional TLS options and creates appropriate `IStreamProvider`
+- [x] Container test: connect to EMQX over TLS (port 8883) and publish/subscribe at QoS 0
+- [x] Container test: connect to EMQX over TLS and publish/subscribe at QoS 1
+- [x] Container test: TLS with custom `ServerCertificateValidationCallback` for self-signed certs
+- [x] All existing TCP tests still pass (no regression)
+- [x] `PROJECT_CONTEXT.md` protocol support table updated: TLS status changed from "In-flight" to "Implemented"
+- [x] Builds with zero warnings
 
 ### Task 2.5-D: Transport lifecycle hardening
 
