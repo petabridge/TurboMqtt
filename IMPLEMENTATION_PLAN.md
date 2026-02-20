@@ -473,15 +473,15 @@ packet types using the property writer from Task 3.0. Follow the same static-met
 fields, write Property Length (VBI) + property key-value pairs before the Payload.
 
 Done when:
-- [ ] `Mqtt5Encoder.cs` exists with `EncodePacket` matching `Mqtt311Encoder.EncodePacket` signature
-- [ ] All 15 packet types handled (Connect, ConnAck, Publish, PubAck, PubRec, PubRel, PubComp, Subscribe, SubAck, Unsubscribe, UnsubAck, PingReq, PingResp, Disconnect, Auth)
-- [ ] CONNECT encoding includes: Protocol Level 5, Connect Properties, Will Properties
-- [ ] PUBLISH encoding includes all V5 properties (Topic Alias, Message Expiry, User Properties, etc.)
-- [ ] ACK packets use compact form when Reason Code is Success and no properties
-- [ ] SUBSCRIBE encoding includes V5 Subscription Options byte (No Local, Retain As Published, Retain Handling)
-- [ ] Auth packet encoding handles `AuthenticationMethod`, `AuthenticationData`, `ReasonString`, `UserProperties`
-- [ ] Builds with zero warnings
-- [ ] Unit tests verify encoding of each packet type against hand-computed expected bytes
+- [x] `Mqtt5Encoder.cs` exists with `EncodePacket` matching `Mqtt311Encoder.EncodePacket` signature
+- [x] All 15 packet types handled (Connect, ConnAck, Publish, PubAck, PubRec, PubRel, PubComp, Subscribe, SubAck, Unsubscribe, UnsubAck, PingReq, PingResp, Disconnect, Auth)
+- [x] CONNECT encoding includes: Protocol Level 5, Connect Properties, Will Properties
+- [x] PUBLISH encoding includes all V5 properties (Topic Alias, Message Expiry, User Properties, etc.)
+- [x] ACK packets use compact form when Reason Code is Success and no properties
+- [x] SUBSCRIBE encoding includes V5 Subscription Options byte (No Local, Retain As Published, Retain Handling)
+- [x] Auth packet encoding handles `AuthenticationMethod`, `AuthenticationData`, `ReasonString`, `UserProperties`
+- [x] Builds with zero warnings
+- [x] Unit tests verify encoding of each packet type against hand-computed expected bytes
 
 ### Task 3.3: Implement Mqtt5Decoder
 
