@@ -147,6 +147,8 @@ internal interface IInternalMqttClient : IMqttClient
 public sealed class MqttClient : IInternalMqttClient
 {
     private readonly MqttClientConnectOptions _options;
+    // All reads must go through the Transport property (Volatile.Read);
+    // writes use Interlocked.Exchange in SwapTransport.
     private IMqttTransport _transport;
     private readonly IActorRef _clientOwner;
     private readonly MqttRequiredActors _requiredActors;
@@ -276,9 +278,7 @@ public sealed class MqttClient : IInternalMqttClient
             if (!resp.IsSuccess)
             {
                 _log.Error("Failed to connect to MQTT broker - Reason: {0}", resp.Reason);
-#pragma warning disable CS4014 // Because this call is not awaited, execution of the current method continues before the call is completed
-                AbortConnectionAsync();
-#pragma warning restore CS4014 // Because this call is not awaited, execution of the current method continues before the call is completed
+                _ = AbortConnectionAsync();
                 return resp;
             }
 
@@ -292,9 +292,7 @@ public sealed class MqttClient : IInternalMqttClient
         catch (Exception ex)
         {
             _log.Error(ex, "Failed to connect to MQTT broker - Reason: {0}", ex.Message);
-#pragma warning disable CS4014 // Because this call is not awaited, execution of the current method continues before the call is completed
-            AbortConnectionAsync();
-#pragma warning restore CS4014 // Because this call is not awaited, execution of the current method continues before the call is completed
+            _ = AbortConnectionAsync();
             return new AckProtocol.ConnectFailure(ex.Message);
         }
     }

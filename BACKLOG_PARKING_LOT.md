@@ -44,21 +44,6 @@
 - **Blocked on:** .NET QUIC API stability, MQTT over QUIC standard finalization
 - **Date parked:** 2026-02-19
 
-### TLS support (MQTT 3.1.1 and 5.0)
-- **Source:** Was Task 2.7 and Task 3.12 in `IMPLEMENTATION_PLAN.md`; parked 2026-02-19
-- **Issue:** TLS support exists in-flight on the `tls-support2` branch. The branch has not been reviewed for correctness or compatibility with the current `dev` branch. Task 3.12 (MQTT 5.0 TLS benchmarks) is blocked on this work.
-- **Decision needed:**
-  - Evaluate `tls-support2` branch: merge as-is, merge with modifications, or rewrite?
-  - Is TLS required before a 1.0 release, or is it a post-1.0 feature?
-- **Subtasks when unparked:**
-  - Review `tls-support2` for correctness against current `dev`
-  - Integrate TLS transport: `MqttClientConnectOptions` (certificate, server name, skip-validation for testing)
-  - Container test: connect to EMQX over TLS (port 8883), publish/subscribe at QoS 0 and QoS 1
-  - Unit tests: TLS option validation
-  - `PROJECT_CONTEXT.md` protocol support table: change TLS from "In-flight" to "Implemented"
-  - MQTT 5.0 TLS benchmarks (`Mqtt5TlsTcpBenchmarks.cs`): QoS 0/1, payloads 10 and 1024 bytes, TLS overhead quantified
-- **Date parked:** 2026-02-19
-
 ### AOT compatibility
 - **Source:** `PROJECT_CONTEXT.md` key constraints
 - **Issue:** AOT compilation support is blocked on Akka.NET v1.6 which has not shipped yet. The project currently uses reflection-heavy Akka.NET patterns that are not AOT-friendly.
@@ -78,12 +63,6 @@
 - **Decision needed:** Guard `BecomeClosing()` to skip injection if prior state was Draining, or remove the injection from the Draining handler and rely on BecomeClosing.
 - **Date parked:** 2026-02-20
 
-### Remove dead `CompareAndSetStatus` method
-- **Source:** Adversarial review 20260220-000928, finding F-2
-- **Issue:** `TcpTransportActor.ConnectionState.CompareAndSetStatus()` was added for thread-safety but is never called. All status transitions use `Volatile.Write` via the `Status` setter.
-- **Decision needed:** Remove the method or use it where appropriate (e.g., in `DisposeStreamProvider` status assignment).
-- **Date parked:** 2026-02-20
-
 ### Propagate `ConnectTimeout` to reconnect CTS
 - **Source:** Adversarial review 20260220-000928, finding F-4
 - **Issue:** `ClientStreamOwner.BeginReconnect()` hardcodes `TimeSpan.FromSeconds(5)` for the reconnect CTS. The new `MqttClientTcpOptions.ConnectTimeout` property is not propagated to the reconnect path.
@@ -95,19 +74,3 @@
 - **Issue:** The `Reconnecting` state in `ClientStreamOwner` is only tested via FakeMqttTcpServer E2E. An isolated TestKit test with TestProbe would verify the message flow (ReconnectSuccess/ReconnectFailed) more reliably and run faster.
 - **Date parked:** 2026-02-20
 
-### Clean up pre-existing `#pragma warning disable CS4014` in MqttClient.ConnectAsync
-- **Source:** Adversarial review 20260220-000928, finding G-4
-- **Issue:** Two instances of fire-and-forget `AbortConnectionAsync()` in `ConnectAsync` error paths use pragma suppression. Should properly track the Task or use a discard with a comment.
-- **Date parked:** 2026-02-20
-
-### Annotate `_transport` field in `IMqttClient.cs` with thread-safety comment
-- **Source:** Adversarial review 20260220-000928, finding F-5
-- **Issue:** The `_transport` field in `MqttClient` (line 150 of `IMqttClient.cs`) is a bare `private IMqttTransport _transport;` with no annotation. All reads must go through the `Transport` property (which uses `Volatile.Read`) to ensure visibility across threads. A missing comment risks future developers reading the field directly, introducing a race condition.
-- **Decision needed:** Add a comment on the field declaration (e.g., `// Reads must use the Transport property (Volatile.Read); writes use Interlocked.Exchange in SwapTransport`) or enforce access through a Roslyn analyzer.
-- **Date parked:** 2026-02-20
-
-### IMPLEMENTATION_PLAN.md Phase 2.5 checkbox desync
-- **Source:** Adversarial review 20260220-000928, finding R-2 (also noted in review-after-iter-03.md)
-- **Issue:** `IMPLEMENTATION_PLAN.md` Phase 2.5 section (Tasks 2.5-A through 2.5-D) still shows `- [ ]` for all Done-when items, while `IMPLEMENTATION_PLAN_PHASE2_5.md` shows all `- [x]`. These should be synchronized.
-- **Decision needed:** Sync during PR merge to `dev`, or as part of Task 1.7?
-- **Date parked:** 2026-02-20

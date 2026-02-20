@@ -52,15 +52,6 @@ internal sealed class TcpTransportActor : UntypedActor
             internal set => Volatile.Write(ref _status, (int)value);
         }
 
-        /// <summary>
-        /// Atomically update the status if current value matches expected.
-        /// </summary>
-        /// <returns>True if the update was successful, false otherwise.</returns>
-        public bool CompareAndSetStatus(ConnectionStatus expected, ConnectionStatus newValue)
-        {
-            return Interlocked.CompareExchange(ref _status, (int)newValue, (int)expected) == (int)expected;
-        }
-
         public CancellationTokenSource ShutDownCts { get; } = new();
 
         public int MaxFrameSize { get; }

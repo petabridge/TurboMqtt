@@ -302,21 +302,21 @@ Introduce `IStreamProvider` + `TcpStreamProvider`, refactor `TcpTransportActor` 
 and replace `new byte[]` allocations in `ReadFromPipeAsync` with `MemoryPool<byte>.Shared.Rent()`.
 
 Done when:
-- [ ] `IStreamProvider` interface exists in `src/TurboMqtt/IO/Tcp/IStreamProvider.cs`
-- [ ] `TcpStreamProvider` implementation exists in `src/TurboMqtt/IO/Tcp/TcpStreamProvider.cs`
-- [ ] `TcpStreamProvider.ConnectAsync()` creates Socket, resolves DNS, connects, returns `NetworkStream`
-- [ ] `TcpTransportActor` constructor takes `IStreamProvider` instead of creating Socket directly
-- [ ] `DoWriteToPipeAsync` reads from `Stream.ReadAsync()` instead of `Socket.ReceiveAsync()`
-- [ ] `DoWriteToSocketAsync` writes to `Stream.WriteAsync()` instead of `Socket.SendAsync()`
-- [ ] `ReadFromPipeAsync` uses `MemoryPool<byte>.Shared.Rent()` instead of `new byte[buffer.Length]`
-- [ ] `UnsharedMemoryOwner` no longer used on the read path (may still be used elsewhere)
-- [ ] `TcpTransport.cs` updated to pass `IStreamProvider` through
-- [ ] `TcpConnectionManager.cs` updated to create appropriate `IStreamProvider`
-- [ ] All existing TCP unit tests pass unchanged
-- [ ] All container tests pass against EMQX
-- [ ] New unit tests for `TcpStreamProvider` (connect, DNS resolution, socket configuration)
-- [ ] BenchmarkDotNet before/after confirms no throughput regression (baseline: 193k msg/sec QoS 0)
-- [ ] Builds with zero warnings
+- [x] `IStreamProvider` interface exists in `src/TurboMqtt/IO/Tcp/IStreamProvider.cs`
+- [x] `TcpStreamProvider` implementation exists in `src/TurboMqtt/IO/Tcp/TcpStreamProvider.cs`
+- [x] `TcpStreamProvider.ConnectAsync()` creates Socket, resolves DNS, connects, returns `NetworkStream`
+- [x] `TcpTransportActor` constructor takes `IStreamProvider` instead of creating Socket directly
+- [x] `DoWriteToPipeAsync` reads from `Stream.ReadAsync()` instead of `Socket.ReceiveAsync()`
+- [x] `DoWriteToSocketAsync` writes to `Stream.WriteAsync()` instead of `Socket.SendAsync()`
+- [x] `ReadFromPipeAsync` uses `MemoryPool<byte>.Shared.Rent()` instead of `new byte[buffer.Length]`
+- [x] `UnsharedMemoryOwner` no longer used on the read path (may still be used elsewhere)
+- [x] `TcpTransport.cs` updated to pass `IStreamProvider` through
+- [x] `TcpConnectionManager.cs` updated to create appropriate `IStreamProvider`
+- [x] All existing TCP unit tests pass unchanged
+- [x] All container tests pass against EMQX
+- [x] New unit tests for `TcpStreamProvider` (connect, DNS resolution, socket configuration)
+- [x] BenchmarkDotNet before/after confirms no throughput regression (baseline: 193k msg/sec QoS 0)
+- [x] Builds with zero warnings
 
 ### Task 2.5-B: Fix transport race conditions
 
@@ -328,22 +328,22 @@ Fix the 12+ identified race conditions in shutdown, reconnection, and transport 
 Can be developed in parallel with Task 2.5-A.
 
 Done when:
-- [ ] `TcpTransportActor` uses explicit `Become` states: `NotStarted → Created → Connecting → Connected → Draining → Closing → Stopped` (and `Aborted` short-circuit)
-- [ ] Background tasks in `BecomeRunning()` tracked with `Task.WhenAll` + `ContinueWith` self-tell `BackgroundTasksCompleted`
-- [ ] `CleanUpGracefully` replaced with state-driven transitions — no more fire-and-forget async
-- [ ] Duplicate `DoClose`/`ReadFinished`/`ConnectionUnexpectedlyClosed` messages in non-handling states are ignored
-- [ ] `MqttClient.SwapTransport()` uses `Interlocked.Exchange` + `volatile` field
-- [ ] TOCTOU on `IsConnected` in `PublishAsync` eliminated — rely on `TryWrite` returning false
-- [ ] `ClientStreamOwner.PostStop()` follows deterministic ordering: complete outbound → abort transport → complete inbound → signal death
-- [ ] `ClientStreamOwner` reconnect uses message-driven `Reconnecting` behavior (no fire-and-forget `DoReconnect`)
-- [ ] `ReadFromPipeAsync` catch block includes `return` after `Tell(ReadFinished.Instance)`
-- [ ] `DisposeSocket` CTS disposal is safe (no double-cancel race with `CleanUpGracefully`)
-- [ ] All existing E2E tests pass
-- [ ] New test: concurrent disconnect + publish does not deadlock or crash
-- [ ] New test: rapid sequential reconnects (3+ in < 1 second) complete without error
-- [ ] New test: server kills connection during QoS 2 exchange — client reconnects and retransmits
-- [ ] New test: disconnect while large publish in flight — verifies graceful drain
-- [ ] Builds with zero warnings
+- [x] `TcpTransportActor` uses explicit `Become` states: `NotStarted → Created → Connecting → Connected → Draining → Closing → Stopped` (and `Aborted` short-circuit)
+- [x] Background tasks in `BecomeRunning()` tracked with `Task.WhenAll` + `ContinueWith` self-tell `BackgroundTasksCompleted`
+- [x] `CleanUpGracefully` replaced with state-driven transitions — no more fire-and-forget async
+- [x] Duplicate `DoClose`/`ReadFinished`/`ConnectionUnexpectedlyClosed` messages in non-handling states are ignored
+- [x] `MqttClient.SwapTransport()` uses `Interlocked.Exchange` + `volatile` field
+- [x] TOCTOU on `IsConnected` in `PublishAsync` eliminated — rely on `TryWrite` returning false
+- [x] `ClientStreamOwner.PostStop()` follows deterministic ordering: complete outbound → abort transport → complete inbound → signal death
+- [x] `ClientStreamOwner` reconnect uses message-driven `Reconnecting` behavior (no fire-and-forget `DoReconnect`)
+- [x] `ReadFromPipeAsync` catch block includes `return` after `Tell(ReadFinished.Instance)`
+- [x] `DisposeSocket` CTS disposal is safe (no double-cancel race with `CleanUpGracefully`)
+- [x] All existing E2E tests pass
+- [x] New test: concurrent disconnect + publish does not deadlock or crash
+- [x] New test: rapid sequential reconnects (3+ in < 1 second) complete without error
+- [x] New test: server kills connection during QoS 2 exchange — client reconnects and retransmits
+- [x] New test: disconnect while large publish in flight — verifies graceful drain
+- [x] Builds with zero warnings
 
 ### Task 2.5-C: Add TLS support via TlsStreamProvider
 
@@ -355,18 +355,18 @@ Done when:
 Implement TLS/SSL support. This is the payoff of the `IStreamProvider` abstraction.
 
 Done when:
-- [ ] `TlsStreamProvider` exists in `src/TurboMqtt/IO/Tcp/TlsStreamProvider.cs`
-- [ ] `TlsStreamProvider.ConnectAsync()` creates Socket → `NetworkStream` → `SslStream`, completes TLS handshake
-- [ ] `MqttClientTlsOptions` public options class exists in `src/TurboMqtt/Client/MqttClientTlsOptions.cs`
-- [ ] `MqttClientTlsOptions` supports: `ClientCertificates`, `ServerCertificateValidationCallback`, `EnabledSslProtocols`, `TargetHost`
-- [ ] `IMqttClientFactory.CreateTlsTcpClient()` factory method added
-- [ ] `TcpMqttTransportManager` accepts optional TLS options and creates appropriate `IStreamProvider`
-- [ ] Container test: connect to EMQX over TLS (port 8883) and publish/subscribe at QoS 0
-- [ ] Container test: connect to EMQX over TLS and publish/subscribe at QoS 1
-- [ ] Container test: TLS with custom `ServerCertificateValidationCallback` for self-signed certs
-- [ ] All existing TCP tests still pass (no regression)
-- [ ] `PROJECT_CONTEXT.md` protocol support table updated: TLS status changed from "In-flight" to "Implemented"
-- [ ] Builds with zero warnings
+- [x] `TlsStreamProvider` exists in `src/TurboMqtt/IO/Tcp/TlsStreamProvider.cs`
+- [x] `TlsStreamProvider.ConnectAsync()` creates Socket → `NetworkStream` → `SslStream`, completes TLS handshake
+- [x] `MqttClientTlsOptions` public options class exists in `src/TurboMqtt/Client/MqttClientTlsOptions.cs`
+- [x] `MqttClientTlsOptions` supports: `ClientCertificates`, `ServerCertificateValidationCallback`, `EnabledSslProtocols`, `TargetHost`
+- [x] `IMqttClientFactory.CreateTlsTcpClient()` factory method added
+- [x] `TcpMqttTransportManager` accepts optional TLS options and creates appropriate `IStreamProvider`
+- [x] Container test: connect to EMQX over TLS (port 8883) and publish/subscribe at QoS 0
+- [x] Container test: connect to EMQX over TLS and publish/subscribe at QoS 1
+- [x] Container test: TLS with custom `ServerCertificateValidationCallback` for self-signed certs
+- [x] All existing TCP tests still pass (no regression)
+- [x] `PROJECT_CONTEXT.md` protocol support table updated: TLS status changed from "In-flight" to "Implemented"
+- [x] Builds with zero warnings
 
 ### Task 2.5-D: Transport lifecycle hardening
 
@@ -378,16 +378,16 @@ Done when:
 Formalize the transport state machine and graceful drain to production quality.
 
 Done when:
-- [ ] Full FSM with explicit state transitions and structured logging at each transition
-- [ ] `ConnectionState` shared mutable state replaced with actor messages or thread-safe wrappers
-- [ ] Graceful drain: `Draining` state where outbound flushes before DISCONNECT is sent
-- [ ] Connect timeout with cancellation propagation (configurable, default 10s)
-- [ ] Actor test: verify all state transitions with TestProbe (`NotStarted → Created → Connecting → Connected → Draining → Closing → Stopped`)
-- [ ] Actor test: verify `Aborted` short-circuit path
-- [ ] Test: disconnect while large publish in flight — outbound flushes before close
-- [ ] Test: connect timeout fires when broker is unreachable
-- [ ] All E2E tests pass
-- [ ] Builds with zero warnings
+- [x] Full FSM with explicit state transitions and structured logging at each transition
+- [x] `ConnectionState` shared mutable state replaced with actor messages or thread-safe wrappers
+- [x] Graceful drain: `Draining` state where outbound flushes before DISCONNECT is sent
+- [x] Connect timeout with cancellation propagation (configurable, default 10s)
+- [x] Actor test: verify all state transitions with TestProbe (`NotStarted → Created → Connecting → Connected → Draining → Closing → Stopped`)
+- [x] Actor test: verify `Aborted` short-circuit path
+- [x] Test: disconnect while large publish in flight — outbound flushes before close
+- [x] Test: connect timeout fires when broker is unreachable
+- [x] All E2E tests pass
+- [x] Builds with zero warnings
 
 ---
 
