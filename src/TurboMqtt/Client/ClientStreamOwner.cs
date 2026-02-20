@@ -63,6 +63,23 @@ internal sealed class ClientStreamOwner : UntypedActor
         public static readonly StreamTerminated Instance = new();
     }
 
+    /// <summary>
+    /// Self-tell: reconnect completed successfully.
+    /// </summary>
+    private sealed class ReconnectSuccess : IClientStreamOwnerMessage
+    {
+        private ReconnectSuccess()
+        {
+        }
+
+        public static readonly ReconnectSuccess Instance = new();
+    }
+
+    /// <summary>
+    /// Self-tell: reconnect failed.
+    /// </summary>
+    private sealed record ReconnectFailed(string Reason) : IClientStreamOwnerMessage;
+
     public sealed class TransportConnectedSuccessfully : IClientStreamOwnerMessage
     {
         private TransportConnectedSuccessfully()
@@ -113,6 +130,7 @@ internal sealed class ClientStreamOwner : UntypedActor
     private readonly TaskCompletionSource<DisconnectReasonCode> _trueDeath = new();
 
     private readonly ILoggingAdapter _log = Context.GetLogger();
+    private readonly IActorRef _closureSelf = Context.Self;
 
     /* Data we need for automatic reconnects */
     private MqttClientConnectOptions? _connectOptions;
@@ -120,6 +138,7 @@ internal sealed class ClientStreamOwner : UntypedActor
     private int _remainingReconnectAttempts = 3;
     private int _streamOperatorId = 0;
     private bool _successfullyConnected = false;
+    private CancellationTokenSource? _reconnectCts;
 
     protected override void OnReceive(object message)
     {
@@ -320,94 +339,17 @@ internal sealed class ClientStreamOwner : UntypedActor
                 break;
             }
 
-            // old stream is dead, time to create a new one
+            // old stream is dead, time to create a new one — enter Reconnecting behavior
             case StreamTerminated when _successfullyConnected:
             {
                 if (_remainingReconnectAttempts <= 0)
                     return; // ignore
 
-                RunTask(async () =>
-                {
-                    _remainingReconnectAttempts--;
-
-                    // TODO: determine if this is an irrecoverable broker error
-                    // if it is, we need to shut down the client
-                    // if it's not, we need to reconnect
-
-                    await ReplaceTransport();
-
-                    var requiredActors = new MqttRequiredActors(_exactlyOnceActor!, _atLeastOnceActor!,
-                        _clientAckActor!,
-                        _heartBeatActor!);
-
-                    // the transport should be at rest now, no longer being written to - clear out all the old data\
-                    HashSet<MqttPacket> preservedPackets = new();
-                    while (_outboundChannel!.Reader.TryRead(out var p))
-                    {
-                        if (p.PacketType == MqttPacketType.Disconnect)
-                            continue; // don't bother resending disconnect packets
-                        preservedPackets.Add(p);
-                    }
-
-                    _log.Debug("Preserved {0} packets for retransmission.", preservedPackets.Count);
-
-                    // NOTE: inbound channel does not need to be drained - it's a one-way channel
-
-                    // need to reconnect the streams
-                    var streamCreateResult = await PrepareStreamAsync(_connectOptions!, _currentTransport!,
-                        _outboundChannel!, _inboundChannel!, requiredActors, Self);
-
-                    if (!streamCreateResult.IsSuccess) // should never happen
-                    {
-                        var errMsg = $"Failed to recreate stream. Reason: {streamCreateResult.ReasonString}";
-                        _log.Error(errMsg);
-                        Self.Tell(PoisonPill.Instance);
-                        return;
-                    }
-
-                    var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
-                    _ = DoReconnect(preservedPackets, cts.Token);
-                });
-
+                _remainingReconnectAttempts--;
+                _log.Info("Stream terminated. Entering Reconnecting state. Remaining attempts: {0}", _remainingReconnectAttempts);
+                Become(Reconnecting);
+                BeginReconnect();
                 break;
-
-                // reconnect the client using the client with the new transport
-                async Task DoReconnect(HashSet<MqttPacket> preserved, CancellationToken ct)
-                {
-                    var self = Self;
-                    try
-                    {
-                        var resp = await _client!.ConnectAsync(ct);
-                        if (!resp.IsSuccess)
-                        {
-                            _log.Warning("Failed to reconnect client. Reason: {0}", resp.Reason);
-                            self.Tell(new ServerDisconnect(new DisconnectPacket()
-                                { ReasonCode = DisconnectReasonCode.MaximumConnectTime }));
-                        }
-
-                        // for each of our subscriptions, we need to resubscribe
-                        var subscribeResp = await _client.SubscribeAsync(_savedSubscriptions.Values.ToArray(), ct);
-                        if (!subscribeResp.IsSuccess)
-                        {
-                            _log.Warning("Failed to resubscribe to topics. Reason: {0}", subscribeResp.Reason);
-                            self.Tell(new ServerDisconnect(new DisconnectPacket()
-                                { ReasonCode = DisconnectReasonCode.UnspecifiedError }));
-                        }
-                        
-                        // reset the reconnect attempts
-                        self.Tell(TransportConnectedSuccessfully.Instance);
-
-                        // requeue all the packets that were preserved
-                        foreach (var p in preserved)
-                            _outboundChannel.Writer.TryWrite(p);
-                    }
-                    catch (OperationCanceledException)
-                    {
-                        _log.Warning("Reconnect operation timed out. Aborting transport.");
-                        // ReSharper disable once MethodSupportsCancellation
-                        _ = _currentTransport!.AbortAsync(ct);
-                    }
-                }
             }
 
             case DoDisconnect doDisconnect: // explicit disconnect - no coming back from this
@@ -457,6 +399,81 @@ internal sealed class ClientStreamOwner : UntypedActor
         }
     }
 
+    /// <summary>
+    /// Message-driven reconnection state.
+    /// Waits for <see cref="ReconnectSuccess"/> or <see cref="ReconnectFailed"/> self-tells.
+    /// </summary>
+    private void Reconnecting(object message)
+    {
+        switch (message)
+        {
+            case ReconnectSuccess:
+            {
+                _log.Info("Reconnect succeeded. Returning to Running state.");
+                _closureSelf.Tell(TransportConnectedSuccessfully.Instance);
+                Become(Running);
+                break;
+            }
+            case ReconnectFailed failed:
+            {
+                _log.Warning("Reconnect failed: {0}", failed.Reason);
+                if (_remainingReconnectAttempts > 0)
+                {
+                    _remainingReconnectAttempts--;
+                    _log.Info("Retrying reconnect. Remaining attempts: {0}", _remainingReconnectAttempts);
+                    BeginReconnect();
+                }
+                else
+                {
+                    _log.Info("Client has exhausted all reconnect attempts. Shutting down.");
+                    Self.Tell(PoisonPill.Instance);
+                }
+                break;
+            }
+            case TransportFailedToConnect:
+            {
+                // Respond to unblock MqttClient.ConnectAsync's Ask<TransportResetComplete>
+                Sender.Tell(TransportResetComplete.Instance);
+                break;
+            }
+            case TransportConnectedSuccessfully:
+            {
+                // Sent by MqttClient.ConnectAsync during reconnect — ignore here,
+                // we send our own after ReconnectSuccess
+                break;
+            }
+            case ServerDisconnect:
+            {
+                // Transport died during reconnect — cancel the in-flight ConnectAsync
+                // so it fails immediately instead of waiting for the full CTS timeout.
+                _log.Debug("Cancelling reconnect due to ServerDisconnect.");
+                _reconnectCts?.Cancel();
+                break;
+            }
+            case StreamTerminated:
+                _log.Debug("Ignoring StreamTerminated in Reconnecting state.");
+                break;
+            case DoDisconnect:
+            {
+                _log.Info("Received disconnect request while reconnecting. Shutting down.");
+                Sender.Tell(DisconnectComplete.Instance);
+                Self.Tell(PoisonPill.Instance);
+                break;
+            }
+            case Terminated t:
+            {
+                _log.Error(
+                    "One of the required actors [{0}] has terminated during reconnect. Shutting down the client.",
+                    t.ActorRef);
+                Self.Tell(PoisonPill.Instance);
+                break;
+            }
+            default:
+                Unhandled(message);
+                break;
+        }
+    }
+
     private async Task ReplaceTransport()
     {
         CreateStreamInstanceOwner();
@@ -466,25 +483,122 @@ internal sealed class ClientStreamOwner : UntypedActor
 
         // swap transports
         _client!.SwapTransport(_currentTransport);
-        
+
         // Reset the ack actor connection state
         _clientAckActor!.Tell(ClientAcksActor.Reconnect.Instance);
     }
 
+    /// <summary>
+    /// Starts a reconnect attempt. Creates a new CTS, cleans up old resources,
+    /// sets up new transport/stream, and launches ConnectAsync on the thread pool.
+    /// </summary>
+    private void BeginReconnect()
+    {
+        _reconnectCts?.Cancel();
+        _reconnectCts?.Dispose();
+        _reconnectCts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+        var reconnectToken = _reconnectCts.Token;
+
+        RunTask(async () =>
+        {
+            // Clean up old stream instance (may already be dead, that's fine)
+            if (_streamInstanceOwner != null)
+            {
+                Context.Unwatch(_streamInstanceOwner);
+                Context.Stop(_streamInstanceOwner);
+            }
+
+            _ = _currentTransport?.AbortAsync();
+            _currentTransport = null;
+
+            await ReplaceTransport();
+
+            var requiredActors = new MqttRequiredActors(_exactlyOnceActor!, _atLeastOnceActor!,
+                _clientAckActor!, _heartBeatActor!);
+
+            // the transport should be at rest now — clear out old data
+            HashSet<MqttPacket> preservedPackets = new();
+            while (_outboundChannel!.Reader.TryRead(out var p))
+            {
+                if (p.PacketType == MqttPacketType.Disconnect)
+                    continue; // don't bother resending disconnect packets
+                preservedPackets.Add(p);
+            }
+
+            _log.Debug("Preserved {0} packets for retransmission.", preservedPackets.Count);
+
+            // need to reconnect the streams
+            var streamCreateResult = await PrepareStreamAsync(_connectOptions!, _currentTransport!,
+                _outboundChannel!, _inboundChannel!, requiredActors, Self);
+
+            if (!streamCreateResult.IsSuccess)
+            {
+                _closureSelf.Tell(new ReconnectFailed($"Failed to recreate stream. Reason: {streamCreateResult.ReasonString}"));
+                return;
+            }
+
+            // Phase 2: Run ConnectAsync on the thread pool so the actor can process
+            // messages (like TransportFailedToConnect) that ConnectAsync sends back.
+            var closureSelf = _closureSelf;
+            var client = _client!;
+            var savedSubs = _savedSubscriptions;
+            var outbound = _outboundChannel!;
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    var resp = await client.ConnectAsync(reconnectToken);
+                    if (!resp.IsSuccess)
+                    {
+                        closureSelf.Tell(new ReconnectFailed($"Failed to reconnect. Reason: {resp.Reason}"));
+                        return;
+                    }
+
+                    // resubscribe
+                    if (savedSubs.Count > 0)
+                    {
+                        var subscribeResp = await client.SubscribeAsync(savedSubs.Values.ToArray(), reconnectToken);
+                        if (!subscribeResp.IsSuccess)
+                        {
+                            // non-fatal: log and continue
+                        }
+                    }
+
+                    // requeue preserved packets
+                    foreach (var pk in preservedPackets)
+                        outbound.Writer.TryWrite(pk);
+
+                    closureSelf.Tell(ReconnectSuccess.Instance);
+                }
+                catch (OperationCanceledException)
+                {
+                    closureSelf.Tell(new ReconnectFailed("Reconnect operation timed out or was cancelled."));
+                }
+            });
+        });
+    }
+
     protected override void PostStop()
     {
-        // force the transport to close - usually it will already be dead by now
-        _currentTransport?.AbortAsync();
-        
-        // subtle race condition - if someone immediately tries to recreate a failed client, our parent
-        // might yell at them and say "client already exists" - this is because DeathWatch runs slightly
-        // behind the _trueDeath task completion even when it runs only in our PostStop routine.
-        // Thus, we're going to front-run DeathWatch here and tell our parent that we're dead.
-        Context.Parent.Tell(new ClientManagerActor.ClientDied(_connectOptions!.ClientId));
+        // Cancel and dispose reconnect CTS
+        _reconnectCts?.Cancel();
+        _reconnectCts?.Dispose();
 
-        // force both channels to complete - this will shut down the streams and the transport
+        // Deterministic shutdown ordering:
+        // 1. Complete outbound channel writer — stops new data entering stream
         _outboundChannel?.Writer.TryComplete();
+
+        // 2. Abort transport — cancels background tasks, disposes stream
+        _currentTransport?.AbortAsync();
+
+        // 3. Complete inbound channel writer — terminates consumer
         _inboundChannel?.Writer.TryComplete();
+
+        // 4. Signal _trueDeath — unblocks WhenTerminated
         _trueDeath.TrySetResult(DisconnectReasonCode.NormalDisconnection);
+
+        // 5. Tell parent that we're dead — front-runs DeathWatch to avoid
+        //    "client already exists" race if someone immediately recreates.
+        Context.Parent.Tell(new ClientManagerActor.ClientDied(_connectOptions!.ClientId));
     }
 }

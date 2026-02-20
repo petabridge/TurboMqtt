@@ -104,6 +104,8 @@ public enum ConnectionStatus
     NotStarted,
     Connecting,
     Connected,
+    Draining,
+    Closing,
     Disconnected,
     Aborted,
     Failed

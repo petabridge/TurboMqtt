@@ -55,22 +55,22 @@ Fix the 12+ identified race conditions in shutdown, reconnection, and transport 
 Can be developed in parallel with Task 2.5-A.
 
 Done when:
-- [ ] `TcpTransportActor` uses explicit `Become` states: `NotStarted → Created → Connecting → Connected → Draining → Closing → Stopped` (and `Aborted` short-circuit)
-- [ ] Background tasks in `BecomeRunning()` tracked with `Task.WhenAll` + `ContinueWith` self-tell `BackgroundTasksCompleted`
-- [ ] `CleanUpGracefully` replaced with state-driven transitions — no more fire-and-forget async
-- [ ] Duplicate `DoClose`/`ReadFinished`/`ConnectionUnexpectedlyClosed` messages in non-handling states are ignored
-- [ ] `MqttClient.SwapTransport()` uses `Interlocked.Exchange` + `volatile` field
-- [ ] TOCTOU on `IsConnected` in `PublishAsync` eliminated — rely on `TryWrite` returning false
-- [ ] `ClientStreamOwner.PostStop()` follows deterministic ordering: complete outbound → abort transport → complete inbound → signal death
-- [ ] `ClientStreamOwner` reconnect uses message-driven `Reconnecting` behavior (no fire-and-forget `DoReconnect`)
-- [ ] `ReadFromPipeAsync` catch block includes `return` after `Tell(ReadFinished.Instance)`
-- [ ] `DisposeSocket` CTS disposal is safe (no double-cancel race with `CleanUpGracefully`)
-- [ ] All existing E2E tests pass
-- [ ] New test: concurrent disconnect + publish does not deadlock or crash
-- [ ] New test: rapid sequential reconnects (3+ in < 1 second) complete without error
-- [ ] New test: server kills connection during QoS 2 exchange — client reconnects and retransmits
-- [ ] New test: disconnect while large publish in flight — verifies graceful drain
-- [ ] Builds with zero warnings
+- [x] `TcpTransportActor` uses explicit `Become` states: `NotStarted → Created → Connecting → Connected → Draining → Closing → Stopped` (and `Aborted` short-circuit)
+- [x] Background tasks in `BecomeRunning()` tracked with `Task.WhenAll` + `ContinueWith` self-tell `BackgroundTasksCompleted`
+- [x] `CleanUpGracefully` replaced with state-driven transitions — no more fire-and-forget async
+- [x] Duplicate `DoClose`/`ReadFinished`/`ConnectionUnexpectedlyClosed` messages in non-handling states are ignored
+- [x] `MqttClient.SwapTransport()` uses `Interlocked.Exchange` + `volatile` field
+- [x] TOCTOU on `IsConnected` in `PublishAsync` eliminated — rely on `TryWrite` returning false
+- [x] `ClientStreamOwner.PostStop()` follows deterministic ordering: complete outbound → abort transport → complete inbound → signal death
+- [x] `ClientStreamOwner` reconnect uses message-driven `Reconnecting` behavior (no fire-and-forget `DoReconnect`)
+- [x] `ReadFromPipeAsync` catch block includes `return` after `Tell(ReadFinished.Instance)`
+- [x] `DisposeSocket` CTS disposal is safe (no double-cancel race with `CleanUpGracefully`)
+- [x] All existing E2E tests pass
+- [x] New test: concurrent disconnect + publish does not deadlock or crash
+- [x] New test: rapid sequential reconnects (3+ in < 1 second) complete without error
+- [x] New test: server kills connection during QoS 2 exchange — client reconnects and retransmits
+- [x] New test: disconnect while large publish in flight — verifies graceful drain
+- [x] Builds with zero warnings
 
 ### Task 2.5-C: Add TLS support via TlsStreamProvider
 

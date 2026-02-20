@@ -17,6 +17,11 @@ namespace TurboMqtt.IO.Tcp;
 
 /// <summary>
 /// Actor responsible for managing the TCP transport layer for MQTT.
+///
+/// FSM:
+///   NotStarted (OnReceive) → Created (TransportCreated) → Connecting (via RunTask)
+///   → Connected → Draining → Closing → Stopped
+///                  Connected → Aborted → Stopped
 /// </summary>
 internal sealed class TcpTransportActor : UntypedActor
 {
@@ -111,6 +116,30 @@ internal sealed class TcpTransportActor : UntypedActor
     /// <param name="ReasonMessage"></param>
     public sealed record ConnectionUnexpectedlyClosed(DisconnectReasonCode Reason, string ReasonMessage);
 
+    /// <summary>
+    /// Self-tell sent when all three background tasks (read-from-stream, read-from-pipe, write-to-stream) have completed.
+    /// </summary>
+    private sealed class BackgroundTasksCompleted : IDeadLetterSuppression
+    {
+        private BackgroundTasksCompleted()
+        {
+        }
+
+        public static BackgroundTasksCompleted Instance { get; } = new();
+    }
+
+    /// <summary>
+    /// Self-tell sent when outbound data has been flushed during the Draining state.
+    /// </summary>
+    private sealed class OutboundFlushed : IDeadLetterSuppression
+    {
+        private OutboundFlushed()
+        {
+        }
+
+        public static OutboundFlushed Instance { get; } = new();
+    }
+
     #endregion
 
     public MqttClientTcpOptions TcpOptions { get; }
@@ -132,8 +161,11 @@ internal sealed class TcpTransportActor : UntypedActor
 
     private readonly Pipe _pipe;
 
-    // Track task completion for graceful shutdown
-    private readonly TaskCompletionSource _shutdownComplete = new();
+    // Guard against multiple PoisonPill sends
+    private bool _poisonPillSent;
+
+    // Guard against CTS double-cancel
+    private int _ctsCancelled;
 
     public TcpTransportActor(MqttClientTcpOptions tcpOptions, IStreamProvider streamProvider)
     {
@@ -147,13 +179,6 @@ internal sealed class TcpTransportActor : UntypedActor
         _pipe = new Pipe(new PipeOptions(pauseWriterThreshold: ScaleBufferSize(MaxFrameSize), resumeWriterThreshold: ScaleBufferSize(MaxFrameSize) / 2,
             useSynchronizationContext: false));
     }
-
-    /*
-     * FSM:
-     * OnReceive (nothing has happened) --> CreateTcpTransport --> TransportCreated BECOME Connecting
-     * Connecting --> DoConnect --> Connecting (already connecting) --> ConnectResult (Connected) BECOME Running
-     * Running --> DoWriteToPipeAsync --> Running (read data from stream) --> DoWriteToSocketAsync --> Running (write data to stream)
-     */
 
     /// <summary>
     /// Performs the max buffer size scaling for the socket.
@@ -249,7 +274,7 @@ internal sealed class TcpTransportActor : UntypedActor
                 _log.Info("Successfully connected to [{0}:{1}]", TcpOptions.Host, TcpOptions.Port);
                 State.Status = ConnectionStatus.Connected;
 
-                BecomeRunning();
+                BecomeConnected();
                 break;
             }
             case ConnectResult { Status: ConnectionStatus.Failed }:
@@ -265,15 +290,22 @@ internal sealed class TcpTransportActor : UntypedActor
         }
     }
 
-    private void BecomeRunning()
+    /// <summary>
+    /// Transitions to the Connected state and starts the three background tasks,
+    /// tracking them with Task.WhenAll + ContinueWith self-tell.
+    /// </summary>
+    private void BecomeConnected()
     {
-        Become(Running);
+        Become(Connected);
 
-#pragma warning disable CS4014 // Because this call is not awaited, execution of the current method continues before the call is completed
-        DoWriteToPipeAsync(State.ShutDownCts.Token);
-        ReadFromPipeAsync(State.ShutDownCts.Token);
-        DoWriteToSocketAsync(State.ShutDownCts.Token);
-#pragma warning restore CS4014 // Because this call is not awaited, execution of the current method continues before the call is completed
+        var readFromStreamTask = DoWriteToPipeAsync(State.ShutDownCts.Token);
+        var readFromPipeTask = ReadFromPipeAsync(State.ShutDownCts.Token);
+        var writeToStreamTask = DoWriteToSocketAsync(State.ShutDownCts.Token);
+
+        Task.WhenAll(readFromStreamTask, readFromPipeTask, writeToStreamTask).ContinueWith(_ =>
+        {
+            _closureSelf.Tell(BackgroundTasksCompleted.Instance);
+        }, TaskContinuationOptions.ExecuteSynchronously);
     }
 
     private async Task DoWriteToSocketAsync(CancellationToken ct)
@@ -307,23 +339,20 @@ internal sealed class TcpTransportActor : UntypedActor
             {
                 // we're being shut down
                 _log.Debug("Shutting down write to socket.");
-                _closureSelf.Tell(ReadFinished.Instance);
-                goto WritesFinished;
+                return;
             }
             catch (Exception ex)
             {
                 _log.Error(ex, "Failed to write to socket.");
                 // we are done writing
                 _closureSelf.Tell(new ConnectionUnexpectedlyClosed(DisconnectReasonCode.UnspecifiedError, ex.Message));
-                // socket was closed
                 // abort ongoing reads and writes, but don't shutdown the transport
-                await State.ShutDownCts.CancelAsync();
-                goto WritesFinished;
+                TryCancelCts();
+                return;
             }
         }
 
-        WritesFinished:
-            _writesToTransport.Writer.TryComplete(); // can't write anymore either
+        _writesToTransport.Writer.TryComplete(); // can't write anymore either
     }
 
     private async Task DoWriteToPipeAsync(CancellationToken ct)
@@ -338,8 +367,6 @@ internal sealed class TcpTransportActor : UntypedActor
                 {
                     // we are done reading - socket was gracefully closed
                     _closureSelf.Tell(ReadFinished.Instance);
-                    // abort ongoing reads and writes, but don't shutdown the transport
-                    await State.ShutDownCts.CancelAsync();
                     return;
                 }
 
@@ -348,7 +375,6 @@ internal sealed class TcpTransportActor : UntypedActor
             catch (OperationCanceledException)
             {
                 // no need to log here
-                _closureSelf.Tell(ReadFinished.Instance);
                 return;
             }
             catch (Exception ex)
@@ -357,9 +383,6 @@ internal sealed class TcpTransportActor : UntypedActor
                 _log.Debug(ex, "Failed to read from socket.");
                 // we are done reading
                 _closureSelf.Tell(new ConnectionUnexpectedlyClosed(DisconnectReasonCode.UnspecifiedError, ex.Message));
-                // socket was closed
-                // abort ongoing reads and writes, but don't shutdown the transport
-                await State.ShutDownCts.CancelAsync();
                 return;
             }
 
@@ -367,7 +390,6 @@ internal sealed class TcpTransportActor : UntypedActor
             var result = await _pipe.Writer.FlushAsync(ct);
             if (result.IsCompleted)
             {
-                _closureSelf.Tell(ReadFinished.Instance);
                 return;
             }
         }
@@ -407,68 +429,204 @@ internal sealed class TcpTransportActor : UntypedActor
         }
     }
 
-    private void Running(object message)
+    /// <summary>
+    /// Connected state — the transport is active and reading/writing data.
+    /// Valid transitions: DoClose → Draining, ReadFinished → Closing, ConnectionUnexpectedlyClosed → Aborted
+    /// </summary>
+    private void Connected(object message)
     {
         switch (message)
         {
-            case DoClose: // we are closing
+            case DoClose:
             {
-                _ = CleanUpGracefully(true);
+                _log.Debug("Received DoClose in Connected state. Transitioning to Draining.");
+                BecomeDraining();
                 break;
             }
-            case ReadFinished: // server closed us
+            case ReadFinished:
             {
-                _ = CleanUpGracefully(true); // idempotent
+                _log.Debug("Received ReadFinished in Connected state. Transitioning to Closing.");
+                BecomeClosing();
                 break;
             }
             case ConnectionUnexpectedlyClosed closed:
             {
-                // we got aborted
                 _log.Warning("Connection to [{0}:{1}] was unexpectedly closed: {2}", TcpOptions.Host, TcpOptions.Port,
                     closed.ReasonMessage);
-                _ = CleanUpGracefully(true); // idempotent
+                BecomeAborted();
                 break;
             }
+            case BackgroundTasksCompleted:
+            {
+                // Background tasks finished while still in Connected — go straight to shutdown
+                _log.Debug("Background tasks completed while in Connected state.");
+                SendPoisonPillOnce();
+                break;
+            }
+            default:
+                // Ignore unknown messages in Connected state
+                break;
         }
     }
 
-    private async Task CleanUpGracefully(bool waitOnReads = false)
+    /// <summary>
+    /// Draining state — outbound channel writer is completed, waiting for pending outbound data to flush.
+    /// </summary>
+    private void BecomeDraining()
     {
-        // add a simulated DisconnectPacket to help ensure the stream gets terminated
-        _readsFromTransport.Writer.TryWrite(DisconnectToBinary.NormalDisconnectPacket.ToBinary(MqttProtocolVersion.V3_1_1));
+        State.Status = ConnectionStatus.Draining;
+        Become(Draining);
 
-        State.Status = ConnectionStatus.Disconnected;
+        // inject a DisconnectPacket into the reads channel to signal stream termination
+        _readsFromTransport.Writer.TryWrite(DisconnectToBinary.NormalDisconnectPacket.ToBinary(MqttProtocolVersion.V3_1_1));
 
         // no more writes to transport
         _writesToTransport.Writer.TryComplete();
 
-        // wait for any pending writes to finish
-        await State.WaitForPendingWrites;
-
-        if (waitOnReads)
+        // wait for pending writes, then self-tell OutboundFlushed
+        State.WaitForPendingWrites.ContinueWith(_ =>
         {
-            // wait for any reads to finish (should be terminated by Akka.Streams once the `DisconnectPacket` is processed.)
-            await _readsFromTransport.Reader.Completion;
-        }
-        else // if we're not waiting on reads, just complete the reader
-        {
-            _readsFromTransport.Writer.TryComplete();
-        }
+            _closureSelf.Tell(OutboundFlushed.Instance);
+        }, TaskContinuationOptions.ExecuteSynchronously);
+    }
 
-        // Cancel the background tasks gracefully
-        try
+    private void Draining(object message)
+    {
+        switch (message)
         {
-            await State.ShutDownCts.CancelAsync();
+            case OutboundFlushed:
+            {
+                _log.Debug("Outbound flushed in Draining state. Transitioning to Closing.");
+                BecomeClosing();
+                break;
+            }
+            case BackgroundTasksCompleted:
+            {
+                _log.Debug("Background tasks completed while in Draining state. Transitioning to Stopped.");
+                SendPoisonPillOnce();
+                break;
+            }
+            // Ignore duplicate messages that may arrive while draining
+            case DoClose:
+            case ReadFinished:
+            case ConnectionUnexpectedlyClosed:
+                _log.Debug("Ignoring {0} in Draining state.", message.GetType().Name);
+                break;
+            default:
+                break;
         }
-        catch (ObjectDisposedException)
+    }
+
+    /// <summary>
+    /// Closing state — CTS cancelled, waiting for BackgroundTasksCompleted.
+    /// </summary>
+    private void BecomeClosing()
+    {
+        State.Status = ConnectionStatus.Closing;
+        Become(Closing);
+
+        // Inject a disconnect packet so Akka.Streams can detect the shutdown
+        _readsFromTransport.Writer.TryWrite(DisconnectToBinary.NormalDisconnectPacket.ToBinary(MqttProtocolVersion.V3_1_1));
+
+        // Cancel the background tasks
+        TryCancelCts();
+
+        // Complete channels
+        _writesToTransport.Writer.TryComplete();
+        _readsFromTransport.Writer.TryComplete();
+    }
+
+    private void Closing(object message)
+    {
+        switch (message)
         {
-            // Already cancelled, ignore
+            case BackgroundTasksCompleted:
+            {
+                _log.Debug("Background tasks completed in Closing state. Transitioning to Stopped.");
+                SendPoisonPillOnce();
+                break;
+            }
+            // Ignore duplicate messages that may arrive while closing
+            case DoClose:
+            case ReadFinished:
+            case ConnectionUnexpectedlyClosed:
+            case OutboundFlushed:
+                _log.Debug("Ignoring {0} in Closing state.", message.GetType().Name);
+                break;
+            default:
+                break;
         }
+    }
 
-        // Brief delay to allow ongoing operations to complete
-        await Task.Delay(100);
+    /// <summary>
+    /// Aborted state — immediate cancel, no drain wait.
+    /// </summary>
+    private void BecomeAborted()
+    {
+        State.Status = ConnectionStatus.Aborted;
+        Become(Aborted);
 
-        _closureSelf.Tell(PoisonPill.Instance);
+        // Inject a disconnect packet so Akka.Streams can detect the shutdown
+        _readsFromTransport.Writer.TryWrite(DisconnectToBinary.NormalDisconnectPacket.ToBinary(MqttProtocolVersion.V3_1_1));
+
+        // Immediate cancel
+        TryCancelCts();
+
+        // Complete channels
+        _writesToTransport.Writer.TryComplete();
+        _readsFromTransport.Writer.TryComplete();
+    }
+
+    private void Aborted(object message)
+    {
+        switch (message)
+        {
+            case BackgroundTasksCompleted:
+            {
+                _log.Debug("Background tasks completed in Aborted state. Transitioning to Stopped.");
+                SendPoisonPillOnce();
+                break;
+            }
+            // Ignore everything else in Aborted state
+            case DoClose:
+            case ReadFinished:
+            case ConnectionUnexpectedlyClosed:
+            case OutboundFlushed:
+                _log.Debug("Ignoring {0} in Aborted state.", message.GetType().Name);
+                break;
+            default:
+                break;
+        }
+    }
+
+    /// <summary>
+    /// Thread-safe CTS cancellation — ensures we only cancel once.
+    /// </summary>
+    private void TryCancelCts()
+    {
+        if (Interlocked.CompareExchange(ref _ctsCancelled, 1, 0) == 0)
+        {
+            try
+            {
+                State.ShutDownCts.Cancel();
+            }
+            catch (ObjectDisposedException)
+            {
+                // Already disposed, ignore
+            }
+        }
+    }
+
+    /// <summary>
+    /// Sends PoisonPill exactly once.
+    /// </summary>
+    private void SendPoisonPillOnce()
+    {
+        if (!_poisonPillSent)
+        {
+            _poisonPillSent = true;
+            _closureSelf.Tell(PoisonPill.Instance);
+        }
     }
 
     private void DisposeStreamProvider(ConnectionStatus newStatus)
@@ -479,8 +637,8 @@ internal sealed class TcpTransportActor : UntypedActor
         {
             State.Status = newStatus;
 
-            // stop reading from the socket
-            State.ShutDownCts.Cancel();
+            // stop reading from the socket (safe — TryCancelCts guards double-cancel)
+            TryCancelCts();
 
             _pipe.Reader.Complete();
             _pipe.Writer.Complete();
