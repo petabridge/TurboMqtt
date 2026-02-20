@@ -147,12 +147,19 @@ internal interface IInternalMqttClient : IMqttClient
 public sealed class MqttClient : IInternalMqttClient
 {
     private readonly MqttClientConnectOptions _options;
+    // All reads must go through the Transport property (Volatile.Read);
+    // writes use Interlocked.Exchange in SwapTransport.
     private IMqttTransport _transport;
     private readonly IActorRef _clientOwner;
     private readonly MqttRequiredActors _requiredActors;
     private readonly ChannelWriter<MqttPacket> _packetWriter;
     private readonly ILoggingAdapter _log;
     private readonly UShortCounter _packetIdCounter = new();
+
+    /// <summary>
+    /// Thread-safe read of the current transport.
+    /// </summary>
+    private IMqttTransport Transport => Volatile.Read(ref _transport);
 
     internal MqttClient(IMqttTransport transport, IActorRef clientOwner, MqttRequiredActors requiredActors,
         ChannelReader<MqttMessage> messageReader, ChannelWriter<MqttPacket> packetWriter, ILoggingAdapter log,
@@ -170,17 +177,17 @@ public sealed class MqttClient : IInternalMqttClient
 
     /// <summary>
     /// Used to swap out the transport for a new one during reconnect scenarios.
+    /// Thread-safe via <see cref="Interlocked.Exchange{T}"/>.
     /// </summary>
     /// <param name="newTransport">The replacement transport</param>
     void IInternalMqttClient.SwapTransport(IMqttTransport newTransport)
     {
-        _transport = newTransport;
-        var a = _transport;
+        Interlocked.Exchange(ref _transport, newTransport);
     }
 
     public MqttProtocolVersion ProtocolVersion => _options.ProtocolVersion;
     public string ClientId => _options.ClientId;
-    public bool IsConnected => _transport.Status == ConnectionStatus.Connected;
+    public bool IsConnected => Transport.Status == ConnectionStatus.Connected;
 
     public async Task AbortConnectionAsync()
     {
@@ -191,14 +198,15 @@ public sealed class MqttClient : IInternalMqttClient
 
     public async Task<IConnectResponse> ConnectAsync(CancellationToken cancellationToken = default)
     {
-        if (_transport.Status == ConnectionStatus.Connected)
+        var transport = Transport;
+        if (transport.Status == ConnectionStatus.Connected)
             return new AckProtocol.ConnectSuccess("Already connected to broker.");
-        if(!(_transport.Status == ConnectionStatus.Connecting ||
-           _transport.Status == ConnectionStatus.NotStarted))
-                return new AckProtocol.ConnectFailure($"Already in state [{_transport.Status}]");
+        if(!(transport.Status == ConnectionStatus.Connecting ||
+           transport.Status == ConnectionStatus.NotStarted))
+                return new AckProtocol.ConnectFailure($"Already in state [{transport.Status}]");
 
         // this will blow up if there's a problem with the connection
-        var connectionResult = await _transport.ConnectAsync(cancellationToken);
+        var connectionResult = await transport.ConnectAsync(cancellationToken);
         
         if (!connectionResult)
         {
@@ -270,20 +278,21 @@ public sealed class MqttClient : IInternalMqttClient
             if (!resp.IsSuccess)
             {
                 _log.Error("Failed to connect to MQTT broker - Reason: {0}", resp.Reason);
-#pragma warning disable CS4014 // Because this call is not awaited, execution of the current method continues before the call is completed
-                AbortConnectionAsync();
-#pragma warning restore CS4014 // Because this call is not awaited, execution of the current method continues before the call is completed
+                _ = AbortConnectionAsync();
                 return resp;
             }
 
             return resp;
         }
+        catch (OperationCanceledException)
+        {
+            // Cancellation — let the caller handle lifecycle (e.g., reconnect flow)
+            return new AckProtocol.ConnectFailure("Connection attempt was cancelled.");
+        }
         catch (Exception ex)
         {
             _log.Error(ex, "Failed to connect to MQTT broker - Reason: {0}", ex.Message);
-#pragma warning disable CS4014 // Because this call is not awaited, execution of the current method continues before the call is completed
-            AbortConnectionAsync();
-#pragma warning restore CS4014 // Because this call is not awaited, execution of the current method continues before the call is completed
+            _ = AbortConnectionAsync();
             return new AckProtocol.ConnectFailure(ex.Message);
         }
     }
@@ -291,7 +300,7 @@ public sealed class MqttClient : IInternalMqttClient
     public async Task DisconnectAsync(CancellationToken cancellationToken = default)
     {
         // already disconnected
-        if (_transport.Status is ConnectionStatus.Disconnected or ConnectionStatus.Aborted or ConnectionStatus.NotStarted)
+        if (Transport.Status is ConnectionStatus.Disconnected or ConnectionStatus.Aborted or ConnectionStatus.NotStarted)
             return;
 
         var disconnectPacket = new DisconnectPacket();
@@ -333,9 +342,6 @@ public sealed class MqttClient : IInternalMqttClient
     public async Task<IPublishResult> PublishAsync(MqttMessage message,
         CancellationToken cancellationToken = default)
     {
-        if (_transport.Status != ConnectionStatus.Connected)
-            return new PublishingProtocol.PublishFailure("Not connected to broker.");
-
         var publishPacket = message.ToPacket();
 
         Task<IPublishResult> WaitForAck(IActorRef targetActor, PublishPacket packet)
@@ -430,7 +436,7 @@ public sealed class MqttClient : IInternalMqttClient
     public async Task<ISubscribeResponse> SubscribeAsync(TopicSubscription[] topics,
         CancellationToken cancellationToken = default)
     {
-        if (_transport.Status != ConnectionStatus.Connected)
+        if (Transport.Status != ConnectionStatus.Connected)
             return new AckProtocol.SubscribeFailure("Not connected to broker.");
 
         var subscribePacket = new SubscribePacket()
@@ -476,7 +482,7 @@ public sealed class MqttClient : IInternalMqttClient
 
     public async Task<IUnsubscribeResponse> UnsubscribeAsync(string[] topics, CancellationToken cancellationToken = default)
     {
-        if (_transport.Status != ConnectionStatus.Connected)
+        if (Transport.Status != ConnectionStatus.Connected)
             return new AckProtocol.UnsubscribeFailure("Not connected to broker.");
 
         var unsubscribePacket = new UnsubscribePacket()
@@ -516,7 +522,7 @@ public sealed class MqttClient : IInternalMqttClient
 
     public async ValueTask DisposeAsync()
     {
-        if (_transport.Status is not (ConnectionStatus.Aborted or ConnectionStatus.Disconnected))
+        if (Transport.Status is not (ConnectionStatus.Aborted or ConnectionStatus.Disconnected))
             await AbortConnectionAsync();
     }
 }

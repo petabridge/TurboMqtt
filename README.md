@@ -17,7 +17,8 @@ TurboMqtt is written on top of [Akka.NET](https://getakka.net/) and Akka.Streams
 * Automatic retry-reconnect in broker disconnect scenarios;
 * Full support for IAsyncEnumerable and backpressure on the receiver side;
 * Automatically de-duplicates packets on the receiver side; and
-* Automatically acks QoS 1 and QoS 2 packets.
+* Automatically acks QoS 1 and QoS 2 packets; and
+* TLS/SSL support with mutual TLS and custom certificate validation.
 
 Simple interface that works at very high rates of speed with minimal resource utilization.
 
@@ -89,6 +90,37 @@ if (!connectResult.IsSuccess)
         connectResult.Reason);
     return;
 }
+```
+
+### Enabling TLS
+
+To connect to a broker over TLS (port 8883), use `CreateTlsTcpClient` instead of `CreateTcpClient`:
+
+```csharp
+var tcpClientOptions = new MqttClientTcpOptions(config.Host, 8883);
+var clientConnectOptions = new MqttClientConnectOptions(config.ClientId, MqttProtocolVersion.V3_1_1)
+{
+    UserName = config.User,
+    Password = config.Password
+};
+
+// default TLS options — uses system CA validation and TLS 1.2+
+var tlsOptions = new MqttClientTlsOptions();
+
+await using IMqttClient client = await _clientFactory.CreateTlsTcpClient(clientConnectOptions, tcpClientOptions, tlsOptions);
+```
+
+For self-signed brokers or mutual TLS:
+
+```csharp
+var tlsOptions = new MqttClientTlsOptions
+{
+    // accept self-signed certificates (development only!)
+    ServerCertificateValidationCallback = (sender, cert, chain, errors) => true,
+
+    // mutual TLS with client certificate
+    ClientCertificates = new X509CertificateCollection { clientCert },
+};
 ```
 
 ### Publishing Messages

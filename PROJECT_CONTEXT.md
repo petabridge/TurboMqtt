@@ -47,7 +47,7 @@ ActorSystem
 | MQTT 3.1.1 | Implemented (production hardening in progress) |
 | MQTT 5.0 | Packet infrastructure exists; not yet functional |
 | MQTT over QUIC | Roadmap only |
-| TLS | In-flight (draft PRs #123, #182) |
+| TLS | Implemented (via `TlsStreamProvider` + `MqttClientTlsOptions`) |
 
 ### Key Constraints
 
@@ -62,7 +62,7 @@ ActorSystem
 - **Version**: 0.2.0 (pre-1.0, last release June 2024)
 - **Priority**: MQTT 3.1.1 production readiness (epic #66)
 - **Known issues**: CI/CD GitHub Release broken (#74), flaky test (#99), dependabot PR backlog
-- **In-flight features**: TLS support, AOT canary, decoder perf optimization
+- **In-flight features**: AOT canary, decoder perf optimization
 
 ## Roadmap
 

@@ -22,18 +22,21 @@ internal sealed class TcpMqttTransportManager : IMqttTransportManager
     private readonly MqttClientTcpOptions _tcpOptions;
     private readonly MqttProtocolVersion _protocolVersion;
     private readonly IActorRef _mqttClientManager;
+    private readonly IStreamProvider? _streamProvider;
 
-    public TcpMqttTransportManager(MqttClientTcpOptions tcpOptions, IActorRef mqttClientManager, MqttProtocolVersion protocolVersion)
+    public TcpMqttTransportManager(MqttClientTcpOptions tcpOptions, IActorRef mqttClientManager, MqttProtocolVersion protocolVersion,
+        IStreamProvider? streamProvider = null)
     {
         _tcpOptions = tcpOptions;
         _mqttClientManager = mqttClientManager;
         _protocolVersion = protocolVersion;
+        _streamProvider = streamProvider;
     }
 
     public async Task<IMqttTransport> CreateTransportAsync(CancellationToken ct = default)
     {
         var tcpTransportActor =
-            await _mqttClientManager.Ask<IActorRef>(new TcpConnectionManager.CreateTcpTransport(_tcpOptions, _protocolVersion), cancellationToken: ct)
+            await _mqttClientManager.Ask<IActorRef>(new TcpConnectionManager.CreateTcpTransport(_tcpOptions, _protocolVersion, _streamProvider), cancellationToken: ct)
                 .ConfigureAwait(false);
 
         // get the TCP transport

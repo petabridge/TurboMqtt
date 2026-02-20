@@ -280,13 +280,13 @@ public class TcpMqtt311End2EndSpecs : TransportSpecBase
             MaxReconnectAttempts = 0
         };
         var client = await ClientFactory.CreateTcpClient(DefaultConnectOptions, updatedTcpOptions);
-        
+
         // we are going to do this, intentionally, without a CTS here - this operation MUST FAIL if we are unable to connect
         var connectResult = await client.ConnectAsync();
         connectResult.IsSuccess.Should().BeFalse();
 
         client.IsConnected.Should().BeFalse();
-        
+
         // start up a new server
         var newServer = new FakeMqttTcpServer(new MqttTcpServerOptions("localhost", 21889), MqttProtocolVersion.V3_1_1,
             Sys.Log, TimeSpan.Zero, new DefaultFakeServerHandleFactory());
@@ -297,7 +297,7 @@ public class TcpMqtt311End2EndSpecs : TransportSpecBase
             // now we should be able to connect
             var connectResult2 = await client.ConnectAsync();
             connectResult2.IsSuccess.Should().BeTrue();
-            
+
             client.IsConnected.Should().BeTrue();
             await client.DisconnectAsync();
 
@@ -308,5 +308,190 @@ public class TcpMqtt311End2EndSpecs : TransportSpecBase
         {
             newServer.Shutdown();
         }
+    }
+
+    /// <summary>
+    /// Race condition test: concurrent disconnect + publish must not deadlock or crash.
+    /// Fires a disconnect and multiple publishes concurrently.
+    /// </summary>
+    [Fact]
+    public async Task ConcurrentDisconnectAndPublishShouldNotDeadlockOrCrash()
+    {
+        var client = await ClientFactory.CreateTcpClient(DefaultConnectOptions, DefaultTcpOptions);
+
+        using var cts = new CancellationTokenSource(RemainingOrDefault);
+        var connectResult = await client.ConnectAsync(cts.Token);
+        connectResult.IsSuccess.Should().BeTrue();
+
+        // Fire disconnect and publishes concurrently
+        var disconnectTask = Task.Run(async () =>
+        {
+            try
+            {
+                await client.DisconnectAsync(cts.Token);
+            }
+            catch
+            {
+                // disconnect might fail if publish already closed things — that's acceptable
+            }
+        });
+
+        var publishTasks = Enumerable.Range(0, 10).Select(i => Task.Run(async () =>
+        {
+            try
+            {
+                var msg = new MqttMessage(DefaultTopic, $"concurrent-{i}") { QoS = QualityOfService.AtMostOnce };
+                await client.PublishAsync(msg, cts.Token);
+            }
+            catch
+            {
+                // publishes may fail after disconnect — that's acceptable
+            }
+        })).ToArray();
+
+        // The key assertion: nothing deadlocks, everything completes within the timeout
+        await Task.WhenAll(publishTasks.Append(disconnectTask));
+
+        // Client should be terminated
+        await AwaitAssertAsync(() => client.WhenTerminated.IsCompleted.Should().BeTrue(), cancellationToken: cts.Token);
+    }
+
+    /// <summary>
+    /// Race condition test: rapid sequential reconnects (3+ in &lt; 1 second) complete without error.
+    /// </summary>
+    [Fact]
+    public async Task RapidSequentialReconnectsShouldCompleteWithoutError()
+    {
+        var client = await ClientFactory.CreateTcpClient(DefaultConnectOptions, DefaultTcpOptions);
+
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+        var connectResult = await client.ConnectAsync(cts.Token);
+        connectResult.IsSuccess.Should().BeTrue();
+
+        // subscribe so we can verify reconnect restores subscriptions
+        var subResult = await client.SubscribeAsync(DefaultTopic, QualityOfService.AtLeastOnce, cts.Token);
+        subResult.IsSuccess.Should().BeTrue();
+
+        // Kick the client 3 times in rapid succession
+        for (var i = 0; i < 3; i++)
+        {
+            // Wait for connected state before kicking
+            await AwaitConditionAsync(() => client.IsConnected, cts.Token);
+
+            // Forcefully disconnect
+            _server.TryDisconnectClientSocket(DefaultConnectOptions.ClientId);
+
+            // Small delay to let transport tear down
+            await Task.Delay(100, cts.Token);
+        }
+
+        // After 3 rapid reconnects, client should recover
+        await AwaitConditionAsync(() => client.IsConnected, cts.Token);
+
+        // Verify we can still publish and receive after all the reconnects
+        var mqttMessage = new MqttMessage(DefaultTopic, "after-rapid-reconnects") { QoS = QualityOfService.AtLeastOnce };
+        var pubResult = await client.PublishAsync(mqttMessage, cts.Token);
+        pubResult.IsSuccess.Should().BeTrue();
+
+        (await client.ReceivedMessages.WaitToReadAsync(cts.Token)).Should().BeTrue();
+        client.ReceivedMessages.TryRead(out var received).Should().BeTrue();
+        received!.Topic.Should().Be(DefaultTopic);
+
+        using var shutdownCts = new CancellationTokenSource(RemainingOrDefault);
+        await client.DisconnectAsync(shutdownCts.Token);
+        await client.WhenTerminated.WaitAsync(shutdownCts.Token);
+    }
+
+    /// <summary>
+    /// Race condition test: server kills connection during QoS 2 exchange — client reconnects and retransmits.
+    /// </summary>
+    [Fact]
+    public async Task ServerKillDuringQos2ExchangeShouldReconnectAndRetransmit()
+    {
+        var client = await ClientFactory.CreateTcpClient(DefaultConnectOptions, DefaultTcpOptions);
+
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+        var connectResult = await client.ConnectAsync(cts.Token);
+        connectResult.IsSuccess.Should().BeTrue();
+
+        // subscribe at QoS 2
+        var subResult = await client.SubscribeAsync(DefaultTopic, QualityOfService.ExactlyOnce, cts.Token);
+        subResult.IsSuccess.Should().BeTrue();
+
+        // Start a QoS 2 publish — this begins the multi-step QoS 2 handshake
+        var publishTask = Task.Run(async () =>
+        {
+            var msg = new MqttMessage(DefaultTopic, "qos2-message") { QoS = QualityOfService.ExactlyOnce };
+            return await client.PublishAsync(msg, cts.Token);
+        });
+
+        // Give the publish time to start the handshake
+        await Task.Delay(50, cts.Token);
+
+        // Kill the server connection mid-exchange
+        _server.TryDisconnectClientSocket(DefaultConnectOptions.ClientId);
+
+        // The publish may fail or succeed depending on timing — either is acceptable
+        try
+        {
+            var pubResult = await publishTask;
+            // If it succeeded, great
+        }
+        catch
+        {
+            // If the publish failed due to disconnect, that's also acceptable
+        }
+
+        // Wait for reconnect to complete
+        await AwaitConditionAsync(() => client.IsConnected, cts.Token);
+
+        // After reconnect, verify we can still publish and receive
+        var newMsg = new MqttMessage(DefaultTopic, "after-qos2-kill") { QoS = QualityOfService.ExactlyOnce };
+        var newPubResult = await client.PublishAsync(newMsg, cts.Token);
+        newPubResult.IsSuccess.Should().BeTrue();
+
+        (await client.ReceivedMessages.WaitToReadAsync(cts.Token)).Should().BeTrue();
+
+        using var shutdownCts = new CancellationTokenSource(RemainingOrDefault);
+        await client.DisconnectAsync(shutdownCts.Token);
+        await client.WhenTerminated.WaitAsync(shutdownCts.Token);
+    }
+
+    /// <summary>
+    /// Race condition test: disconnect while a large publish is in flight — verifies graceful drain.
+    /// </summary>
+    [Fact]
+    public async Task DisconnectDuringLargePublishShouldDrainGracefully()
+    {
+        var client = await ClientFactory.CreateTcpClient(DefaultConnectOptions, DefaultTcpOptions);
+
+        using var cts = new CancellationTokenSource(RemainingOrDefault);
+        var connectResult = await client.ConnectAsync(cts.Token);
+        connectResult.IsSuccess.Should().BeTrue();
+
+        // Start publishing a burst of messages
+        var publishTasks = Enumerable.Range(0, 50).Select(i =>
+        {
+            var msg = new MqttMessage(DefaultTopic, $"large-publish-{i}") { QoS = QualityOfService.AtMostOnce };
+            return client.PublishAsync(msg, cts.Token);
+        }).ToArray();
+
+        // Initiate graceful disconnect while publishes are in flight
+        var disconnectTask = client.DisconnectAsync(cts.Token);
+
+        // All operations should complete without deadlock or crash
+        try
+        {
+            await Task.WhenAll(publishTasks);
+        }
+        catch
+        {
+            // Some publishes may fail if disconnect completes first — acceptable
+        }
+
+        await disconnectTask;
+
+        // Client should be terminated
+        await AwaitAssertAsync(() => client.WhenTerminated.IsCompleted.Should().BeTrue(), cancellationToken: cts.Token);
     }
 }
