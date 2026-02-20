@@ -433,15 +433,15 @@ The size estimator (`MqttPacketSizeEstimator.EstimateMqtt5PacketSize()`) already
 handles all property types — the writer/reader must be consistent with it.
 
 Done when:
-- [ ] `Mqtt5PropertyIdentifiers.cs` exists with constants for all 28 property identifiers
-- [ ] `Mqtt5PropertyWriter.cs` exists with static methods: `WriteByte`, `WriteTwoByteInt`, `WriteFourByteInt`, `WriteVariableByteInt`, `WriteUtf8String`, `WriteStringPair`, `WriteBinaryData` — all using `ref Span<byte>`
-- [ ] `Mqtt5PropertyReader.cs` exists with matching static read methods using `ref ReadOnlySpan<byte>`
-- [ ] Unit test: each property type roundtrips (write then read)
-- [ ] Unit test: Variable Byte Integer boundary values (0, 127, 128, 16383, 16384, 2097151, 2097152, 268435455)
-- [ ] Unit test: UTF-8 String handles empty, ASCII, and multi-byte characters
-- [ ] Unit test: unknown property identifier in reader returns error (not crash)
-- [ ] FsCheck property: random property values roundtrip through write/read
-- [ ] Builds with zero warnings
+- [x] `Mqtt5PropertyIdentifiers.cs` exists with constants for all 28 property identifiers *(27 per OASIS spec Table 2-4; PRD count off by one due to 0x09 listed in both UTF-8 String and Binary Data rows)*
+- [x] `Mqtt5PropertyWriter.cs` exists with static methods: `WriteByte`, `WriteTwoByteInt`, `WriteFourByteInt`, `WriteVariableByteInt`, `WriteUtf8String`, `WriteStringPair`, `WriteBinaryData` — all using `ref Span<byte>`
+- [x] `Mqtt5PropertyReader.cs` exists with matching static read methods using `ref ReadOnlySpan<byte>`
+- [x] Unit test: each property type roundtrips (write then read)
+- [x] Unit test: Variable Byte Integer boundary values (0, 127, 128, 16383, 16384, 2097151, 2097152, 268435455)
+- [x] Unit test: UTF-8 String handles empty, ASCII, and multi-byte characters
+- [x] Unit test: unknown property identifier in reader returns error (not crash)
+- [x] FsCheck property: random property values roundtrip through write/read
+- [x] Builds with zero warnings
 
 ### Task 3.1: Add missing MQTT 5.0 fields to ConnAckPacket
 
