@@ -494,15 +494,15 @@ packet types using the property reader from Task 3.0. Follow `Mqtt311Decoder` pa
 stateful class with `_remainder` for partial frame handling.
 
 Done when:
-- [ ] `Mqtt5Decoder.cs` exists with `TryDecode` matching `Mqtt311Decoder` patterns
-- [ ] All 15 packet types decoded
-- [ ] CONNACK decoding populates all 13+ V5 properties (from Task 3.1)
-- [ ] PUBLISH decoding populates V5 properties (Topic Alias, User Properties, etc.)
-- [ ] ACK packet decoding handles compact form (no Reason Code byte) and full form
-- [ ] Auth packet decoding populates all fields
-- [ ] Server-initiated DISCONNECT decoding handles all V5 reason codes
-- [ ] Builds with zero warnings
-- [ ] Unit tests decode known byte sequences into correct packet fields
+- [x] `Mqtt5Decoder.cs` exists with `TryDecode` matching `Mqtt311Decoder` patterns
+- [x] All 15 packet types decoded
+- [x] CONNACK decoding populates all 13+ V5 properties (from Task 3.1)
+- [x] PUBLISH decoding populates V5 properties (Topic Alias, User Properties, etc.)
+- [x] ACK packet decoding handles compact form (no Reason Code byte) and full form
+- [x] Auth packet decoding populates all fields
+- [x] Server-initiated DISCONNECT decoding handles all V5 reason codes
+- [x] Builds with zero warnings
+- [x] Unit tests decode known byte sequences into correct packet fields
 
 ### Task 3.4: Add FsCheck generators and roundtrip property tests for MQTT 5.0
 

@@ -133,7 +133,7 @@ internal static class SubscriptionOptionsHelpers
             QoS = (QualityOfService)(subscriptionOptions & 0b11),
             NoLocal = (subscriptionOptions & (1 << 2)) != 0,
             RetainAsPublished = (subscriptionOptions & (1 << 3)) != 0,
-            RetainHandling = (RetainHandlingOption)((subscriptionOptions & 0b11000) >> 3)
+            RetainHandling = (RetainHandlingOption)((subscriptionOptions >> 4) & 0b11)
         };
 
         return result;
