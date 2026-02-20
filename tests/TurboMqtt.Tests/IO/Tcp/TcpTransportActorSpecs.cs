@@ -353,7 +353,7 @@ public class TcpTransportActorSpecs : TestKit
         await ExpectTerminatedAsync(actor, TimeSpan.FromSeconds(10));
 
         // Verify data was written to the stream before shutdown
-        provider.Stream.TotalBytesWritten.Should().BeGreaterOrEqualTo(data.Length);
+        provider.Stream.TotalBytesWritten.Should().BeGreaterThanOrEqualTo(data.Length);
     }
 
     #endregion

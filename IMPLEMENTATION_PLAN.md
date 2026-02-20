@@ -115,15 +115,15 @@ Update remaining packages: xunit, FluentAssertions, Testcontainers, BenchmarkDot
 FsCheck, Microsoft.NET.Test.Sdk, coverlet, and other test/tooling dependencies.
 
 Done when:
-- [ ] All packages in `Directory.Packages.props` `Test Package Versions` ItemGroup updated to latest stable
-- [ ] `Microsoft.Extensions.DependencyInjection.Abstractions` and `Microsoft.Extensions.Hosting` updated to `10.0.x` *(note: already completed in Task 1.5/iter-05 due to OTEL transitive dependency)*
-- [ ] Revert `NuGetAuditLevel=high` in `Directory.Build.props` (added in Task 1.3 for OTEL vulnerability, resolved by Task 1.5 OTEL 1.15.0 update; confirm `dotnet build -c Release` produces zero audit warnings after removal) *(source: RALPH run 20260219-215639 CLEANUP item)*
-- [ ] `FsCheck` and `FsCheck.Xunit` updated to latest 2.x stable (or 3.x if compatible)
-- [ ] `BenchmarkDotNet` updated to latest stable
-- [ ] `Testcontainers` updated to latest stable
-- [ ] `dotnet build -c Release` succeeds with zero warnings across all projects
-- [ ] `dotnet test tests/TurboMqtt.Tests/ -c Release` passes
-- [ ] `TOOLING.md` package version table updated
+- [x] All packages in `Directory.Packages.props` `Test Package Versions` ItemGroup updated to latest stable
+- [x] `Microsoft.Extensions.DependencyInjection.Abstractions` and `Microsoft.Extensions.Hosting` updated to `10.0.x` *(note: already completed in Task 1.5/iter-05 due to OTEL transitive dependency)*
+- [x] Revert `NuGetAuditLevel=high` in `Directory.Build.props` (added in Task 1.3 for OTEL vulnerability, resolved by Task 1.5 OTEL 1.15.0 update; confirm `dotnet build -c Release` produces zero audit warnings after removal) *(source: RALPH run 20260219-215639 CLEANUP item)*
+- [x] `FsCheck` and `FsCheck.Xunit` updated to latest 2.x stable (or 3.x if compatible) *(FsCheck 3.x requires C# LINQ API migration to FsCheck.Fluent; staying on 2.16.6 which is already latest 2.x)*
+- [x] `BenchmarkDotNet` updated to latest stable *(0.15.8 — already at latest as of this iteration)*
+- [x] `Testcontainers` updated to latest stable *(4.10.0; also synced Testcontainers.ActiveMq from 3.8.0 → 4.10.0)*
+- [x] `dotnet build -c Release` succeeds with zero warnings across all projects
+- [x] `dotnet test tests/TurboMqtt.Tests/ -c Release` passes
+- [x] `TOOLING.md` package version table updated
 
 ### Task 1.7: Update PROJECT_CONTEXT.md and TOOLING.md for Phase 1
 
@@ -132,12 +132,12 @@ Done when:
 **Verification:** L0
 
 Done when:
-- [ ] `PROJECT_CONTEXT.md` version updated to reflect 0.3.0-beta (or whatever version is chosen for this release cycle)
-- [ ] `PROJECT_CONTEXT.md` "Key Constraints" reflects `net10.0` and current Akka version
-- [ ] `TOOLING.md` reflects all updated tool/package versions
-- [ ] `TOOLING.md` Build table `.NET SDK` version updated from `8.0.400` to `10.0.100` *(source: RALPH run 20260219-215639 CLEANUP item -- stale after Task 1.3 .NET 10 upgrade)*
-- [ ] `TOOLING.md` CI/CD section describes GitHub Actions release pipeline (not Azure DevOps)
-- [ ] `Directory.Build.props` copyright year updated to 2025
+- [x] `PROJECT_CONTEXT.md` version updated to reflect 0.3.0-beta (or whatever version is chosen for this release cycle)
+- [x] `PROJECT_CONTEXT.md` "Key Constraints" reflects `net10.0` and current Akka version
+- [x] `TOOLING.md` reflects all updated tool/package versions
+- [x] `TOOLING.md` Build table `.NET SDK` version updated from `8.0.400` to `10.0.100` *(source: RALPH run 20260219-215639 CLEANUP item -- stale after Task 1.3 .NET 10 upgrade)*
+- [x] `TOOLING.md` CI/CD section describes GitHub Actions release pipeline (not Azure DevOps)
+- [x] `Directory.Build.props` copyright year updated to 2025
 
 ---
 
@@ -160,10 +160,10 @@ PubComp, Subscribe, SubAck, Unsubscribe, UnsubAck, PingReq, PingResp, Disconnect
 Update `PacketArb()` to include all 14 generators.
 
 Done when:
-- [ ] `PacketGenerators.cs` has an `Arbitrary<MqttPacket>` generator for each of the 14 MQTT 3.1.1 packet types
-- [ ] Each generator produces valid packets with randomized field values within spec constraints
-- [ ] `PacketArb()` uses `Gen.OneOf(...)` over all 14 generators
-- [ ] All generators compile and produce non-null packets when sampled (add a smoke test if needed)
+- [x] `PacketGenerators.cs` has an `Arbitrary<MqttPacket>` generator for each of the 14 MQTT 3.1.1 packet types
+- [x] Each generator produces valid packets with randomized field values within spec constraints
+- [x] `PacketArb()` uses `Gen.OneOf(...)` over all 14 generators
+- [x] All generators compile and produce non-null packets when sampled (add a smoke test if needed)
 
 ### Task 2.2: Expand ConnectPacket generator to cover Will, Username, Password
 
@@ -176,11 +176,11 @@ The current `ConnectPacketArb()` only generates `ClientId`, `CleanSession`, and
 retain), Username, and Password fields that are controlled by `ConnectFlags`.
 
 Done when:
-- [ ] `ConnectPacketArb()` randomly generates packets with and without Will messages
-- [ ] Will topic, Will message payload, Will QoS (0/1/2), and Will retain are randomized when Will is present
-- [ ] Username and Password fields are randomly included or omitted
-- [ ] `ConnectFlags` bits are consistent with the fields present (e.g., `HasWill=true` when Will topic is set)
-- [ ] Existing roundtrip codec tests still pass
+- [x] `ConnectPacketArb()` randomly generates packets with and without Will messages
+- [x] Will topic, Will message payload, Will QoS (0/1/2), and Will retain are randomized when Will is present
+- [x] Username and Password fields are randomly included or omitted
+- [x] `ConnectFlags` bits are consistent with the fields present (e.g., `HasWill=true` when Will topic is set)
+- [x] Existing roundtrip codec tests still pass
 
 ### Task 2.3: Add roundtrip encode/decode property tests for all packet types
 

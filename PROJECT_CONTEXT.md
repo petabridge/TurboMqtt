@@ -51,7 +51,7 @@ ActorSystem
 
 ### Key Constraints
 
-- Akka.NET is a core architectural dependency
+- Akka.NET is a core architectural dependency (current version: 1.5.60)
 - AOT compatibility is a longer-term goal, blocked on Akka.NET v1.6
 - `TreatWarningsAsErrors` is enabled globally
 - `AllowUnsafeBlocks` is enabled for performance-critical code paths
@@ -59,7 +59,7 @@ ActorSystem
 
 ## Current State
 
-- **Version**: 0.2.0 (pre-1.0, last release June 2024)
+- **Version**: 0.3.0-beta (in-progress; last published release was 0.2.0, June 2024)
 - **Priority**: MQTT 3.1.1 production readiness (epic #66)
 - **Known issues**: CI/CD GitHub Release broken (#74), flaky test (#99), dependabot PR backlog
 - **In-flight features**: AOT canary, decoder perf optimization

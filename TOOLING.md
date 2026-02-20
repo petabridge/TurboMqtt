@@ -9,7 +9,7 @@
 
 | Tool | Version | Access | Purpose |
 |------|---------|--------|---------|
-| .NET SDK | 8.0.400 (pinned in `global.json`, rollForward: latestMinor) | `dotnet` | Build, test, pack |
+| .NET SDK | 10.0.100 (pinned in `global.json`, rollForward: latestMinor) | `dotnet` | Build, test, pack |
 | `build.ps1` | - | `pwsh build.ps1` | Extracts version + release notes from RELEASE_NOTES.md, updates Directory.Build.props |
 | `dotnet sign` | 0.9.x | Installed in release workflow | NuGet package code signing (via Azure Key Vault) |
 
@@ -24,12 +24,12 @@
 
 | Tool | Purpose | Notes |
 |------|---------|-------|
-| xUnit 2.9.2 | Test framework | All test projects |
+| xUnit 2.9.3 | Test framework | All test projects |
 | Akka.Hosting.TestKit | Actor testing | For actor-based specs |
-| FsCheck 2.16.6 | Property-based testing | Codec fuzzing |
-| FluentAssertions 6.12.1 | Assertions | |
-| TestContainers 4.1.0 | Container-based E2E tests | EMQX, NanoMQ brokers |
-| Coverlet 6.0.3 | Code coverage collection | XPlat format in CI |
+| FsCheck 2.16.6 | Property-based testing | Codec fuzzing (FsCheck 3.x not compatible without API migration) |
+| FluentAssertions 8.8.0 | Assertions | |
+| TestContainers 4.10.0 | Container-based E2E tests | EMQX, NanoMQ brokers |
+| Coverlet 8.0.0 | Code coverage collection | XPlat format in CI |
 
 ### Running Tests
 
@@ -45,7 +45,7 @@ dotnet test tests/TurboMqtt.Container.Tests/
 
 | Tool | Purpose |
 |------|---------|
-| BenchmarkDotNet 0.14.0 | Performance measurement |
+| BenchmarkDotNet 0.15.8 | Performance measurement |
 | `start-emqx.ps1` | Start EMQX Docker container for E2E benchmarks |
 | `stop-eqmx.ps1` | Stop EMQX container |
 

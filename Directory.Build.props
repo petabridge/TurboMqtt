@@ -1,10 +1,8 @@
 <Project>
   <PropertyGroup>
-    <Copyright>Copyright © 2024 Petabridge, LLC</Copyright>
+    <Copyright>Copyright © 2024-$([System.DateTime]::Now.Year) Petabridge, LLC</Copyright>
     <NoWarn>$(NoWarn);CS1591</NoWarn>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
-    <!-- NuGet audit: only fail on high/critical vulnerabilities. Moderate OTEL vuln tracked in Task 1.5 -->
-    <NuGetAuditLevel>high</NuGetAuditLevel>
     <VersionPrefix>0.1.1</VersionPrefix>
     <Authors>Petabridge</Authors>
     <PackageReleaseNotes>TurboMqtt v0.1.1 includes critical bug fixes and massive performance improvements over v0.1.0.

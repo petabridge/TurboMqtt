@@ -526,14 +526,13 @@ internal static class MqttPacketSizeEstimator
     ///  Helper method to calculate the length of the Variable Byte Integer for MQTT packet lengths
     /// </summary>
     /// <remarks>
-    /// Packets in MQTT can have a length header between 1-4 bytes long.
-    ///
-    /// We subtract 2 bytes from the packet body length to account for the fixed length header.
+    /// MQTT variable-length encoding uses 1-4 bytes depending on the packet body length:
+    /// 1 byte for 0-127, 2 bytes for 128-16383, 3 bytes for 16384-2097151, 4 bytes for larger.
     /// </remarks>
     public static int GetPacketLengthHeaderSize(int packetBodyLength)
     {
-        // remove 1 bytes for the fixed header, which isn't included in the length
-        return (packetBodyLength - 1) switch
+        // MQTT variable-length encoding: 1 byte for 0-127, 2 bytes for 128-16383, etc.
+        return packetBodyLength switch
         {
             < 128 => 1,
             < 16384 => 2,
