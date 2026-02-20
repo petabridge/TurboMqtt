@@ -9,6 +9,21 @@
 
 ---
 
+### FIX: Add logging for failed resubscribe during reconnect
+
+**Source:** Adversarial review 20260220-000928, finding F-3
+**Surface area:** cross-cutting
+**Verification:** L1
+
+The empty `if (!subscribeResp.IsSuccess) { }` block in `BeginReconnect()` silently swallows
+subscription failures during reconnect. At minimum, log the failure.
+
+Done when:
+- [x] `ClientStreamOwner.cs` `BeginReconnect()` method: add `_log.Warning(...)` inside the `if (!subscribeResp.IsSuccess)` block reporting the failure reason and number of topics
+- [x] Builds with zero warnings
+
+---
+
 ## Phase 2.5: Transport Layer Redesign
 
 > Goal: Fix 12+ race conditions in the transport/lifecycle layer, eliminate GC pressure

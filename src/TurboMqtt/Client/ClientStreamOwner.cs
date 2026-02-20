@@ -560,7 +560,8 @@ internal sealed class ClientStreamOwner : UntypedActor
                         var subscribeResp = await client.SubscribeAsync(savedSubs.Values.ToArray(), reconnectToken);
                         if (!subscribeResp.IsSuccess)
                         {
-                            // non-fatal: log and continue
+                            _log.Warning("Failed to resubscribe to {0} topic(s) during reconnect. Reason: {1}",
+                                savedSubs.Count, subscribeResp.Reason);
                         }
                     }
 

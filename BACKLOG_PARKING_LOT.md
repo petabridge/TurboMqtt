@@ -71,3 +71,31 @@
 - **Issue:** The `release.yaml` workflow builds, signs, and publishes to NuGet.org but does not include a `dotnet test` step. This matches the old Azure DevOps pipeline. The assumption is PR validation already ran tests. Risk: a tag pushed from an untested commit could publish broken packages.
 - **Decision needed:** Accept the current pattern (test in PR only) or add a test step to `release.yaml`? Adding tests costs ~2 minutes per release but prevents publishing broken packages.
 - **Date parked:** 2026-02-19
+
+### Double DISCONNECT injection in Draining→Closing path
+- **Source:** Adversarial review 20260220-000928, finding F-1
+- **Issue:** `TcpTransportActor.BecomeClosing()` unconditionally injects a DISCONNECT packet into the reads channel, but when called from the `Draining` handler after `OutboundFlushed`, a DISCONNECT was already injected at line 546. Two packets enter the reads channel on the graceful drain path.
+- **Decision needed:** Guard `BecomeClosing()` to skip injection if prior state was Draining, or remove the injection from the Draining handler and rely on BecomeClosing.
+- **Date parked:** 2026-02-20
+
+### Remove dead `CompareAndSetStatus` method
+- **Source:** Adversarial review 20260220-000928, finding F-2
+- **Issue:** `TcpTransportActor.ConnectionState.CompareAndSetStatus()` was added for thread-safety but is never called. All status transitions use `Volatile.Write` via the `Status` setter.
+- **Decision needed:** Remove the method or use it where appropriate (e.g., in `DisposeStreamProvider` status assignment).
+- **Date parked:** 2026-02-20
+
+### Propagate `ConnectTimeout` to reconnect CTS
+- **Source:** Adversarial review 20260220-000928, finding F-4
+- **Issue:** `ClientStreamOwner.BeginReconnect()` hardcodes `TimeSpan.FromSeconds(5)` for the reconnect CTS. The new `MqttClientTcpOptions.ConnectTimeout` property is not propagated to the reconnect path.
+- **Decision needed:** Should reconnect timeout match `ConnectTimeout`, be separately configurable, or remain hardcoded?
+- **Date parked:** 2026-02-20
+
+### Add isolated actor test for `ClientStreamOwner.Reconnecting` behavior
+- **Source:** Adversarial review 20260220-000928, finding B-3
+- **Issue:** The `Reconnecting` state in `ClientStreamOwner` is only tested via FakeMqttTcpServer E2E. An isolated TestKit test with TestProbe would verify the message flow (ReconnectSuccess/ReconnectFailed) more reliably and run faster.
+- **Date parked:** 2026-02-20
+
+### Clean up pre-existing `#pragma warning disable CS4014` in MqttClient.ConnectAsync
+- **Source:** Adversarial review 20260220-000928, finding G-4
+- **Issue:** Two instances of fire-and-forget `AbortConnectionAsync()` in `ConnectAsync` error paths use pragma suppression. Should properly track the Task or use a discard with a comment.
+- **Date parked:** 2026-02-20
