@@ -160,10 +160,10 @@ PubComp, Subscribe, SubAck, Unsubscribe, UnsubAck, PingReq, PingResp, Disconnect
 Update `PacketArb()` to include all 14 generators.
 
 Done when:
-- [ ] `PacketGenerators.cs` has an `Arbitrary<MqttPacket>` generator for each of the 14 MQTT 3.1.1 packet types
-- [ ] Each generator produces valid packets with randomized field values within spec constraints
-- [ ] `PacketArb()` uses `Gen.OneOf(...)` over all 14 generators
-- [ ] All generators compile and produce non-null packets when sampled (add a smoke test if needed)
+- [x] `PacketGenerators.cs` has an `Arbitrary<MqttPacket>` generator for each of the 14 MQTT 3.1.1 packet types
+- [x] Each generator produces valid packets with randomized field values within spec constraints
+- [x] `PacketArb()` uses `Gen.OneOf(...)` over all 14 generators
+- [x] All generators compile and produce non-null packets when sampled (add a smoke test if needed)
 
 ### Task 2.2: Expand ConnectPacket generator to cover Will, Username, Password
 
