@@ -9,34 +9,6 @@
 
 ---
 
-### FIX: Add missing F-5 PARK item to BACKLOG_PARKING_LOT.md
-
-**Source:** Adversarial review 20260220-000928 iter-06, finding R-1
-**Surface area:** documentation
-**Verification:** L0
-
-The prior review's finding F-5 (`_transport` field visibility in `IMqttClient.cs`) was dispositioned as PARK but not added to the parking lot.
-
-Done when:
-- [x] `BACKLOG_PARKING_LOT.md` has an entry for F-5: `_transport` field in `IMqttClient.cs` should be annotated with a comment noting that reads must go through the `Transport` property (which uses `Volatile.Read`)
-
----
-
-### FIX: Add logging for failed resubscribe during reconnect
-
-**Source:** Adversarial review 20260220-000928, finding F-3
-**Surface area:** cross-cutting
-**Verification:** L1
-
-The empty `if (!subscribeResp.IsSuccess) { }` block in `BeginReconnect()` silently swallows
-subscription failures during reconnect. At minimum, log the failure.
-
-Done when:
-- [x] `ClientStreamOwner.cs` `BeginReconnect()` method: add `_log.Warning(...)` inside the `if (!subscribeResp.IsSuccess)` block reporting the failure reason and number of topics
-- [x] Builds with zero warnings
-
----
-
 ## Phase 2.5: Transport Layer Redesign
 
 > Goal: Fix 12+ race conditions in the transport/lifecycle layer, eliminate GC pressure
