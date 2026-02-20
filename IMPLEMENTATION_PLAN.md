@@ -115,15 +115,15 @@ Update remaining packages: xunit, FluentAssertions, Testcontainers, BenchmarkDot
 FsCheck, Microsoft.NET.Test.Sdk, coverlet, and other test/tooling dependencies.
 
 Done when:
-- [ ] All packages in `Directory.Packages.props` `Test Package Versions` ItemGroup updated to latest stable
-- [ ] `Microsoft.Extensions.DependencyInjection.Abstractions` and `Microsoft.Extensions.Hosting` updated to `10.0.x` *(note: already completed in Task 1.5/iter-05 due to OTEL transitive dependency)*
-- [ ] Revert `NuGetAuditLevel=high` in `Directory.Build.props` (added in Task 1.3 for OTEL vulnerability, resolved by Task 1.5 OTEL 1.15.0 update; confirm `dotnet build -c Release` produces zero audit warnings after removal) *(source: RALPH run 20260219-215639 CLEANUP item)*
-- [ ] `FsCheck` and `FsCheck.Xunit` updated to latest 2.x stable (or 3.x if compatible)
-- [ ] `BenchmarkDotNet` updated to latest stable
-- [ ] `Testcontainers` updated to latest stable
-- [ ] `dotnet build -c Release` succeeds with zero warnings across all projects
-- [ ] `dotnet test tests/TurboMqtt.Tests/ -c Release` passes
-- [ ] `TOOLING.md` package version table updated
+- [x] All packages in `Directory.Packages.props` `Test Package Versions` ItemGroup updated to latest stable
+- [x] `Microsoft.Extensions.DependencyInjection.Abstractions` and `Microsoft.Extensions.Hosting` updated to `10.0.x` *(note: already completed in Task 1.5/iter-05 due to OTEL transitive dependency)*
+- [x] Revert `NuGetAuditLevel=high` in `Directory.Build.props` (added in Task 1.3 for OTEL vulnerability, resolved by Task 1.5 OTEL 1.15.0 update; confirm `dotnet build -c Release` produces zero audit warnings after removal) *(source: RALPH run 20260219-215639 CLEANUP item)*
+- [x] `FsCheck` and `FsCheck.Xunit` updated to latest 2.x stable (or 3.x if compatible) *(FsCheck 3.x requires C# LINQ API migration to FsCheck.Fluent; staying on 2.16.6 which is already latest 2.x)*
+- [x] `BenchmarkDotNet` updated to latest stable *(0.15.8 — already at latest as of this iteration)*
+- [x] `Testcontainers` updated to latest stable *(4.10.0; also synced Testcontainers.ActiveMq from 3.8.0 → 4.10.0)*
+- [x] `dotnet build -c Release` succeeds with zero warnings across all projects
+- [x] `dotnet test tests/TurboMqtt.Tests/ -c Release` passes
+- [x] `TOOLING.md` package version table updated
 
 ### Task 1.7: Update PROJECT_CONTEXT.md and TOOLING.md for Phase 1
 
