@@ -303,6 +303,12 @@ public sealed class MqttClient : IInternalMqttClient
         if (Transport.Status is ConnectionStatus.Disconnected or ConnectionStatus.Aborted or ConnectionStatus.NotStarted)
             return;
 
+        // Tell the actor to set the disconnect flag BEFORE writing the DISCONNECT packet.
+        // This prevents a race where the broker's DISCONNECT response (ServerDisconnect)
+        // arrives at the actor mailbox before DoDisconnect, which would bypass the
+        // _userDisconnectRequested guard and trigger a spurious reconnect attempt.
+        _clientOwner.Tell(ClientStreamOwner.PrepareDisconnect.Instance);
+
         var disconnectPacket = new DisconnectPacket();
         await _packetWriter.WriteAsync(disconnectPacket, cancellationToken);
 

@@ -29,6 +29,18 @@ internal sealed class ClientStreamOwner : UntypedActor
     }
 
     /// <summary>
+    /// Sent before the DISCONNECT packet is written to the outbound channel.
+    /// Sets <see cref="_userDisconnectRequested"/> so that the broker's DISCONNECT
+    /// response (arriving as <see cref="ServerDisconnect"/>) is suppressed rather
+    /// than triggering a reconnect attempt.
+    /// </summary>
+    public sealed class PrepareDisconnect : IClientStreamOwnerMessage
+    {
+        public static readonly PrepareDisconnect Instance = new();
+        private PrepareDisconnect() { }
+    }
+
+    /// <summary>
     /// Performs a graceful disconnect of the client.
     /// </summary>
     public sealed record DoDisconnect(CancellationToken CancellationToken) : IClientStreamOwnerMessage;
@@ -138,6 +150,7 @@ internal sealed class ClientStreamOwner : UntypedActor
     private int _remainingReconnectAttempts = 3;
     private int _streamOperatorId = 0;
     private bool _successfullyConnected = false;
+    private bool _userDisconnectRequested = false;
     private CancellationTokenSource? _reconnectCts;
 
     protected override void OnReceive(object message)
@@ -322,6 +335,13 @@ internal sealed class ClientStreamOwner : UntypedActor
                 // ignore - we haven't even connected yet
                 break;
             }
+            case ServerDisconnect when _userDisconnectRequested:
+            {
+                // ignore - this is a synthetic disconnect packet from our own transport
+                // shutdown sequence, not a genuine broker-initiated disconnect
+                _log.Debug("Ignoring ServerDisconnect during user-initiated disconnect.");
+                break;
+            }
             case ServerDisconnect serverDisconnect when _remainingReconnectAttempts > 0:
             {
                 _log.Info("Server disconnected the client. Reason: {0}", serverDisconnect.Reason);
@@ -340,6 +360,13 @@ internal sealed class ClientStreamOwner : UntypedActor
             }
 
             // old stream is dead, time to create a new one — enter Reconnecting behavior
+            case StreamTerminated when _userDisconnectRequested:
+            {
+                // ignore - stream terminated as part of user-initiated disconnect;
+                // PoisonPill from DoDisconnect handler will clean up
+                _log.Debug("Ignoring StreamTerminated during user-initiated disconnect.");
+                break;
+            }
             case StreamTerminated when _successfullyConnected:
             {
                 if (_remainingReconnectAttempts <= 0)
@@ -352,9 +379,17 @@ internal sealed class ClientStreamOwner : UntypedActor
                 break;
             }
 
+            case PrepareDisconnect:
+            {
+                _log.Debug("Preparing for user-initiated disconnect.");
+                _userDisconnectRequested = true;
+                break;
+            }
+
             case DoDisconnect doDisconnect: // explicit disconnect - no coming back from this
             {
                 _log.Info("Disconnecting client...");
+                _userDisconnectRequested = true; // ensure flag is set even if PrepareDisconnect was not sent
 
                 _ = ExecDisconnect();
 
