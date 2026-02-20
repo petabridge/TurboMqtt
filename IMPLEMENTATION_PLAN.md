@@ -229,11 +229,11 @@ Perform a line-by-line review of `Mqtt311Encoder.cs`, `Mqtt311EncoderOptimized.c
 Compare against the OASIS MQTT 3.1.1 specification.
 
 Done when:
-- [ ] Review covers: fixed header encoding, remaining length encoding/decoding, all packet type encode/decode paths, size estimation accuracy
-- [ ] Any specification violations filed as GitHub issues with label `bug` and referenced section of MQTT 3.1.1 spec
-- [ ] Any potential buffer overflows, off-by-one errors, or unsafe memory patterns filed as GitHub issues
-- [ ] Any discrepancies between `Mqtt311Encoder` and `Mqtt311EncoderOptimized` filed as issues
-- [ ] Summary of findings documented in the PR description or a comment on issue #66
+- [x] Review covers: fixed header encoding, remaining length encoding/decoding, all packet type encode/decode paths, size estimation accuracy
+- [x] Any specification violations filed as GitHub issues with label `bug` and referenced section of MQTT 3.1.1 spec *(#344 §3.1.2.1, #345 §3.1.2.6, #346 §2.2.2)*
+- [x] Any potential buffer overflows, off-by-one errors, or unsafe memory patterns filed as GitHub issues *(#347 bit mask off-by-one, #350 missing buffer guard)*
+- [x] Any discrepancies between `Mqtt311Encoder` and `Mqtt311EncoderOptimized` filed as issues *(#350 missing buffer size validation in optimized encoder)*
+- [x] Summary of findings documented in the PR description or a comment on issue #66 *(https://github.com/petabridge/TurboMqtt/issues/66#issuecomment-3937110252)*
 
 ### Task 2.6: Fix flaky ShouldConnectAndDisconnect test
 
