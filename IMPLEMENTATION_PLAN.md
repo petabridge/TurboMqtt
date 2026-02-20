@@ -245,11 +245,11 @@ The container test `ShouldConnectAndDisconnect` is flaky. Diagnose the root caus
 (likely timing/race condition in actor lifecycle or TCP connection teardown) and fix it.
 
 Done when:
-- [ ] Root cause identified and documented in issue #99 comment
-- [ ] Fix applied (may involve timeout adjustments, actor lifecycle ordering, or test harness changes)
-- [ ] `dotnet test tests/TurboMqtt.Container.Tests/ -c Release` passes the test 10 consecutive times locally
-- [ ] No `[Skip]` attribute or equivalent workaround -- the test runs normally
-- [ ] Issue #99 can be closed
+- [x] Root cause identified and documented in issue #99 comment *(https://github.com/petabridge/TurboMqtt/issues/99#issuecomment-3937124391)*
+- [x] Fix applied (may involve timeout adjustments, actor lifecycle ordering, or test harness changes) *(PrepareDisconnect message + _userDisconnectRequested guard in ClientStreamOwner; commit 7fd069f, PR #343)*
+- [x] `dotnet test tests/TurboMqtt.Container.Tests/ -c Release` passes the test 10 consecutive times locally *(verified: 10/10 runs pass, 2 tests per run - TCP and TLS variants)*
+- [x] No `[Skip]` attribute or equivalent workaround -- the test runs normally
+- [x] Issue #99 can be closed *(closed 2026-02-20)*
 
 ### Task 2.7: TLS support
 
