@@ -6,7 +6,7 @@
 
 namespace TurboMqtt.Utility;
 
-public sealed class UShortCounter(ushort start = 0)
+internal sealed class UShortCounter(ushort start = 0)
 {
     private int _current = start;
 

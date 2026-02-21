@@ -562,6 +562,50 @@ Done when:
 - [x] API review findings documented in `docs/release/api-review.md`
 - [x] Issue #354 closed
 
+### Task 6.9: Make internal-only types internal (API review follow-ups F-3, F-5, F-6)
+
+**Source:** `docs/release/api-review.md` findings F-3, F-5, F-6 (Run 20260221-151320, iter-03)
+**Surface area:** domain
+**Verification:** L1
+
+Three public types were identified as incorrectly public during the API review:
+- `MqttClient` (F-3) — concrete implementation; callers use `IMqttClient`
+- `PublishingProtocol.SetReceiveMaximum` (F-5) — internal actor message
+- `UShortCounter` (F-6) — internal utility
+
+All three are covered by `InternalsVisibleTo("TurboMqtt.Tests")` so tests still compile.
+
+Key files:
+- `src/TurboMqtt/Client/IMqttClient.cs` (`MqttClient`)
+- `src/TurboMqtt/Protocol/Pub/PublishingProtocol.cs` (`SetReceiveMaximum`)
+- `src/TurboMqtt/Utility/UShortCounter.cs` (`UShortCounter`)
+
+Done when:
+- [x] `MqttClient` changed from `public sealed class` to `internal sealed class`
+- [x] `PublishingProtocol.SetReceiveMaximum` changed from `public sealed class` to `internal sealed class`
+- [x] `UShortCounter` changed from `public sealed class` to `internal sealed class`
+- [x] Builds with zero warnings
+- [x] All existing tests pass
+
+### Task 6.10: Rename TurbotMqttHostingExtensions to TurboMqttHostingExtensions (F-1)
+
+**Source:** `docs/release/api-review.md` finding F-1 (Run 20260221-151320, iter-03)
+**Surface area:** cross-cutting
+**Verification:** L1
+
+`TurbotMqttHostingExtensions` has a typo (`Turbot` instead of `Turbo`) in both the class name
+and the filename. Must be fixed before v1.0 as this is the last opportunity before SemVer locks it.
+
+Key files:
+- `src/TurboMqtt/TurbotMqttHostingExtensions.cs`
+
+Done when:
+- [ ] Class renamed from `TurbotMqttHostingExtensions` to `TurboMqttHostingExtensions`
+- [ ] File renamed from `TurbotMqttHostingExtensions.cs` to `TurboMqttHostingExtensions.cs`
+- [ ] All references to the old class name updated
+- [ ] Builds with zero warnings
+- [ ] All existing tests pass
+
 ---
 
 ## Dependency Graph

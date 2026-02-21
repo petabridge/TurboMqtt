@@ -144,7 +144,7 @@ internal interface IInternalMqttClient : IMqttClient
 /// <summary>
 /// Default MQTT client implementation
 /// </summary>
-public sealed class MqttClient : IInternalMqttClient
+internal sealed class MqttClient : IInternalMqttClient
 {
     private readonly MqttClientConnectOptions _options;
     // All reads must go through the Transport property (Volatile.Read);
