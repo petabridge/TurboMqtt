@@ -539,11 +539,11 @@ The optimized encoder should have the same protection.
 Key file: `src/TurboMqtt/Protocol/Mqtt311EncoderOptimized.cs` (line ~40, `EncodePacket` method).
 
 Done when:
-- [ ] `EncodePacket` validates `buffer.Length >= estimatedSize.TotalSize` before writing
-- [ ] Throws `ArgumentException` with a descriptive message on undersized buffer
-- [ ] Test verifies the exception is thrown when an undersized buffer is passed
-- [ ] Builds with zero warnings
-- [ ] All existing tests pass
+- [x] `EncodePacket` validates `buffer.Length >= estimatedSize.TotalSize` before writing
+- [x] Throws `ArgumentException` with a descriptive message on undersized buffer
+- [x] Test verifies the exception is thrown when an undersized buffer is passed
+- [x] Builds with zero warnings
+- [x] All existing tests pass
 
 ### Task 6.4: API stability review before 1.0 release
 
