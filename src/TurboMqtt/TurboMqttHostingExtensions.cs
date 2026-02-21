@@ -1,5 +1,5 @@
-﻿// -----------------------------------------------------------------------
-// <copyright file="TurbotMqttHostingExtensions.cs" company="Petabridge, LLC">
+// -----------------------------------------------------------------------
+// <copyright file="TurboMqttHostingExtensions.cs" company="Petabridge, LLC">
 //      Copyright (C) 2024 - 2024 Petabridge, LLC <https://petabridge.com>
 // </copyright>
 // -----------------------------------------------------------------------
@@ -14,7 +14,7 @@ namespace TurboMqtt;
 /// <summary>
 /// Used to tie into the Akka.NET <see cref="ActorSystem"/> and start up the TurboMqtt server.
 /// </summary>
-public static class TurbotMqttHostingExtensions
+public static class TurboMqttHostingExtensions
 {
     /// <summary>
     /// Registers the <see cref="IMqttClientFactory"/> with the <see cref="IServiceCollection"/>.
@@ -36,7 +36,7 @@ public static class TurbotMqttHostingExtensions
                 system = ActorSystem.Create("turbomqtt");
                 system.Log.Info("Created new Akka.NET ActorSystem {0} - none found in IServiceCollection", system.Name);
             }
-            
+
             return new MqttClientFactory(system);
 
         });

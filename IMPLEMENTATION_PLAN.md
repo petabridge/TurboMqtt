@@ -600,11 +600,11 @@ Key files:
 - `src/TurboMqtt/TurbotMqttHostingExtensions.cs`
 
 Done when:
-- [ ] Class renamed from `TurbotMqttHostingExtensions` to `TurboMqttHostingExtensions`
-- [ ] File renamed from `TurbotMqttHostingExtensions.cs` to `TurboMqttHostingExtensions.cs`
-- [ ] All references to the old class name updated
-- [ ] Builds with zero warnings
-- [ ] All existing tests pass
+- [x] Class renamed from `TurbotMqttHostingExtensions` to `TurboMqttHostingExtensions`
+- [x] File renamed from `TurbotMqttHostingExtensions.cs` to `TurboMqttHostingExtensions.cs`
+- [x] All references to the old class name updated
+- [x] Builds with zero warnings
+- [x] All existing tests pass
 
 ---
 
