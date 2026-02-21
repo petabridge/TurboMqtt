@@ -132,11 +132,11 @@ fails with `SocketException: Address already in use`.
 Key file: `tests/TurboMqtt.Tests/End2End/TcpMqtt311HeartbeatFailureEnd2EndSpecs.cs`.
 
 Done when:
-- [ ] `FakeMqttTcpServer` uses an ephemeral port (bind to port 0, read back assigned port)
-- [ ] `TcpMqtt311HeartbeatFailureEnd2EndSpecs` uses the dynamically assigned port
-- [ ] Test passes reliably on at least 10 consecutive local runs
-- [ ] Builds with zero warnings
-- [ ] All existing tests pass
+- [x] `FakeMqttTcpServer` uses an ephemeral port (bind to port 0, read back assigned port)
+- [x] `TcpMqtt311HeartbeatFailureEnd2EndSpecs` uses the dynamically assigned port
+- [x] Test passes reliably on at least 10 consecutive local runs
+- [x] Builds with zero warnings
+- [x] All existing tests pass
 
 ### Task 4.5: Investigate and fix MqttPacketSizeEstimator underestimation edge cases
 
