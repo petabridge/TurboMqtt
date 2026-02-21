@@ -55,4 +55,4 @@ UnrollFactor=1  WarmupCount=10
 - Benchmarks use an in-process `FakeMqttTcpServer`, not a real broker. This enables `git clone && dotnet run -c Release` reproducibility without external dependencies.
 - The `OperationsPerInvoke = 1000 * 2` setting accounts for both the publish and receive sides of each message, so 1,000 messages yield 2,000 operations per invocation.
 - `RunStrategy=Monitoring` with `LaunchCount=10` / `WarmupCount=10` produces statistically robust results but is intentionally more expensive than a micro-benchmark run.
-- For real-broker throughput data see [Performance.md](../Performance.md#data-with-real-brokers).
+- For real-broker throughput data see [Performance.md](../performance.md#data-with-real-brokers).
