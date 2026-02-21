@@ -39,6 +39,9 @@ bld/
 [Bb]in/
 [Oo]bj/
 [Ll]og/
+# Whitelist docs/release/ — must appear after [Rr]elease/ rule (last-rule-wins)
+!docs/release/
+!docs/release/**
 
 #FAKE
 .fake

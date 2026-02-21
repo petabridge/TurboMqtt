@@ -455,9 +455,9 @@ Questions that must be answered:
 - What performance benchmarks must pass?
 
 Done when:
-- [ ] Release criteria documented in `docs/release/v1.0-criteria.md`
-- [ ] Criteria covers: protocol scope, API stability promise, perf bar, test pass rate
-- [ ] Issue #353 closed
+- [x] Release criteria documented in `docs/release/v1.0-criteria.md`
+- [x] Criteria covers: protocol scope, API stability promise, perf bar, test pass rate
+- [x] Issue #353 closed
 
 ### Task 6.4: API stability review before 1.0 release
 
