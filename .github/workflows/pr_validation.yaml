@@ -97,7 +97,7 @@ jobs:
 
       - name: Upload Test Result Files
         if: runner.os == 'Linux'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: test-results
           path: ${{ github.workspace }}/**/TestResults/**/*
