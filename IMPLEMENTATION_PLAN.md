@@ -495,12 +495,12 @@ Malformed packets are silently accepted instead of being rejected.
 Key file: `src/TurboMqtt/PacketTypes/ConnectPacket.cs`, `ConnectFlags.Decode` method (line ~141).
 
 Done when:
-- [ ] Decode throws `ArgumentOutOfRangeException` when bit 0 is 1, with message referencing MQTT-3.1.2-3
-- [ ] Decode throws `ArgumentOutOfRangeException` when WillFlag=true and WillQoS > 2, with message referencing MQTT-3.1.2-14
-- [ ] Deterministic unit tests cover both rejection cases
-- [ ] Existing decode tests still pass
-- [ ] Builds with zero warnings
-- [ ] All existing tests pass
+- [x] Decode throws `ArgumentOutOfRangeException` when bit 0 is 1, with message referencing MQTT-3.1.2-3
+- [x] Decode throws `ArgumentOutOfRangeException` when WillFlag=true and WillQoS > 2, with message referencing MQTT-3.1.2-14
+- [x] Deterministic unit tests cover both rejection cases
+- [x] Existing decode tests still pass
+- [x] Builds with zero warnings
+- [x] All existing tests pass
 
 ### Task 6.7: Validate fixed header reserved bits for SUBSCRIBE/UNSUBSCRIBE/PUBREL
 
