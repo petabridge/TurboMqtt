@@ -19,6 +19,34 @@ permissions:
   contents: read
 
 jobs:
+  aot-compat:
+    permissions: write-all
+    name: AOT-publish-${{matrix.os}}-${{ matrix.version }}
+    runs-on: ${{matrix.os}}
+
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        version: [ net8.0 ]
+
+    steps:
+      - name: "Checkout"
+        uses: actions/checkout@v4.1.2
+        with:
+          lfs: true
+          fetch-depth: 0
+
+      - name: "Install .NET SDK"
+        uses: actions/setup-dotnet@v4.0.0
+        with:
+          dotnet-version: |
+            8.0.x
+          global-json-file: "./global.json"
+
+      - name: publish AOT testApp, assert static analysis warning count, and run the app
+        shell: pwsh
+        run: .\build\test-aot-compatibility.ps1 ${{ matrix.version }}
+
   test:
     timeout-minutes: 30 # Container E2E tests (2x EMQX) take ~15-20 min on Ubuntu
     # Permissions this GitHub Action needs for other things in GitHub

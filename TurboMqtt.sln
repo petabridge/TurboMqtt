@@ -27,6 +27,7 @@ EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TurboMqtt.Container.Tests", "tests\TurboMqtt.Container.Tests\TurboMqtt.Container.Tests.csproj", "{CEE1640B-1C76-4683-BA14-C970B19E17E2}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TestContainers.TurboMqtt", "tests\TestContainers.TurboMqtt\TestContainers.TurboMqtt.csproj", "{CC7C2D64-7C40-4676-A32A-0F2ECDE99BDF}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TurboMqtt.AotCompatibility.TestApp", "tests\TurboMqtt.AotCompatibility.TestApp\TurboMqtt.AotCompatibility.TestApp.csproj", "{B2FBA3C2-00D7-4ACA-982C-BA9BF9E3F6FD}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -65,6 +66,10 @@ Global
 		{CC7C2D64-7C40-4676-A32A-0F2ECDE99BDF}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{CC7C2D64-7C40-4676-A32A-0F2ECDE99BDF}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{CC7C2D64-7C40-4676-A32A-0F2ECDE99BDF}.Release|Any CPU.Build.0 = Release|Any CPU
+		{B2FBA3C2-00D7-4ACA-982C-BA9BF9E3F6FD}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B2FBA3C2-00D7-4ACA-982C-BA9BF9E3F6FD}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B2FBA3C2-00D7-4ACA-982C-BA9BF9E3F6FD}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B2FBA3C2-00D7-4ACA-982C-BA9BF9E3F6FD}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
 		{AF733B60-8A45-42FC-8E80-B4EE432EE0AD} = {294A1BA9-C55D-4F08-8EEF-BC6B467892CB}
