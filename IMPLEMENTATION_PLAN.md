@@ -72,11 +72,11 @@ quota slot. The QoS 1 actor handles this correctly on all paths.
 Key file: `src/TurboMqtt/Protocol/Pub/ExactlyOncePublishRetryActor.cs` lines 100-108.
 
 Done when:
-- [ ] `DequeueBuffered()` is called after `_pendingPackets.Remove` in the PubRec failure handler (line 103 area)
-- [ ] Akka.Hosting.TestKit test exercises: send N+1 publishes where N = ReceiveMaximum, have the broker reply with a failing PubRec for one, verify the buffered publish is promoted and eventually completes
-- [ ] Existing `ExactlyOncePublishRetryActor` tests still pass
-- [ ] Builds with zero warnings
-- [ ] All existing tests pass
+- [x] `DequeueBuffered()` is called after `_pendingPackets.Remove` in the PubRec failure handler (line 103 area)
+- [x] Akka.Hosting.TestKit test exercises: send N+1 publishes where N = ReceiveMaximum, have the broker reply with a failing PubRec for one, verify the buffered publish is promoted and eventually completes
+- [x] Existing `ExactlyOncePublishRetryActor` tests still pass
+- [x] Builds with zero warnings
+- [x] All existing tests pass
 
 ### Task 4.2: Fix double DISCONNECT injection in Draining-to-Closing transition
 

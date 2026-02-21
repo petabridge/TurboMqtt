@@ -104,6 +104,7 @@ internal sealed class ExactlyOncePublishRetryActor : UntypedActor, IWithTimers
                         _log.Warning("Received PubRec with reason code [{0}] for packet ID [{1}]", rec.ReasonCode,
                             rec.PacketId);
                         pending.Sender.Tell(new PublishingProtocol.PublishFailure("PubRec failed"));
+                        DequeueBuffered();
                         return;
                     }
                     
