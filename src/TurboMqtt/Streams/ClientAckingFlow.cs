@@ -116,6 +116,7 @@ internal sealed class ClientAckingFlow : GraphStage<FlowShape<ImmutableList<Mqtt
                     case MqttPacketType.ConnAck:
                     case MqttPacketType.SubAck:
                     case MqttPacketType.UnsubAck:
+                    case MqttPacketType.Auth:  // MQTT 5.0 enhanced authentication
                     {
                         // Client ACK actor handles this
                         _stage._actors.ClientAck.Tell(packet);

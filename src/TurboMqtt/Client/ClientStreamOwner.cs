@@ -193,7 +193,8 @@ internal sealed class ClientStreamOwner : UntypedActor
 
                     _clientAckActor =
                         Context.ActorOf(
-                            Props.Create(() => new ClientAcksActor(clientConnectOptions.PublishRetryInterval)),
+                            Props.Create(() => new ClientAcksActor(clientConnectOptions.PublishRetryInterval,
+                                outboundPackets)),
                             "acks");
                     Context.Watch(_clientAckActor);
 

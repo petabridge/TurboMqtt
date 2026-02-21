@@ -109,4 +109,15 @@ public sealed record MqttClientConnectOptions
     /// Maximum number of consecutive times we should attempt to reconnect to the broker before giving up.
     /// </summary>
     public int MaxReconnectAttempts { get; init; } = 3;
+
+    /// <summary>
+    /// Optional MQTT 5.0 Enhanced Authentication handler.
+    /// When set, the client sends <c>Authentication Method</c> and <c>Authentication Data</c>
+    /// with the CONNECT packet and participates in challenge-response authentication.
+    /// </summary>
+    /// <remarks>
+    /// Only used when <see cref="ProtocolVersion"/> is <see cref="MqttProtocolVersion.V5_0"/>.
+    /// Ignored for MQTT 3.1.1 connections.
+    /// </remarks>
+    public IMqtt5AuthHandler? AuthHandler { get; init; }
 }

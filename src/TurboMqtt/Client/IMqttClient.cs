@@ -250,6 +250,13 @@ public sealed class MqttClient : IInternalMqttClient
             ReceiveMaximum = _options.ReceiveMaximum,
         };
 
+        // MQTT 5.0 enhanced authentication: embed method + initial data in CONNECT
+        if (_options.ProtocolVersion == MqttProtocolVersion.V5_0 && _options.AuthHandler is { } authHandler)
+        {
+            connectPacket.AuthenticationMethod = authHandler.AuthenticationMethod;
+            connectPacket.AuthenticationData = authHandler.GetInitialAuthData();
+        }
+
         if (_options.LastWill != null)
         {
             var lastWill = _options.LastWill;
@@ -268,7 +275,12 @@ public sealed class MqttClient : IInternalMqttClient
         }
 
         // send the CONNECT packet for completion tracking
-        var askTask = _requiredActors.ClientAck.Ask<IConnectResponse>(connectPacket, cancellationToken);
+        // When an auth handler is configured use ConnectWithAuthHandler so the actor
+        // can participate in MQTT 5.0 challenge-response before CONNACK arrives.
+        object connectMessage = _options.ProtocolVersion == MqttProtocolVersion.V5_0 && _options.AuthHandler is not null
+            ? new ClientAcksActor.ConnectWithAuthHandler(connectPacket, _options.AuthHandler)
+            : (object)connectPacket;
+        var askTask = _requiredActors.ClientAck.Ask<IConnectResponse>(connectMessage, cancellationToken);
 
         // flush the packet to the wire
         var wrote = _packetWriter.TryWrite(connectPacket);

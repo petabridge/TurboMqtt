@@ -591,15 +591,15 @@ Done when:
 Implement enhanced authentication (challenge-response) and background re-authentication.
 
 Done when:
-- [ ] `IMqtt5AuthHandler` interface created (see PRD §10 for proposed API)
-- [ ] `MqttClientConnectOptions.AuthHandler` property added
-- [ ] `Mqtt5AuthHandler` state machine manages: AwaitingConnAck → InChallenge → Authenticated
-- [ ] Client sends AUTH as part of CONNECT flow when AuthHandler is set
-- [ ] Client handles incoming AUTH (Reason Code 0x18) with challenge-response
-- [ ] Re-authentication triggered when broker sends AUTH with Reason Code 0x19
-- [ ] Auth failure triggers connection teardown
-- [ ] Unit tests: state machine transitions through all happy and failure paths
-- [ ] Builds with zero warnings
+- [x] `IMqtt5AuthHandler` interface created (see PRD §10 for proposed API)
+- [x] `MqttClientConnectOptions.AuthHandler` property added
+- [x] `Mqtt5AuthHandler` state machine manages: AwaitingConnAck → InChallenge → Authenticated *(implemented as `Mqtt5AuthStateMachine` internal class)*
+- [x] Client sends AUTH as part of CONNECT flow when AuthHandler is set *(auth method/data embedded in ConnectPacket; `ConnectWithAuthHandler` message used in ClientAcksActor)*
+- [x] Client handles incoming AUTH (Reason Code 0x18) with challenge-response *(PipeToSelf async pattern in ClientAcksActor)*
+- [x] Re-authentication triggered when broker sends AUTH with Reason Code 0x19 *(treated as challenge continuation; per spec only client sends 0x19, but incoming 0x19 is handled gracefully)*
+- [x] Auth failure triggers connection teardown *(FailPendingConnect sends ConnectFailure to caller)*
+- [x] Unit tests: state machine transitions through all happy and failure paths *(18 tests in Mqtt5AuthFlowSpecs.cs)*
+- [x] Builds with zero warnings
 
 ### Task 3.8: Handle server-initiated DISCONNECT and update public API
 
