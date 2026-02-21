@@ -264,8 +264,27 @@ internal sealed class TcpTransportActor : UntypedActor
                         timeoutCts.Dispose();
                     }
 
-                    sender.Tell(connectResult);
+                    // Self-tell BEFORE replying to the caller.
+                    //
+                    // The mailbox is suspended for the entire RunTask duration; all messages
+                    // sent to _closureSelf during that window queue up and are processed in
+                    // FIFO order once the dispatcher resumes after RunTask completes.
+                    //
+                    // If we reply to the caller first, the caller can immediately send its
+                    // next message (e.g. DoClose or ConnectionUnexpectedlyClosed) and that
+                    // message can win the race into the mailbox ahead of our self-tell.
+                    // When the mailbox resumes it would then process the caller's message
+                    // while the actor is still in Connecting state, where DoClose calls
+                    // Context.Stop and ConnectionUnexpectedlyClosed is Unhandled — in both
+                    // cases BecomeConnected() is never reached and the background tasks
+                    // never start, so BackgroundTasksCompleted is never sent and the actor
+                    // hangs until the test times out.
+                    //
+                    // Sending _closureSelf.Tell first guarantees it enters the mailbox
+                    // before the caller's reply unblocks and before any concurrent Tell
+                    // from the caller can arrive.
                     _closureSelf.Tell(connectResult);
+                    sender.Tell(connectResult);
                 });
 
                 break;
@@ -397,44 +416,56 @@ internal sealed class TcpTransportActor : UntypedActor
 
     private async Task DoWriteToPipeAsync(CancellationToken ct)
     {
-        while (!ct.IsCancellationRequested)
+        Exception? pipeError = null;
+        try
         {
-            var memory = _pipe.Writer.GetMemory(TcpOptions.MaxFrameSize / 4);
-            try
+            while (!ct.IsCancellationRequested)
             {
-                int bytesRead = await _stream!.ReadAsync(memory, ct).ConfigureAwait(false);
-                if (bytesRead == 0)
+                var memory = _pipe.Writer.GetMemory(TcpOptions.MaxFrameSize / 4);
+                try
                 {
-                    // we are done reading - socket was gracefully closed
-                    _closureSelf.Tell(ReadFinished.Instance);
+                    int bytesRead = await _stream!.ReadAsync(memory, ct).ConfigureAwait(false);
+                    if (bytesRead == 0)
+                    {
+                        // we are done reading - socket was gracefully closed
+                        _closureSelf.Tell(ReadFinished.Instance);
+                        return;
+                    }
+
+                    _pipe.Writer.Advance(bytesRead);
+                }
+                catch (OperationCanceledException)
+                {
+                    // no need to log here
+                    return;
+                }
+                catch (Exception ex)
+                {
+                    // this is a debug-level issue
+                    _log.Debug(ex, "Failed to read from socket.");
+                    // we are done reading
+                    _closureSelf.Tell(new ConnectionUnexpectedlyClosed(DisconnectReasonCode.UnspecifiedError, ex.Message));
+                    pipeError = ex;
                     return;
                 }
 
-                _pipe.Writer.Advance(bytesRead);
-            }
-            catch (OperationCanceledException)
-            {
-                // no need to log here
-                return;
-            }
-            catch (Exception ex)
-            {
-                // this is a debug-level issue
-                _log.Debug(ex, "Failed to read from socket.");
-                // we are done reading
-                _closureSelf.Tell(new ConnectionUnexpectedlyClosed(DisconnectReasonCode.UnspecifiedError, ex.Message));
-                return;
-            }
-
-            // make data available to PipeReader
-            var result = await _pipe.Writer.FlushAsync(ct);
-            if (result.IsCompleted)
-            {
-                return;
+                // make data available to PipeReader
+                var result = await _pipe.Writer.FlushAsync(ct);
+                if (result.IsCompleted)
+                {
+                    return;
+                }
             }
         }
-
-        await _pipe.Writer.CompleteAsync();
+        finally
+        {
+            // Always complete the pipe writer on any exit path so that ReadFromPipeAsync
+            // can detect writer completion via result.IsCompleted rather than depending
+            // solely on CancellationToken callback timing. Without this, ReadFromPipeAsync
+            // can stall indefinitely on a loaded CI system if the cancellation callback
+            // dispatch is delayed by thread pool pressure.
+            await _pipe.Writer.CompleteAsync(pipeError).ConfigureAwait(false);
+        }
     }
 
     private async Task ReadFromPipeAsync(CancellationToken ct)
@@ -444,13 +475,28 @@ internal sealed class TcpTransportActor : UntypedActor
             try
             {
                 var result = await _pipe.Reader.ReadAsync(ct);
+
+                // PipeReader.ReadAsync can return with IsCanceled=true when the token is
+                // cancelled rather than throwing OperationCanceledException. In that case
+                // the buffer is empty and we must not write a zero-length entry into
+                // _readsFromTransport. Advance past the empty buffer and exit cleanly.
+                if (result.IsCanceled)
+                {
+                    _pipe.Reader.AdvanceTo(result.Buffer.Start);
+                    _closureSelf.Tell(ReadFinished.Instance);
+                    return;
+                }
+
                 var buffer = result.Buffer;
 
                 // consume this entire sequence by copying it into a pooled buffer
                 var length = (int)buffer.Length;
-                var pooled = MemoryPool<byte>.Shared.Rent(length);
-                buffer.CopyTo(pooled.Memory.Span);
-                _readsFromTransport.Writer.TryWrite((pooled, length));
+                if (length > 0)
+                {
+                    var pooled = MemoryPool<byte>.Shared.Rent(length);
+                    buffer.CopyTo(pooled.Memory.Span);
+                    _readsFromTransport.Writer.TryWrite((pooled, length));
+                }
 
                 // tell the pipe we're done with this data
                 _pipe.Reader.AdvanceTo(buffer.End);
