@@ -153,6 +153,26 @@ internal sealed class ClientStreamInstance : UntypedActor
             }
 
             case MqttProtocolVersion.V5_0:
+            {
+                var inboundMessages = MqttClientStreams.Mqtt5InboundMessageSource(
+                    clientConnectOptions.ClientId,
+                    transport,
+                    outboundPackets,
+                    requiredActors,
+                    clientConnectOptions.MaxRetainedPacketIds, clientConnectOptions.MaxPacketIdRetentionTime,
+                    disconnectPromise,
+                    clientConnectOptions.EnableOpenTelemetry);
+
+                var outboundMessages = MqttClientStreams.Mqtt5OutboundPacketSink(
+                    clientConnectOptions.ClientId,
+                    transport,
+                    MemoryPool<byte>.Shared,
+                    maxFrameSize, (int)clientConnectOptions.MaximumPacketSize,
+                    clientConnectOptions.EnableOpenTelemetry);
+
+                return (inboundMessages, outboundMessages);
+            }
+
             default:
                 throw new NotSupportedException();
         }

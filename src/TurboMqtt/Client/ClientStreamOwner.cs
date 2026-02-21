@@ -4,6 +4,7 @@
 // </copyright>
 // -----------------------------------------------------------------------
 
+using System.Diagnostics;
 using System.Threading.Channels;
 using Akka.Actor;
 using Akka.Event;
@@ -13,6 +14,7 @@ using TurboMqtt.PacketTypes;
 using TurboMqtt.Protocol;
 using TurboMqtt.Protocol.Pub;
 using TurboMqtt.Streams;
+using TurboMqtt.Telemetry;
 
 namespace TurboMqtt.Client;
 
@@ -193,7 +195,8 @@ internal sealed class ClientStreamOwner : UntypedActor
 
                     _clientAckActor =
                         Context.ActorOf(
-                            Props.Create(() => new ClientAcksActor(clientConnectOptions.PublishRetryInterval)),
+                            Props.Create(() => new ClientAcksActor(clientConnectOptions.PublishRetryInterval,
+                                outboundPackets)),
                             "acks");
                     Context.Watch(_clientAckActor);
 
@@ -344,7 +347,9 @@ internal sealed class ClientStreamOwner : UntypedActor
             }
             case ServerDisconnect serverDisconnect when _remainingReconnectAttempts > 0:
             {
-                _log.Info("Server disconnected the client. Reason: {0}", serverDisconnect.Reason);
+                _log.Info("Server disconnected the client. Reason: {0} ReasonString: {1}",
+                    serverDisconnect.Reason, serverDisconnect.DisconnectPacket.ReasonString ?? "(none)");
+                EmitServerDisconnectActivity(serverDisconnect);
                 _ = _currentTransport?.AbortAsync(); // have to force old resources to close
                 _currentTransport = null; // null out the old transport
                 Context.Stop(_streamInstanceOwner); // wait for the stream to terminate
@@ -353,8 +358,10 @@ internal sealed class ClientStreamOwner : UntypedActor
 
             case ServerDisconnect serverDisconnect when _remainingReconnectAttempts == 0:
             {
-                _log.Info("Server disconnected the client. Reason: {0}", serverDisconnect.Reason);
+                _log.Info("Server disconnected the client. Reason: {0} ReasonString: {1}",
+                    serverDisconnect.Reason, serverDisconnect.DisconnectPacket.ReasonString ?? "(none)");
                 _log.Info("Client has exhausted all reconnect attempts. Shutting down.");
+                EmitServerDisconnectActivity(serverDisconnect);
                 Self.Tell(PoisonPill.Instance);
                 break;
             }
@@ -507,6 +514,20 @@ internal sealed class ClientStreamOwner : UntypedActor
                 Unhandled(message);
                 break;
         }
+    }
+
+    private void EmitServerDisconnectActivity(ServerDisconnect serverDisconnect)
+    {
+        using var activity = OpenTelemetrySupport.ActivitySource.StartActivity("mqtt.server_disconnect",
+            ActivityKind.Client);
+        if (activity is null)
+            return;
+
+        activity.SetTag(OpenTelemetrySupport.ClientIdTag, _connectOptions?.ClientId);
+        activity.SetTag("disconnect.reason_code", serverDisconnect.Reason.ToString());
+        var reasonString = serverDisconnect.DisconnectPacket.ReasonString;
+        if (!string.IsNullOrEmpty(reasonString))
+            activity.SetTag("disconnect.reason_string", reasonString);
     }
 
     private async Task ReplaceTransport()

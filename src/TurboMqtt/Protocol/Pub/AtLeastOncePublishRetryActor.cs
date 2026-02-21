@@ -31,6 +31,8 @@ internal sealed class AtLeastOncePublishRetryActor : UntypedActor, IWithTimers
     private readonly int _maxRetries;
     private readonly TimeSpan _publishTimeout;
     private readonly Dictionary<NonZeroUInt16, PendingPublish> _pendingPackets = new();
+    private readonly Queue<(PublishPacket Packet, IActorRef Sender)> _bufferedPublishes = new();
+    private ushort _receiveMaximum; // 0 = unlimited
     private readonly ILoggingAdapter _log = Context.GetLogger();
 
     public AtLeastOncePublishRetryActor(ChannelWriter<MqttPacket> outboundPackets, int maxRetries = DefaultMaxRetries,
@@ -45,6 +47,13 @@ internal sealed class AtLeastOncePublishRetryActor : UntypedActor, IWithTimers
     {
         switch (message)
         {
+            case PublishingProtocol.SetReceiveMaximum setMax:
+            {
+                _receiveMaximum = setMax.Value;
+                _log.Debug("ReceiveMaximum set to [{0}]", _receiveMaximum);
+                return;
+            }
+
             // New packet to publish - it's someone else's responsibility to make sure the QoS is correct
             case PublishPacket packet:
             {
@@ -55,10 +64,23 @@ internal sealed class AtLeastOncePublishRetryActor : UntypedActor, IWithTimers
                     Sender.Tell(new PublishingProtocol.PublishFailure("Duplicate packet ID"));
                     return;
                 }
-                
-                // we don't send packets to the server first time around - Akka.Streams handles that
+
+                // When ReceiveMaximum is set and we're at the limit, buffer the publish
+                if (_receiveMaximum > 0 && _pendingPackets.Count >= _receiveMaximum)
+                {
+                    _log.Debug("ReceiveMaximum [{0}] reached; buffering publish [{1}]", _receiveMaximum, packet.PacketId);
+                    _bufferedPublishes.Enqueue((packet, Sender));
+                    return;
+                }
+
                 var deadline = Deadline.FromNow(_publishTimeout);
                 _pendingPackets[packet.PacketId] = new PendingPublish(packet, deadline, Sender, _maxRetries);
+
+                // When ReceiveMaximum is active the actor owns the initial channel write;
+                // otherwise MqttClient writes to the channel directly (legacy path).
+                if (_receiveMaximum > 0)
+                    _outboundPackets.TryWrite(packet);
+
                 return;
             }
 
@@ -66,7 +88,7 @@ internal sealed class AtLeastOncePublishRetryActor : UntypedActor, IWithTimers
             case PubAckPacket ack:
             {
                 _log.Debug("Received PubAck with id [{0}], reason [{1}] from broker", ack.PacketId, ack.ReasonCode);
-                
+
                 if (_pendingPackets.Remove(ack.PacketId, out var pending))
                 {
                     // check the return code
@@ -74,9 +96,11 @@ internal sealed class AtLeastOncePublishRetryActor : UntypedActor, IWithTimers
                     {
                         _log.Warning("Received PubAck with non-success return code [{0}]", ack.ReasonCode);
                         pending.Sender.Tell(new PublishingProtocol.PublishFailure(ack.ReasonString ?? ack.ReasonCode.ToString()));
+                        DequeueBuffered();
                         return;
                     }
                     pending.Sender.Tell(PublishingProtocol.PublishSuccess.Instance);
+                    DequeueBuffered();
                 }
                 else
                 {
@@ -112,6 +136,7 @@ internal sealed class AtLeastOncePublishRetryActor : UntypedActor, IWithTimers
                         _log.Warning("Pub packet with ID [{0}] timed out, no more retries left", packetId);
                         _pendingPackets.Remove(packetId, out _);
                         pending.Sender.Tell(new PublishingProtocol.PublishFailure("Timeout"));
+                        DequeueBuffered();
                     }
                 }
 
@@ -123,7 +148,8 @@ internal sealed class AtLeastOncePublishRetryActor : UntypedActor, IWithTimers
             {
                 if (_pendingPackets.Remove(cancel.PacketId, out var pending))
                 {
-                    // no-op
+                    // slot freed — promote a buffered publish if any
+                    DequeueBuffered();
                 }
                 else
                 {
@@ -132,6 +158,21 @@ internal sealed class AtLeastOncePublishRetryActor : UntypedActor, IWithTimers
 
                 return;
             }
+        }
+    }
+
+    /// <summary>
+    /// When a slot is freed (ACK or cancel), dequeue buffered publishes up to the receive maximum.
+    /// </summary>
+    private void DequeueBuffered()
+    {
+        while (_receiveMaximum > 0 && _bufferedPublishes.Count > 0 && _pendingPackets.Count < _receiveMaximum)
+        {
+            var (bufferedPacket, bufferedSender) = _bufferedPublishes.Dequeue();
+            var deadline = Deadline.FromNow(_publishTimeout);
+            _pendingPackets[bufferedPacket.PacketId] = new PendingPublish(bufferedPacket, deadline, bufferedSender, _maxRetries);
+            _outboundPackets.TryWrite(bufferedPacket);
+            _log.Debug("Dequeued buffered publish [{0}] after slot freed", bufferedPacket.PacketId);
         }
     }
 

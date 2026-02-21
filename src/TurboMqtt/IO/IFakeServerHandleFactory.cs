@@ -30,6 +30,7 @@ internal sealed class DefaultFakeServerHandleFactory : IFakeServerHandleFactory
         return protocolVersion switch
         {
             MqttProtocolVersion.V3_1_1 => new FakeMqtt311ServerHandle(pushMessage, closingAction, log, heartbeatDelay),
+            MqttProtocolVersion.V5_0 => new FakeMqtt5ServerHandle(pushMessage, closingAction, log, heartbeatDelay),
             _ => throw new NotSupportedException($"Protocol version {protocolVersion} not supported.")
         };
     }

@@ -27,7 +27,7 @@ internal sealed class FailureDetector
         _failedConnectionActor = failedConnectionActor;
     }
 
-    public TimeSpan HeartbeatInterval { get; }
+    public TimeSpan HeartbeatInterval { get; set; }
 
     public void Trigger(Exception ex)
     {
@@ -70,6 +70,16 @@ internal sealed class HeartBeatActor : UntypedActor, IWithTimers
         private CheckHeartbeat()
         {
         }
+    }
+
+    /// <summary>
+    /// Sent when the broker's CONNACK specifies a ServerKeepAlive value that
+    /// overrides the client-requested keep-alive interval.
+    /// </summary>
+    public sealed class UpdateKeepAlive
+    {
+        public UpdateKeepAlive(ushort keepAliveSeconds) { KeepAliveSeconds = keepAliveSeconds; }
+        public ushort KeepAliveSeconds { get; }
     }
 
     private const string HeartbeatTimerKey = "heartbeat";
@@ -124,6 +134,20 @@ internal sealed class HeartBeatActor : UntypedActor, IWithTimers
 
                 break;
             }
+            case UpdateKeepAlive update:
+            {
+                var newInterval = TimeSpan.FromSeconds(update.KeepAliveSeconds);
+                _log.Info("Server requested keep-alive of {0}s (was {1}s); updating timers.",
+                    update.KeepAliveSeconds, _failureDetector.HeartbeatInterval.TotalSeconds);
+                _failureDetector.HeartbeatInterval = newInterval;
+                // Restart check timer with new 1/4 interval
+                var pingInterval = TimeSpan.FromMilliseconds(newInterval.TotalMilliseconds / 4);
+                Timers.Cancel(HeartbeatTimerKey);
+                Timers.StartPeriodicTimer(HeartbeatTimerKey, CheckHeartbeat.Instance, pingInterval);
+                RestartHeartbeatTimeout();
+                return;
+            }
+
             default:
                 Unhandled(message);
                 break;

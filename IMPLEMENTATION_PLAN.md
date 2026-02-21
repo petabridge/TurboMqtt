@@ -23,704 +23,471 @@ and do not need to be resolved before merging this branch.
 | [#349](https://github.com/petabridge/TurboMqtt/issues/349) | MQTT 5.0 size estimators — `=` instead of `+=` for `ComputeUserPropertiesSize` | Bug |
 | [#350](https://github.com/petabridge/TurboMqtt/issues/350) | `Mqtt311EncoderOptimized` — no input buffer size validation | Safety |
 
+## Open GitHub Issues — Filed During RALPH Run 20260221-020516
+
+Issues filed during after-action review. Organized into Phases 4–6 below.
+
+| Issue | Title | Phase |
+|-------|-------|-------|
+| [#356](https://github.com/petabridge/TurboMqtt/issues/356) | Double DISCONNECT injection in Draining→Closing path | 4 |
+| [#357](https://github.com/petabridge/TurboMqtt/issues/357) | Propagate ConnectTimeout to reconnect CTS | 4 |
+| [#362](https://github.com/petabridge/TurboMqtt/issues/362) | MqttLastWill.DelayInterval should be uint, not NonZeroUInt16 | 4 |
+| [#363](https://github.com/petabridge/TurboMqtt/issues/363) | UserProperties should support duplicate keys per MQTT 5.0 spec | 4 |
+| [#365](https://github.com/petabridge/TurboMqtt/issues/365) | Pre-existing flaky HeartbeatFailure test — port binding conflict | 4 |
+| [#367](https://github.com/petabridge/TurboMqtt/issues/367) | ReceiveMaximum quota should be shared across QoS 1 and QoS 2 actors | 4 |
+| [#368](https://github.com/petabridge/TurboMqtt/issues/368) | Investigate MqttPacketSizeEstimator underestimation edge cases | 4 |
+| [#372](https://github.com/petabridge/TurboMqtt/issues/372) | ExactlyOncePublishRetryActor missing DequeueBuffered() on PubRec failure path | 4 |
+| [#358](https://github.com/petabridge/TurboMqtt/issues/358) | Add isolated actor test for ClientStreamOwner.Reconnecting behavior | 5 |
+| [#359](https://github.com/petabridge/TurboMqtt/issues/359) | Establish await using convention for IMqttClient in tests | 5 |
+| [#360](https://github.com/petabridge/TurboMqtt/issues/360) | Add no-credentials negative auth test | 5 |
+| [#361](https://github.com/petabridge/TurboMqtt/issues/361) | Add dedicated regression test for 1-char MQTT topic name | 5 |
+| [#364](https://github.com/petabridge/TurboMqtt/issues/364) | File GitHub issue for RetainHandling bit-mask bug fix (tracking) | 5 |
+| [#366](https://github.com/petabridge/TurboMqtt/issues/366) | Add empty ClientId test for MQTT 5.0 CONNECT | 5 |
+| [#369](https://github.com/petabridge/TurboMqtt/issues/369) | Add unit tests for MqttClient.PublishAsync broker limit validation | 5 |
+| [#370](https://github.com/petabridge/TurboMqtt/issues/370) | Add deterministic encoder test for ReceiveMaximum > 0 | 5 |
+| [#353](https://github.com/petabridge/TurboMqtt/issues/353) | Define v1.0 release criteria and quality bar | 6 |
+| [#354](https://github.com/petabridge/TurboMqtt/issues/354) | API stability review before 1.0 release | 6 |
+| [#355](https://github.com/petabridge/TurboMqtt/issues/355) | Add test gate to release.yaml workflow | 6 |
+| [#371](https://github.com/petabridge/TurboMqtt/issues/371) | Run full production benchmarks for MQTT 5.0 before PR merge | 6 |
+
 ---
 
-## Phase 1: Infrastructure and Modernization
+## Phase 4: Bug Fixes & Spec Compliance
 
-> Goal: Unblock releases by migrating CI/CD to GitHub Actions, upgrade to .NET 10,
-> and bring all package dependencies to current versions. This phase has zero
-> functional changes to TurboMqtt itself -- it is purely infrastructure.
+> Correctness fixes that must land before any 1.0 release. Ordered so that
+> non-breaking fixes come first, followed by breaking data model changes, then
+> the larger architectural fix (shared ReceiveMaximum quota).
 
-### Task 1.1: Create GitHub Actions release workflow
+### Task 4.1: Fix missing DequeueBuffered() on PubRec failure path
 
-**PRD:** https://github.com/petabridge/TurboMqtt/issues/326
+**PRD:** https://github.com/petabridge/TurboMqtt/issues/372
+**Surface area:** domain
+**Verification:** L2
+
+In `ExactlyOncePublishRetryActor`, when a PubRec arrives with a non-success
+reason code, the pending packet is removed and the sender is notified, but
+`DequeueBuffered()` is not called. This permanently leaks a ReceiveMaximum
+quota slot. The QoS 1 actor handles this correctly on all paths.
+
+Key file: `src/TurboMqtt/Protocol/Pub/ExactlyOncePublishRetryActor.cs` lines 100-108.
+
+Done when:
+- [ ] `DequeueBuffered()` is called after `_pendingPackets.Remove` in the PubRec failure handler (line 103 area)
+- [ ] Akka.Hosting.TestKit test exercises: send N+1 publishes where N = ReceiveMaximum, have the broker reply with a failing PubRec for one, verify the buffered publish is promoted and eventually completes
+- [ ] Existing `ExactlyOncePublishRetryActor` tests still pass
+- [ ] Builds with zero warnings
+- [ ] All existing tests pass
+
+### Task 4.2: Fix double DISCONNECT injection in Draining-to-Closing transition
+
+**PRD:** https://github.com/petabridge/TurboMqtt/issues/356
+**Surface area:** cross-cutting
+**Verification:** L2
+
+`TcpTransportActor.BecomeClosing()` unconditionally injects a DISCONNECT
+packet into the reads channel (line 569). When called from the `Draining`
+handler after `OutboundFlushed`, a DISCONNECT was already injected at line 537.
+Two DISCONNECT packets enter the reads channel on the graceful drain path.
+
+Key file: `src/TurboMqtt/IO/Tcp/TcpTransportActor.cs`.
+
+Done when:
+- [ ] Only one DISCONNECT packet is injected into `_readsFromTransport` on the Draining -> Closing path (guard added to `BecomeClosing` or injection removed from `Draining.OutboundFlushed` handler)
+- [ ] The Connected -> Closing path (no draining) still injects exactly one DISCONNECT
+- [ ] The Aborted path still injects exactly one DISCONNECT
+- [ ] Akka.Hosting.TestKit test verifies the graceful drain path produces exactly one DISCONNECT in the reads channel
+- [ ] Builds with zero warnings
+- [ ] All existing tests pass
+
+### Task 4.3: Propagate ConnectTimeout to reconnect CTS
+
+**PRD:** https://github.com/petabridge/TurboMqtt/issues/357
 **Surface area:** cross-cutting
 **Verification:** L1
 
-Replace the Azure DevOps pipeline (`.azure/build_release.yaml`) with a GitHub Actions
-workflow that triggers on git tag push, builds, signs with `dotnet sign`, publishes
-to NuGet.org, and creates a GitHub Release with release notes and `.nupkg` artifacts.
+`ClientStreamOwner.BeginReconnect()` hardcodes `TimeSpan.FromSeconds(5)` for
+the reconnect CTS (line 555). This ignores the user-configured
+`MqttClientTcpOptions.ConnectTimeout`. The reconnect timeout should use the
+configured value or a separate configurable property.
+
+Key file: `src/TurboMqtt/Client/ClientStreamOwner.cs`.
 
 Done when:
-- [x] New workflow file `.github/workflows/release.yaml` exists
-- [x] Workflow triggers on `v*` tag push to `dev` or `main`
-- [x] Workflow runs `build.ps1` to extract version and release notes
-- [x] Workflow runs `dotnet pack -c Release -o ./bin/nuget`
-- [x] Workflow uses `dotnet sign` (not SignClient) for NuGet package signing
-- [x] Workflow pushes `.nupkg` to NuGet.org using a repository secret `NUGET_API_KEY`
-- [x] Workflow creates a GitHub Release with title `TurboMqtt vX.Y.Z`, body from `RELEASE_NOTES.md`, and `.nupkg` attached
-- [x] `.azure/build_release.yaml` is deleted
-- [x] `.config/dotnet-tools.json` no longer references SignClient
-- [x] `TOOLING.md` CI/CD table updated to reflect GitHub Actions release pipeline
+- [ ] `BeginReconnect()` uses a configurable timeout instead of the hardcoded 5 seconds
+- [ ] The timeout is sourced from `MqttClientConnectOptions` (new property or existing timeout)
+- [ ] Unit test verifies the reconnect CTS uses the configured timeout value
+- [ ] Builds with zero warnings
+- [ ] All existing tests pass
 
-### Task 1.2: Fix broken GitHub Release creation
+### Task 4.4: Fix flaky HeartbeatFailure test port binding conflict
 
-**PRD:** https://github.com/petabridge/TurboMqtt/issues/74
+**PRD:** https://github.com/petabridge/TurboMqtt/issues/365
+**Surface area:** cross-cutting
+**Verification:** L2
+
+`TcpMqtt311HeartbeatFailureEnd2EndSpecs` hardcodes port 21887. When multiple
+test runs execute in parallel or the port is held by a previous run, the test
+fails with `SocketException: Address already in use`.
+
+Key file: `tests/TurboMqtt.Tests/End2End/TcpMqtt311HeartbeatFailureEnd2EndSpecs.cs`.
+
+Done when:
+- [ ] `FakeMqttTcpServer` uses an ephemeral port (bind to port 0, read back assigned port)
+- [ ] `TcpMqtt311HeartbeatFailureEnd2EndSpecs` uses the dynamically assigned port
+- [ ] Test passes reliably on at least 10 consecutive local runs
+- [ ] Builds with zero warnings
+- [ ] All existing tests pass
+
+### Task 4.5: Investigate and fix MqttPacketSizeEstimator underestimation edge cases
+
+**PRD:** https://github.com/petabridge/TurboMqtt/issues/368
+**Surface area:** domain
+**Verification:** L1
+
+FsCheck roundtrip tests intermittently fail with "Destination is too short" in
+`Mqtt5Encoder`, indicating the size estimator returns values smaller than the
+actual encoded size for certain property combinations. The `=` vs `+=` bug was
+fixed, but additional edge cases remain.
+
+Key file: `src/TurboMqtt/Protocol/MqttPacketSizeEstimator.cs`.
+
+Done when:
+- [ ] FsCheck tests run at 1000+ iterations with no "Destination is too short" failures for all MQTT 5.0 packet types
+- [ ] Any newly discovered estimator bugs are fixed with deterministic regression tests
+- [ ] Fixed-seed regression tests added for each discovered edge case
+- [ ] Builds with zero warnings
+- [ ] All existing tests pass
+
+### Task 4.6: Change MqttLastWill.DelayInterval from NonZeroUInt16 to uint
+
+**PRD:** https://github.com/petabridge/TurboMqtt/issues/362
+**Surface area:** domain
+**Verification:** L1
+
+**BREAKING CHANGE.** MQTT 5.0 spec section 3.1.3.2.2 defines Will Delay Interval as a
+Four Byte Integer (uint32, range 0-4294967295). `MqttLastWill.DelayInterval`
+is currently `NonZeroUInt16` (ushort, 0-65535). The decoder silently truncates
+via `(ushort)ReadFourByteInt()`. The `NonZeroUInt16` type also semantically
+implies non-zero, but the spec allows 0 (publish immediately).
+
+Key files:
+- `src/TurboMqtt/PacketTypes/ConnectPacket.cs` (`MqttLastWill.DelayInterval`)
+- `src/TurboMqtt/Client/MqttClientConnectOptions.cs` (`LastWillAndTestament.DelayInterval`)
+- `src/TurboMqtt/Protocol/Mqtt5Decoder.cs` (truncating cast)
+- `src/TurboMqtt/Protocol/MqttPacketSizeEstimator.cs` (`.Value` access)
+
+Done when:
+- [ ] `MqttLastWill.DelayInterval` type changed from `NonZeroUInt16` to `uint`
+- [ ] `LastWillAndTestament.DelayInterval` type changed from `NonZeroUInt16` to `uint`
+- [ ] Decoder reads full four-byte integer without truncation
+- [ ] Encoder writes full four-byte integer
+- [ ] Size estimator correctly accounts for the 4-byte field
+- [ ] Value of 0 is accepted (no `NonZeroUInt16` constraint)
+- [ ] FsCheck property test covers roundtrip with values > 65535
+- [ ] Builds with zero warnings
+- [ ] All existing tests pass
+
+### Task 4.7: Change UserProperties from IReadOnlyDictionary to support duplicate keys
+
+**PRD:** https://github.com/petabridge/TurboMqtt/issues/363
 **Surface area:** cross-cutting
 **Verification:** L1
 
-The previous Azure DevOps `GitHubRelease@0` task used an incorrect `repositoryName`
-format (full URL instead of `owner/repo`). This is resolved by Task 1.1's new
-workflow. Verify the fix explicitly.
+**BREAKING CHANGE.** MQTT 5.0 spec section 3.1.2.11.8 states "The same name is
+allowed to appear more than once" for User Properties. All packet types
+currently use `IReadOnlyDictionary<string, string>?` which silently drops
+duplicate keys.
+
+Affected types (all in `src/TurboMqtt/PacketTypes/`): `ConnectPacket`,
+`ConnAckPacket`, `PublishPacket`, `PubAckPacket`, `PubRecPacket`,
+`PubRelPacket`, `PubCompPacket`, `SubscribePacket`, `SubAckPacket`,
+`UnsubscribePacket`, `UnsubAckPacket`, `DisconnectPacket`, `AuthPacket`,
+`MqttLastWill`, and `MqttClientConnectOptions`.
+
+Also affects encoder, decoder, and size estimator code that iterates these collections.
 
 Done when:
-- [x] GitHub Release creation uses `gh release create` or `softprops/action-gh-release` with correct `petabridge/TurboMqtt` repository reference
-- [x] A dry-run or manual test confirms the release step does not fail with repository name errors
-- [x] Issue #74 can be closed (add comment referencing the PR)
+- [ ] All `UserProperties` and `WillProperties` changed from `IReadOnlyDictionary<string, string>?` to `IReadOnlyList<KeyValuePair<string, string>>?` (or equivalent)
+- [ ] Encoder iterates the list-based type
+- [ ] Decoder populates the list-based type
+- [ ] `ComputeUserPropertiesSize` in `MqttPacketSizeEstimator` iterates the list-based type
+- [ ] FsCheck generators updated to produce duplicate keys
+- [ ] Roundtrip test verifies duplicate keys are preserved
+- [ ] Builds with zero warnings
+- [ ] All existing tests pass
 
-### Task 1.3: Upgrade to .NET 10
+### Task 4.8: Implement shared ReceiveMaximum quota across QoS 1 and QoS 2 actors
 
-**PRD:** .NET 10 modernization (no GitHub issue)
+**PRD:** https://github.com/petabridge/TurboMqtt/issues/367
+**Surface area:** cross-cutting
+**Verification:** L2
+
+MQTT 5.0 section 4.9 requires a shared Receive Maximum quota across both QoS
+levels. Current implementation sends `SetReceiveMaximum` to each actor
+independently, so total in-flight can reach 2x ReceiveMaximum when both QoS
+levels are active.
+
+Key files:
+- `src/TurboMqtt/Protocol/Pub/AtLeastOncePublishRetryActor.cs`
+- `src/TurboMqtt/Protocol/Pub/ExactlyOncePublishRetryActor.cs`
+- `src/TurboMqtt/Client/IMqttClient.cs` (`MqttClient.ApplyBrokerLimits`)
+
+Done when:
+- [ ] A shared quota mechanism limits total in-flight QoS 1 + QoS 2 publishes to ReceiveMaximum
+- [ ] When one QoS level frees a slot, the other can use it
+- [ ] Integration test publishes interleaved QoS 1 and QoS 2 messages against a broker with ReceiveMaximum=5, verifying total in-flight never exceeds 5
+- [ ] Existing QoS 1 and QoS 2 tests still pass
+- [ ] Builds with zero warnings
+- [ ] All existing tests pass
+
+---
+
+## Phase 5: Test Coverage Hardening
+
+> Fill test gaps identified during adversarial code reviews. No production
+> code changes except the `await using` convention fix. Ordered from most
+> impactful (isolated actor test, broker limit tests) to lighter items.
+
+### Task 5.1: Add isolated actor test for ClientStreamOwner.Reconnecting behavior
+
+**PRD:** https://github.com/petabridge/TurboMqtt/issues/358
+**Surface area:** cross-cutting
+**Verification:** L2
+
+The Reconnecting state in `ClientStreamOwner` is only tested via E2E tests
+with `FakeMqttTcpServer`. An isolated Akka.Hosting.TestKit test with
+TestProbes would verify the message flow (ReconnectSuccess / ReconnectFailed /
+DoDisconnect during reconnect) more reliably and faster.
+
+Key file: `src/TurboMqtt/Client/ClientStreamOwner.cs`, `Reconnecting` method.
+
+Done when:
+- [ ] TestKit test covers: ReconnectSuccess -> returns to Running
+- [ ] TestKit test covers: ReconnectFailed with remaining attempts -> retries
+- [ ] TestKit test covers: ReconnectFailed with no remaining attempts -> PoisonPill
+- [ ] TestKit test covers: DoDisconnect while reconnecting -> immediate shutdown
+- [ ] Builds with zero warnings
+- [ ] All existing tests pass
+
+### Task 5.2: Add unit tests for MqttClient.PublishAsync broker limit validation
+
+**PRD:** https://github.com/petabridge/TurboMqtt/issues/369
+**Surface area:** cross-cutting
+**Verification:** L2
+
+`MqttClient.PublishAsync` validates broker-advertised limits (MaximumPacketSize,
+MaximumQoS, RetainAvailable) but has no dedicated unit tests. These code paths
+are only partially covered by E2E tests.
+
+Key file: `src/TurboMqtt/Client/IMqttClient.cs`, `MqttClient.PublishAsync` lines 437-451.
+
+Done when:
+- [ ] Test: publish with `RetainRequested=true` when `_brokerRetainAvailable=false` returns failure
+- [ ] Test: publish with QoS 2 when `_brokerMaximumQoS=QoS1` returns failure
+- [ ] Test: publish with payload exceeding `_brokerMaximumPacketSize` returns failure
+- [ ] Test: publish within all limits succeeds
+- [ ] Builds with zero warnings
+- [ ] All existing tests pass
+
+### Task 5.3: Add deterministic encoder test for ReceiveMaximum > 0
+
+**PRD:** https://github.com/petabridge/TurboMqtt/issues/370
+**Surface area:** domain
+**Verification:** L1
+
+All existing `Mqtt5EncoderSpecs` CONNECT tests use default ReceiveMaximum=0.
+No deterministic test verifies the 20-byte properties block with
+ReceiveMaximum included.
+
+Done when:
+- [ ] Deterministic encode-decode test creates a ConnectPacket with ReceiveMaximum > 0 and verifies roundtrip
+- [ ] The encoded properties block includes the ReceiveMaximum property identifier and 2-byte value
+- [ ] Builds with zero warnings
+- [ ] All existing tests pass
+
+### Task 5.4: Add no-credentials negative auth test
+
+**PRD:** https://github.com/petabridge/TurboMqtt/issues/360
+**Surface area:** cross-cutting
+**Verification:** L2
+
+The existing test suite validates wrong-password rejection but not
+no-credentials-at-all against an auth-enabled EMQX broker
+(`EMQX_MQTT__ALLOW_ANONYMOUS=false`).
+
+Done when:
+- [ ] Container test `ShouldRejectConnectionWithNoCredentials` connects to EMQX without username/password and asserts connect failure
+- [ ] Test runs in `TurboMqtt.Container.Tests` project
+- [ ] Builds with zero warnings
+- [ ] All existing tests pass
+
+### Task 5.5: Add dedicated regression test for 1-char MQTT topic name
+
+**PRD:** https://github.com/petabridge/TurboMqtt/issues/361
+**Surface area:** domain
+**Verification:** L1
+
+The decoder bug fix (minBytes 2 to 1 for PUBLISH topic name) is covered
+probabilistically by FsCheck but lacks a self-documenting deterministic test.
+
+Done when:
+- [ ] Deterministic test `Decoder_Publish_SingleCharTopic_DecodesSuccessfully` encodes and decodes a PUBLISH with a 1-character topic
+- [ ] Test covers both MQTT 3.1.1 and MQTT 5.0 decoders
+- [ ] Builds with zero warnings
+- [ ] All existing tests pass
+
+### Task 5.6: Add empty ClientId test for MQTT 5.0 CONNECT
+
+**PRD:** https://github.com/petabridge/TurboMqtt/issues/366
+**Surface area:** domain
+**Verification:** L1
+
+`Mqtt5Decoder.DecodeConnect` allows empty client IDs (overriding base class
+throw), but no dedicated test exercises this path.
+
+Done when:
+- [ ] Deterministic test encodes a CONNECT packet with empty ClientId and verifies successful decode
+- [ ] Test verifies the decoded ClientId is empty string
+- [ ] Builds with zero warnings
+- [ ] All existing tests pass
+
+### Task 5.7: Establish await using convention for IMqttClient in tests
+
+**PRD:** https://github.com/petabridge/TurboMqtt/issues/359
 **Surface area:** cross-cutting
 **Verification:** L1
 
-Update the SDK, TFMs, and all framework-coupled packages from .NET 8 to .NET 10.
+Test methods create `IMqttClient` instances without `await using`. Since
+`IMqttClient : IAsyncDisposable`, this leaves cleanup to actor system
+shutdown, which is nondeterministic.
 
 Done when:
-- [x] `global.json` SDK version updated to `10.0.100` (or latest stable `10.0.x`), `rollForward` remains `latestMinor`
-- [x] `src/TurboMqtt/TurboMqtt.csproj` TFM changed from `net8.0` to `net10.0`
-- [x] All test project TFMs changed from `net8.0` to `net10.0`
-- [x] `benchmarks/TurboMqtt.Benchmarks/TurboMqtt.Benchmarks.csproj` TFM changed to `net10.0`
-- [x] Sample project TFMs changed to `net10.0`
-- [x] `System.IO.Pipelines` version updated from `8.0.0` to `10.0.x` in `Directory.Packages.props`
-- [x] `Microsoft.SourceLink.GitHub` updated to latest stable in `Directory.Packages.props`
-- [x] `pr_validation.yaml` workflow installs .NET 10 SDK via `actions/setup-dotnet`
-- [x] `release.yaml` workflow (from Task 1.1) installs .NET 10 SDK
-- [x] `dotnet build -c Release` succeeds with zero warnings on .NET 10
-- [x] `dotnet test tests/TurboMqtt.Tests/ -c Release` passes
-- [x] `PROJECT_CONTEXT.md` "Key Constraints" updated to reflect `net10.0` target
+- [ ] All test methods that create `IMqttClient` use `await using` pattern
+- [ ] No test method stores a client in a field without a corresponding dispose in teardown
+- [ ] Builds with zero warnings
+- [ ] All existing tests pass
 
-### Task 1.4: Update Akka.NET packages to latest
+### Task 5.8: Close RetainHandling bit-mask tracking issue
 
-**PRD:** Package modernization (no GitHub issue)
-**Surface area:** cross-cutting
-**Verification:** L1
+**PRD:** https://github.com/petabridge/TurboMqtt/issues/364
+**Surface area:** domain
+**Verification:** L0
 
-Update Akka.NET and Akka.Hosting to the latest stable versions.
+This is a tracking-only issue. The RetainHandling bit-mask bug was already
+fixed in commit 8f94444. This task verifies the fix is tested and closes the
+issue.
 
 Done when:
-- [x] `AkkaVersion` in `Directory.Packages.props` updated to latest stable (currently 1.5.48, check NuGet for latest)
-- [x] `AkkaHostingVersion` in `Directory.Packages.props` updated to latest stable (currently 1.5.55, check NuGet for latest)
-- [x] `dotnet build -c Release` succeeds with zero warnings
-- [x] `dotnet test tests/TurboMqtt.Tests/ -c Release` passes
-- [x] No new deprecation warnings from Akka.NET API changes
+- [ ] Verify that existing tests cover RetainHandling decode with all three values (0, 1, 2)
+- [ ] If not covered, add a deterministic test
+- [ ] Close issue #364 on GitHub
 
-### Task 1.5: Update OpenTelemetry packages to latest
+---
 
-**PRD:** Package modernization (no GitHub issue)
-**Surface area:** cross-cutting
-**Verification:** L1
+## Phase 6: Release Preparation
 
-Update all OpenTelemetry packages. Note: the OTEL .NET SDK had breaking changes
-between 1.x and 2.x (namespace reorganization, removal of some extension methods).
-This may require source changes.
+> CI hardening, benchmarking, API review, and release criteria. These tasks
+> gate the v1.0 release. Tasks 6.1-6.2 are independent; 6.3-6.4 require
+> human decisions documented in the issues.
 
-Done when:
-- [x] `OtelVersion` in `Directory.Packages.props` updated to latest stable (currently 1.10.0, check NuGet for latest)
-- [x] If OTEL 2.x is adopted, any breaking API changes in `src/TurboMqtt/` are resolved
-- [x] `dotnet build -c Release` succeeds with zero warnings
-- [x] `dotnet test tests/TurboMqtt.Tests/ -c Release` passes
-- [x] OpenTelemetry metrics and traces still function (verify sample app compiles)
+### Task 6.1: Add test gate to release.yaml workflow
 
-### Task 1.6: Update test and tooling packages to latest
-
-**PRD:** Package modernization (no GitHub issue)
-**Surface area:** cross-cutting
-**Verification:** L1
-
-Update remaining packages: xunit, FluentAssertions, Testcontainers, BenchmarkDotNet,
-FsCheck, Microsoft.NET.Test.Sdk, coverlet, and other test/tooling dependencies.
-
-Done when:
-- [x] All packages in `Directory.Packages.props` `Test Package Versions` ItemGroup updated to latest stable
-- [x] `Microsoft.Extensions.DependencyInjection.Abstractions` and `Microsoft.Extensions.Hosting` updated to `10.0.x` *(note: already completed in Task 1.5/iter-05 due to OTEL transitive dependency)*
-- [x] Revert `NuGetAuditLevel=high` in `Directory.Build.props` (added in Task 1.3 for OTEL vulnerability, resolved by Task 1.5 OTEL 1.15.0 update; confirm `dotnet build -c Release` produces zero audit warnings after removal) *(source: RALPH run 20260219-215639 CLEANUP item)*
-- [x] `FsCheck` and `FsCheck.Xunit` updated to latest 2.x stable (or 3.x if compatible) *(FsCheck 3.x requires C# LINQ API migration to FsCheck.Fluent; staying on 2.16.6 which is already latest 2.x)*
-- [x] `BenchmarkDotNet` updated to latest stable *(0.15.8 — already at latest as of this iteration)*
-- [x] `Testcontainers` updated to latest stable *(4.10.0; also synced Testcontainers.ActiveMq from 3.8.0 → 4.10.0)*
-- [x] `dotnet build -c Release` succeeds with zero warnings across all projects
-- [x] `dotnet test tests/TurboMqtt.Tests/ -c Release` passes
-- [x] `TOOLING.md` package version table updated
-
-### Task 1.7: Update PROJECT_CONTEXT.md and TOOLING.md for Phase 1
-
-**PRD:** Documentation (no GitHub issue)
+**PRD:** https://github.com/petabridge/TurboMqtt/issues/355
 **Surface area:** cross-cutting
 **Verification:** L0
 
-Done when:
-- [x] `PROJECT_CONTEXT.md` version updated to reflect 0.3.0-beta (or whatever version is chosen for this release cycle)
-- [x] `PROJECT_CONTEXT.md` "Key Constraints" reflects `net10.0` and current Akka version
-- [x] `TOOLING.md` reflects all updated tool/package versions
-- [x] `TOOLING.md` Build table `.NET SDK` version updated from `8.0.400` to `10.0.100` *(source: RALPH run 20260219-215639 CLEANUP item -- stale after Task 1.3 .NET 10 upgrade)*
-- [x] `TOOLING.md` CI/CD section describes GitHub Actions release pipeline (not Azure DevOps)
-- [x] `Directory.Build.props` copyright year updated to 2025
+The release workflow (`release.yaml`) builds, signs, and publishes to NuGet.org
+but does not run `dotnet test`. A tag pushed from an untested commit could
+publish broken packages.
 
----
-
-## Phase 2: MQTT 3.1.1 Production Hardening
-
-> Goal: Raise confidence in the existing MQTT 3.1.1 implementation through
-> comprehensive property-based testing, error path coverage, codec review,
-> TLS support, and fixing known flaky tests. This is the gate to "production ready"
-> for the 3.1.1 protocol (epic #66).
-
-### Task 2.1: Add FsCheck generators for all 14 MQTT 3.1.1 packet types
-
-**PRD:** https://github.com/petabridge/TurboMqtt/issues/66
-**Surface area:** domain
-**Verification:** L1
-
-Currently `PacketGenerators.cs` only has `ConnectPacketArb()` and `PublishPacketArb()`.
-Add generators for the remaining 12 packet types: ConnAck, PubAck, PubRec, PubRel,
-PubComp, Subscribe, SubAck, Unsubscribe, UnsubAck, PingReq, PingResp, Disconnect.
-Update `PacketArb()` to include all 14 generators.
+Key file: `.github/workflows/release.yaml`.
 
 Done when:
-- [x] `PacketGenerators.cs` has an `Arbitrary<MqttPacket>` generator for each of the 14 MQTT 3.1.1 packet types
-- [x] Each generator produces valid packets with randomized field values within spec constraints
-- [x] `PacketArb()` uses `Gen.OneOf(...)` over all 14 generators
-- [x] All generators compile and produce non-null packets when sampled (add a smoke test if needed)
-
-### Task 2.2: Expand ConnectPacket generator to cover Will, Username, Password
-
-**PRD:** https://github.com/petabridge/TurboMqtt/issues/66
-**Surface area:** domain
-**Verification:** L1
-
-The current `ConnectPacketArb()` only generates `ClientId`, `CleanSession`, and
-`KeepAliveSeconds`. CONNECT packets also carry optional Will (topic, message, QoS,
-retain), Username, and Password fields that are controlled by `ConnectFlags`.
-
-Done when:
-- [x] `ConnectPacketArb()` randomly generates packets with and without Will messages
-- [x] Will topic, Will message payload, Will QoS (0/1/2), and Will retain are randomized when Will is present
-- [x] Username and Password fields are randomly included or omitted
-- [x] `ConnectFlags` bits are consistent with the fields present (e.g., `HasWill=true` when Will topic is set)
-- [x] Existing roundtrip codec tests still pass
-
-### Task 2.3: Add roundtrip encode/decode property tests for all packet types
-
-**PRD:** https://github.com/petabridge/TurboMqtt/issues/66
-**Surface area:** domain
-**Verification:** L1
-
-Use the generators from Task 2.1 to create property-based roundtrip tests:
-encode a packet with `Mqtt311Encoder`, decode it with `Mqtt311Decoder`, and assert
-structural equality. Currently only `TestPacketReassembly` exists as a property test.
-
-Done when:
-- [x] A property test class exists that tests roundtrip encode/decode for each of the 14 packet types individually
-- [x] Each property test asserts that decoded packet fields match the original generated packet
-- [x] A combined property test encodes a random packet from `PacketArb()`, decodes it, and asserts equality
-- [x] All property tests pass with default FsCheck iteration count (100)
-- [x] `TestPacketReassembly` property test updated to use the full `PacketArb()` (all 14 types) *(added `Arbitrary = new[] { typeof(PacketGenerators) }` attribute + per-type Classify labels; also fixed PUBLISH decoder bug: minBytes was 2, must be 1 per MQTT §4.7.3)*
-
-### Task 2.4: Add error path and boundary condition tests
-
-**PRD:** https://github.com/petabridge/TurboMqtt/issues/66
-**Surface area:** domain
-**Verification:** L1
-
-Test defensive behavior of the encoder and decoder against invalid or adversarial input.
-
-Done when:
-- [x] Test: decoder rejects packets with invalid packet type byte (0x00, 0xFF)
-- [x] Test: decoder handles truncated packets (fewer bytes than remaining length indicates)
-- [x] Test: decoder handles packets where remaining length exceeds maximum (256 MB MQTT limit)
-- [x] Test: decoder handles remaining length encoded with more than 4 bytes
-- [x] Test: encoder/decoder roundtrip with maximum-size payload (close to 256 MB or a practical test limit)
-- [x] Test: decoder handles PUBLISH with QoS 3 (invalid, reserved value)
-- [x] Test: decoder handles CONNECT with invalid protocol name or version byte
-- [x] Test: partial frame delivery across multiple buffers (extend `TestPacketReassembly` to all types)
-- [x] All tests pass on both Linux and Windows
-
-### Task 2.5: Code review MQTT 3.1.1 encoder/decoder and file issues
-
-**PRD:** https://github.com/petabridge/TurboMqtt/issues/66
-**Surface area:** domain
-**Verification:** L0
-
-Perform a line-by-line review of `Mqtt311Encoder.cs`, `Mqtt311EncoderOptimized.cs`,
-`Mqtt311Decoder.cs`, and `MqttPacketSizeEstimator.cs` (MQTT 3.1.1 paths only).
-Compare against the OASIS MQTT 3.1.1 specification.
-
-Done when:
-- [x] Review covers: fixed header encoding, remaining length encoding/decoding, all packet type encode/decode paths, size estimation accuracy
-- [x] Any specification violations filed as GitHub issues with label `bug` and referenced section of MQTT 3.1.1 spec *(#344 §3.1.2.1, #345 §3.1.2.6, #346 §2.2.2)*
-- [x] Any potential buffer overflows, off-by-one errors, or unsafe memory patterns filed as GitHub issues *(#347 bit mask off-by-one, #350 missing buffer guard)*
-- [x] Any discrepancies between `Mqtt311Encoder` and `Mqtt311EncoderOptimized` filed as issues *(#350 missing buffer size validation in optimized encoder)*
-- [x] Summary of findings documented in the PR description or a comment on issue #66 *(https://github.com/petabridge/TurboMqtt/issues/66#issuecomment-3937110252)*
-
-### Task 2.6: Fix flaky ShouldConnectAndDisconnect test
-
-**PRD:** https://github.com/petabridge/TurboMqtt/issues/99
-**Surface area:** cross-cutting
-**Verification:** L2
-
-The container test `ShouldConnectAndDisconnect` is flaky. Diagnose the root cause
-(likely timing/race condition in actor lifecycle or TCP connection teardown) and fix it.
-
-Done when:
-- [x] Root cause identified and documented in issue #99 comment *(https://github.com/petabridge/TurboMqtt/issues/99#issuecomment-3937124391)*
-- [x] Fix applied (may involve timeout adjustments, actor lifecycle ordering, or test harness changes) *(PrepareDisconnect message + _userDisconnectRequested guard in ClientStreamOwner; commit 7fd069f, PR #343)*
-- [x] `dotnet test tests/TurboMqtt.Container.Tests/ -c Release` passes the test 10 consecutive times locally *(verified: 10/10 runs pass, 2 tests per run - TCP and TLS variants)*
-- [x] No `[Skip]` attribute or equivalent workaround -- the test runs normally
-- [x] Issue #99 can be closed *(closed 2026-02-20)*
-
-### Task 2.7: TLS support
-
-**Replaced by Phase 2.5-C** (Transport Layer Redesign). The `tls-support2` branch approach
-is superseded by the `IStreamProvider` + `TlsStreamProvider` design in Phase 2.5. See
-[docs/prd/transport-redesign/README.md](docs/prd/transport-redesign/README.md) for rationale.
-
-Done when:
-- [x] Superseded by Phase 2.5-C — no action needed in Phase 2
-
-
-### Task 2.8: Add MQTT 3.1.1 E2E tests with authentication enabled
-
-**PRD:** https://github.com/petabridge/TurboMqtt/issues/66
-**Surface area:** cross-cutting
-**Verification:** L2
-
-The current EMQX container tests use anonymous connections. Add tests that exercise
-MQTT username/password authentication against the broker.
-
-Done when:
-- [x] EMQX fixture configured with at least one username/password credential
-- [x] Container test: successful connect with valid username/password
-- [x] Container test: connect rejected with invalid username/password (expect ConnAck with appropriate return code)
-- [x] Container test: publish and subscribe work over authenticated connection at QoS 0 and QoS 1
-- [x] All new tests pass with `dotnet test tests/TurboMqtt.Container.Tests/ -c Release`
-
----
-
-## Phase 2.5: Transport Layer Redesign
-
-> Goal: Fix 12+ race conditions in the transport/lifecycle layer, eliminate GC pressure
-> from unpooled read allocations, introduce a `Stream` abstraction to enable TLS, and
-> formalize the transport actor state machine. This must happen before MQTT 5.0 because
-> the transport layer needs to be solid before adding protocol complexity.
->
-> **PRD:** [docs/prd/transport-redesign/README.md](docs/prd/transport-redesign/README.md)
->
-> **Prerequisites:** Phase 2 tasks 2.1-2.6 should be complete (codec hardening provides
-> the test infrastructure to verify transport changes don't regress behavior).
-
-### Task 2.5-A: Extract Stream abstraction and pool read allocations
-
-**PRD:** [docs/prd/transport-redesign/README.md](docs/prd/transport-redesign/README.md) §4, §8
-**Surface area:** cross-cutting
-**Verification:** L2
-
-Introduce `IStreamProvider` + `TcpStreamProvider`, refactor `TcpTransportActor` to use
-`Stream.ReadAsync`/`Stream.WriteAsync` instead of `Socket.ReceiveAsync`/`Socket.SendAsync`,
-and replace `new byte[]` allocations in `ReadFromPipeAsync` with `MemoryPool<byte>.Shared.Rent()`.
-
-Done when:
-- [x] `IStreamProvider` interface exists in `src/TurboMqtt/IO/Tcp/IStreamProvider.cs`
-- [x] `TcpStreamProvider` implementation exists in `src/TurboMqtt/IO/Tcp/TcpStreamProvider.cs`
-- [x] `TcpStreamProvider.ConnectAsync()` creates Socket, resolves DNS, connects, returns `NetworkStream`
-- [x] `TcpTransportActor` constructor takes `IStreamProvider` instead of creating Socket directly
-- [x] `DoWriteToPipeAsync` reads from `Stream.ReadAsync()` instead of `Socket.ReceiveAsync()`
-- [x] `DoWriteToSocketAsync` writes to `Stream.WriteAsync()` instead of `Socket.SendAsync()`
-- [x] `ReadFromPipeAsync` uses `MemoryPool<byte>.Shared.Rent()` instead of `new byte[buffer.Length]`
-- [x] `UnsharedMemoryOwner` no longer used on the read path (may still be used elsewhere)
-- [x] `TcpTransport.cs` updated to pass `IStreamProvider` through
-- [x] `TcpConnectionManager.cs` updated to create appropriate `IStreamProvider`
-- [x] All existing TCP unit tests pass unchanged
-- [x] All container tests pass against EMQX
-- [x] New unit tests for `TcpStreamProvider` (connect, DNS resolution, socket configuration)
-- [x] BenchmarkDotNet before/after confirms no throughput regression (baseline: 193k msg/sec QoS 0)
-- [x] Builds with zero warnings
-
-### Task 2.5-B: Fix transport race conditions
-
-**PRD:** [docs/prd/transport-redesign/README.md](docs/prd/transport-redesign/README.md) §1.2, §5, §6
-**Surface area:** cross-cutting
-**Verification:** L2
-
-Fix the 12+ identified race conditions in shutdown, reconnection, and transport swap.
-Can be developed in parallel with Task 2.5-A.
-
-Done when:
-- [x] `TcpTransportActor` uses explicit `Become` states: `NotStarted → Created → Connecting → Connected → Draining → Closing → Stopped` (and `Aborted` short-circuit)
-- [x] Background tasks in `BecomeRunning()` tracked with `Task.WhenAll` + `ContinueWith` self-tell `BackgroundTasksCompleted`
-- [x] `CleanUpGracefully` replaced with state-driven transitions — no more fire-and-forget async
-- [x] Duplicate `DoClose`/`ReadFinished`/`ConnectionUnexpectedlyClosed` messages in non-handling states are ignored
-- [x] `MqttClient.SwapTransport()` uses `Interlocked.Exchange` + `volatile` field
-- [x] TOCTOU on `IsConnected` in `PublishAsync` eliminated — rely on `TryWrite` returning false
-- [x] `ClientStreamOwner.PostStop()` follows deterministic ordering: complete outbound → abort transport → complete inbound → signal death
-- [x] `ClientStreamOwner` reconnect uses message-driven `Reconnecting` behavior (no fire-and-forget `DoReconnect`)
-- [x] `ReadFromPipeAsync` catch block includes `return` after `Tell(ReadFinished.Instance)`
-- [x] `DisposeSocket` CTS disposal is safe (no double-cancel race with `CleanUpGracefully`)
-- [x] All existing E2E tests pass
-- [x] New test: concurrent disconnect + publish does not deadlock or crash
-- [x] New test: rapid sequential reconnects (3+ in < 1 second) complete without error
-- [x] New test: server kills connection during QoS 2 exchange — client reconnects and retransmits
-- [x] New test: disconnect while large publish in flight — verifies graceful drain
-- [x] Builds with zero warnings
-
-### Task 2.5-C: Add TLS support via TlsStreamProvider
-
-**PRD:** [docs/prd/transport-redesign/README.md](docs/prd/transport-redesign/README.md) §7
-**Surface area:** cross-cutting
-**Verification:** L2
-**Depends on:** Task 2.5-A
-
-Implement TLS/SSL support. This is the payoff of the `IStreamProvider` abstraction.
-
-Done when:
-- [x] `TlsStreamProvider` exists in `src/TurboMqtt/IO/Tcp/TlsStreamProvider.cs`
-- [x] `TlsStreamProvider.ConnectAsync()` creates Socket → `NetworkStream` → `SslStream`, completes TLS handshake
-- [x] `MqttClientTlsOptions` public options class exists in `src/TurboMqtt/Client/MqttClientTlsOptions.cs`
-- [x] `MqttClientTlsOptions` supports: `ClientCertificates`, `ServerCertificateValidationCallback`, `EnabledSslProtocols`, `TargetHost`
-- [x] `IMqttClientFactory.CreateTlsTcpClient()` factory method added
-- [x] `TcpMqttTransportManager` accepts optional TLS options and creates appropriate `IStreamProvider`
-- [x] Container test: connect to EMQX over TLS (port 8883) and publish/subscribe at QoS 0
-- [x] Container test: connect to EMQX over TLS and publish/subscribe at QoS 1
-- [x] Container test: TLS with custom `ServerCertificateValidationCallback` for self-signed certs
-- [x] All existing TCP tests still pass (no regression)
-- [x] `PROJECT_CONTEXT.md` protocol support table updated: TLS status changed from "In-flight" to "Implemented"
-- [x] Builds with zero warnings
-
-### Task 2.5-D: Transport lifecycle hardening
-
-**PRD:** [docs/prd/transport-redesign/README.md](docs/prd/transport-redesign/README.md) §5, §6
-**Surface area:** cross-cutting
-**Verification:** L2
-**Depends on:** Tasks 2.5-A + 2.5-B
-
-Formalize the transport state machine and graceful drain to production quality.
-
-Done when:
-- [x] Full FSM with explicit state transitions and structured logging at each transition
-- [x] `ConnectionState` shared mutable state replaced with actor messages or thread-safe wrappers
-- [x] Graceful drain: `Draining` state where outbound flushes before DISCONNECT is sent
-- [x] Connect timeout with cancellation propagation (configurable, default 10s)
-- [x] Actor test: verify all state transitions with TestProbe (`NotStarted → Created → Connecting → Connected → Draining → Closing → Stopped`)
-- [x] Actor test: verify `Aborted` short-circuit path
-- [x] Test: disconnect while large publish in flight — outbound flushes before close
-- [x] Test: connect timeout fires when broker is unreachable
-- [x] All E2E tests pass
-- [x] Builds with zero warnings
-
----
-
-## Review Fixes
-
-### FIX: Correct EmqxAuthFixture XML docstring
-
-**Source:** Adversarial review 20260220-202420 iter-05, finding F-2
-**Surface area:** documentation
-**Verification:** L0
-
-The XML summary comment on `EmqxAuthFixture` has two factual errors from the debugging journey:
-1. Says `EMQX_MANAGEMENT__API_KEY__BOOTSTRAP_FILE` — should be `EMQX_API_KEY__BOOTSTRAP_FILE`
-2. Says file format `{AppID}:{ApiKey}:{ApiSecret}` — should be `{ApiKey}:{ApiSecret}:{Role}`
-
-Done when:
-- [x] XML summary at `EmqxAuthFixture.cs` lines 22-28 corrected to match the actual env var name (`EMQX_API_KEY__BOOTSTRAP_FILE`) and file format (`{ApiKey}:{ApiSecret}:{Role}`)
-- [x] Builds with zero warnings
-
----
-
-## Phase 3: MQTT 5.0 Implementation
-
-> Goal: Implement a functional MQTT 5.0 encoder and decoder, integrate them into
-> the client pipeline, and validate against a real MQTT 5.0 broker (EMQX).
-> This phase corresponds to epic #67.
->
-> **PRD:** [docs/prd/mqtt5/README.md](docs/prd/mqtt5/README.md) — detailed spec-to-code mapping
->
-> **Prerequisites:** Phase 2 tasks 2.1-2.5 should be complete so the property-based
-> testing infrastructure can be reused for MQTT 5.0 codec validation. Phase 2.5
-> (Transport Layer Redesign) should be complete so MQTT 5.0 builds on a solid transport.
-
-### Task 3.0: Build MQTT 5.0 property encoding/decoding infrastructure
-
-**PRD:** [docs/prd/mqtt5/README.md](docs/prd/mqtt5/README.md) §1
-**Surface area:** domain
-**Verification:** L1
-
-Create shared property writer/reader helpers that the encoder and decoder will use.
-MQTT 5.0 properties are typed key-value pairs (28 identifiers across 7 data types).
-The size estimator (`MqttPacketSizeEstimator.EstimateMqtt5PacketSize()`) already
-handles all property types — the writer/reader must be consistent with it.
-
-Done when:
-- [x] `Mqtt5PropertyIdentifiers.cs` exists with constants for all 28 property identifiers *(27 per OASIS spec Table 2-4; PRD count off by one due to 0x09 listed in both UTF-8 String and Binary Data rows)*
-- [x] `Mqtt5PropertyWriter.cs` exists with static methods: `WriteByte`, `WriteTwoByteInt`, `WriteFourByteInt`, `WriteVariableByteInt`, `WriteUtf8String`, `WriteStringPair`, `WriteBinaryData` — all using `ref Span<byte>`
-- [x] `Mqtt5PropertyReader.cs` exists with matching static read methods using `ref ReadOnlySpan<byte>`
-- [x] Unit test: each property type roundtrips (write then read)
-- [x] Unit test: Variable Byte Integer boundary values (0, 127, 128, 16383, 16384, 2097151, 2097152, 268435455)
-- [x] Unit test: UTF-8 String handles empty, ASCII, and multi-byte characters
-- [x] Unit test: unknown property identifier in reader returns error (not crash)
-- [x] FsCheck property: random property values roundtrip through write/read
-- [x] Builds with zero warnings
-
-### Task 3.1: Add missing MQTT 5.0 fields to ConnAckPacket
-
-**PRD:** [docs/prd/mqtt5/README.md](docs/prd/mqtt5/README.md) §3
-**Surface area:** domain
-**Verification:** L1
-
-`ConnAckPacket.cs` is missing 13 MQTT 5.0 properties that the broker sends.
-These must be added before the decoder can populate them.
-
-Done when:
-- [x] `ConnAckPacket.cs` has: `SessionExpiryInterval`, `AssignedClientIdentifier`, `ServerKeepAlive`, `AuthenticationMethod`, `AuthenticationData`, `ResponseInformation`, `ServerReference`, `TopicAliasMaximum`, `MaximumQoS`, `RetainAvailable`, `WildcardSubscriptionAvailable`, `SubscriptionIdentifiersAvailable`, `SharedSubscriptionAvailable`
-- [x] `ConnAckReasonCode` enum has all MQTT 5.0 reason codes (OASIS Table 3-1) *(already complete — 22 reason codes present)*
-- [x] `SubscribePacket` has `SubscriptionIdentifier` (uint?) property added *(changed from NonZeroUInt16 to uint? to match VBI spec range and optionality)*
-- [x] `PubAckPacket` has `UserProperties` field added (currently missing)
-- [x] `PubAckPacket.ReasonString` changed from computed to stored property
-- [x] `MqttPacketSizeEstimator.EstimateConnAckPacketSizeMqtt5()` updated to account for new properties
-- [x] Builds with zero warnings
-
-### Task 3.2: Implement Mqtt5Encoder
-
-**PRD:** [docs/prd/mqtt5/README.md](docs/prd/mqtt5/README.md) §2-10, §12.1
-**Surface area:** domain
-**Verification:** L1
-
-Create `Mqtt5Encoder.cs` in `src/TurboMqtt/Protocol/` that encodes all 15 MQTT 5.0
-packet types using the property writer from Task 3.0. Follow the same static-method,
-`ref Span<byte>` pattern as `Mqtt311Encoder`. Key difference: after Variable Header
-fields, write Property Length (VBI) + property key-value pairs before the Payload.
-
-Done when:
-- [x] `Mqtt5Encoder.cs` exists with `EncodePacket` matching `Mqtt311Encoder.EncodePacket` signature
-- [x] All 15 packet types handled (Connect, ConnAck, Publish, PubAck, PubRec, PubRel, PubComp, Subscribe, SubAck, Unsubscribe, UnsubAck, PingReq, PingResp, Disconnect, Auth)
-- [x] CONNECT encoding includes: Protocol Level 5, Connect Properties, Will Properties
-- [x] PUBLISH encoding includes all V5 properties (Topic Alias, Message Expiry, User Properties, etc.)
-- [x] ACK packets use compact form when Reason Code is Success and no properties
-- [x] SUBSCRIBE encoding includes V5 Subscription Options byte (No Local, Retain As Published, Retain Handling)
-- [x] Auth packet encoding handles `AuthenticationMethod`, `AuthenticationData`, `ReasonString`, `UserProperties`
-- [x] Builds with zero warnings
-- [x] Unit tests verify encoding of each packet type against hand-computed expected bytes
-
-### Task 3.3: Implement Mqtt5Decoder
-
-**PRD:** [docs/prd/mqtt5/README.md](docs/prd/mqtt5/README.md) §2-10, §12.2
-**Surface area:** domain
-**Verification:** L1
-
-Create `Mqtt5Decoder.cs` in `src/TurboMqtt/Protocol/` that decodes all 15 MQTT 5.0
-packet types using the property reader from Task 3.0. Follow `Mqtt311Decoder` pattern:
-stateful class with `_remainder` for partial frame handling.
-
-Done when:
-- [x] `Mqtt5Decoder.cs` exists with `TryDecode` matching `Mqtt311Decoder` patterns
-- [x] All 15 packet types decoded
-- [x] CONNACK decoding populates all 13+ V5 properties (from Task 3.1)
-- [x] PUBLISH decoding populates V5 properties (Topic Alias, User Properties, etc.)
-- [x] ACK packet decoding handles compact form (no Reason Code byte) and full form
-- [x] Auth packet decoding populates all fields
-- [x] Server-initiated DISCONNECT decoding handles all V5 reason codes
-- [x] Builds with zero warnings
-- [x] Unit tests decode known byte sequences into correct packet fields
-
-### Task 3.4: Add FsCheck generators and roundtrip property tests for MQTT 5.0
-
-**PRD:** [docs/prd/mqtt5/README.md](docs/prd/mqtt5/README.md) §2-10
-**Surface area:** domain
-**Verification:** L1
-
-Extend the property-based testing infrastructure to cover MQTT 5.0 packets. This
-reuses the pattern established in Phase 2 tasks 2.1-2.3 but with MQTT 5.0 specific
-fields (reason codes, user properties, etc.).
-
-Done when:
-- [ ] FsCheck generators exist for all 15 MQTT 5.0 packet types (including Auth)
-- [ ] Generators randomize MQTT 5.0 specific fields: reason codes, user properties, session expiry, receive maximum, etc.
-- [ ] Roundtrip property test: encode with `Mqtt5Encoder`, decode with `Mqtt5Decoder`, assert structural equality
-- [ ] All property tests pass with default FsCheck iteration count (100)
-- [ ] Error path tests: malformed property lengths, unknown property identifiers, oversized packets
-
-### Task 3.5: Wire Mqtt5Encoder/Decoder into Akka.Streams pipeline
-
-**PRD:** [docs/prd/mqtt5/README.md](docs/prd/mqtt5/README.md) §12.3
-**Surface area:** cross-cutting
-**Verification:** L1
-
-Integrate the new encoder/decoder into the existing Akka.Streams encode/decode/receive
-flows so that `MqttProtocolVersion.V5_0` uses `Mqtt5Encoder` and `Mqtt5Decoder` instead
-of throwing `NotSupportedException`.
-
-Files to change:
-- `MqttEncodingFlows.cs` — add `Mqtt5Encoding()` method
-- `MqttDecodingFlows.cs` — add `Mqtt5Decoding()` method
-- `MqttClientStreams.cs` — add `Mqtt5OutboundPacketSink()` and `Mqtt5InboundMessageSource()`
-- `ClientStreamInstance.cs` — add `case MqttProtocolVersion.V5_0:` in `ConfigureMqttStreams()` (line 157)
-- `IMqttClientFactory.cs` — remove `AssertMqtt311()` guard
-
-Done when:
-- [ ] `MqttClientFactory.CreateTcpClient()` succeeds with `MqttProtocolVersion.V5_0`
-- [ ] Stream stages select encoder/decoder based on protocol version
-- [ ] `ClientStreamInstance.ConfigureMqttStreams()` has working V5.0 case
-- [ ] `Mqtt311Encoder`/`Mqtt311Decoder` remain unchanged and are still used for `V3_1_1`
-- [ ] Builds with zero warnings
-- [ ] Existing MQTT 3.1.1 tests still pass (no regression)
-
-### Task 3.6: Enforce broker-advertised limits from CONNACK
-
-**PRD:** [docs/prd/mqtt5/README.md](docs/prd/mqtt5/README.md) §3, §11
-**Surface area:** cross-cutting
-**Verification:** L1
-
-When the client receives CONNACK with V5 properties, store the broker's limits and
-enforce them. See PRD §11 for Receive Maximum flow control details.
-
-Done when:
-- [ ] Broker's `ReceiveMaximum` limits in-flight QoS 1/2 publishes (throttle `AtLeastOncePublishRetryActor` and `ExactlyOncePublishRetryActor`)
-- [ ] Broker's `MaximumPacketSize` validated before sending outbound packets
-- [ ] Broker's `MaximumQoS` prevents publishing at higher QoS than supported
-- [ ] Broker's `RetainAvailable` prevents setting retain flag if unsupported
-- [ ] Broker's `ServerKeepAlive` overrides client-requested keep alive in `HeartBeatActor`
-- [ ] Broker's `AssignedClientIdentifier` overwrites client ID when provided
-- [ ] Unit tests: retry actor queues publishes beyond Receive Maximum, resumes on ACK
-- [ ] Integration test: with Receive Maximum = 2, 5 publishes are sent 2 at a time
-
-### Task 3.7: Implement MQTT 5.0 Auth packet flow
-
-**PRD:** [docs/prd/mqtt5/README.md](docs/prd/mqtt5/README.md) §10
-**Surface area:** cross-cutting
-**Verification:** L1
-
-Implement enhanced authentication (challenge-response) and background re-authentication.
-
-Done when:
-- [ ] `IMqtt5AuthHandler` interface created (see PRD §10 for proposed API)
-- [ ] `MqttClientConnectOptions.AuthHandler` property added
-- [ ] `Mqtt5AuthHandler` state machine manages: AwaitingConnAck → InChallenge → Authenticated
-- [ ] Client sends AUTH as part of CONNECT flow when AuthHandler is set
-- [ ] Client handles incoming AUTH (Reason Code 0x18) with challenge-response
-- [ ] Re-authentication triggered when broker sends AUTH with Reason Code 0x19
-- [ ] Auth failure triggers connection teardown
-- [ ] Unit tests: state machine transitions through all happy and failure paths
+- [ ] `dotnet test` step added to `release.yaml` after the build step and before the pack step
+- [ ] Test step runs `dotnet test -c Release tests/TurboMqtt.Tests/` (unit tests only, no containers)
+- [ ] Workflow fails and does not publish if tests fail
 - [ ] Builds with zero warnings
 
-### Task 3.8: Handle server-initiated DISCONNECT and update public API
+### Task 6.2: Run full production benchmarks for MQTT 5.0
 
-**PRD:** [docs/prd/mqtt5/README.md](docs/prd/mqtt5/README.md) §9, §13
-**Surface area:** cross-cutting
-**Verification:** L1
-
-In MQTT 5.0, the server can send DISCONNECT to the client (new behavior vs 3.1.1).
-Also update the public API surface for V5 features.
-
-Done when:
-- [ ] Inbound DISCONNECT from server triggers graceful cleanup (actor hierarchy shutdown)
-- [ ] Server DISCONNECT Reason Code and Reason String logged and emitted as OpenTelemetry event
-- [ ] `MqttClientConnectOptions` has all V5 connection properties (uncomment TODOs + add new)
-- [ ] `MqttMessage` (channel consumer type) exposes: UserProperties, ContentType, ResponseTopic, CorrelationData, SubscriptionIdentifiers, PayloadFormatIndicator, MessageExpiryInterval
-- [ ] DisconnectReasonCode enum has all MQTT 5.0 server-sent reason codes
-- [ ] Builds with zero warnings
-
-### Task 3.9: Add MQTT 5.0 E2E container tests
-
-**PRD:** [docs/prd/mqtt5/README.md](docs/prd/mqtt5/README.md) §14
-**Surface area:** cross-cutting
-**Verification:** L2
-
-Create container tests that exercise the full MQTT 5.0 pipeline against a real
-EMQX broker.
-
-Done when:
-- [ ] Container test: MQTT 5.0 connect and disconnect
-- [ ] Container test: MQTT 5.0 publish and subscribe at QoS 0
-- [ ] Container test: MQTT 5.0 publish and subscribe at QoS 1
-- [ ] Container test: MQTT 5.0 publish and subscribe at QoS 2
-- [ ] Container test: MQTT 5.0 connection with User Properties on CONNECT
-- [ ] Container test: MQTT 5.0 publish with User Properties, verify received on subscriber
-- [ ] Container test: Server-initiated disconnect handled correctly
-- [ ] All tests pass with `dotnet test tests/TurboMqtt.Container.Tests/ -c Release`
-
-### Task 3.10: Add MQTT 5.0 E2E container tests with authentication
-
-**PRD:** [docs/prd/mqtt5/README.md](docs/prd/mqtt5/README.md) §10, §14
-**Surface area:** cross-cutting
-**Verification:** L2
-
-Test MQTT 5.0 authentication against EMQX.
-
-Done when:
-- [ ] Container test: MQTT 5.0 connect with username/password authentication
-- [ ] Container test: MQTT 5.0 connect rejected with invalid credentials
-- [ ] Container test: MQTT 5.0 publish and subscribe work over authenticated connection
-- [ ] All tests pass with `dotnet test tests/TurboMqtt.Container.Tests/ -c Release`
-
-### Task 3.11: Add MQTT 5.0 TCP benchmarks
-
-**PRD:** [docs/prd/mqtt5/README.md](docs/prd/mqtt5/README.md) §14
+**PRD:** https://github.com/petabridge/TurboMqtt/issues/371
 **Surface area:** cross-cutting
 **Verification:** L3
 
-Create BenchmarkDotNet benchmarks for MQTT 5.0 TCP throughput, comparable to the
-existing `Mqtt311End2EndTcpBenchmarks`.
+Dry-run benchmarks showed ~320k req/s QoS0/10B TCP and ~250k req/s QoS0/10B TLS.
+Full production runs (launchCount=10, warmupCount=10) should be executed and results
+documented before the 1.0 release.
 
 Done when:
-- [ ] `Mqtt5End2EndTcpBenchmarks.cs` exists in `benchmarks/TurboMqtt.Benchmarks/Mqtt5/`
-- [ ] Benchmarks cover QoS 0, QoS 1, and QoS 2 at multiple payload sizes (10, 1024, 32768 bytes)
-- [ ] Benchmarks produce `Req/sec` metric comparable to MQTT 3.1.1 results
-- [ ] Codec microbenchmarks exist: `Mqtt5ConnectCodecBenchmarks.cs`, `Mqtt5PublishCodecBenchmarks.cs`
-- [ ] Benchmark results documented in PR description
-- [ ] No throughput regression on MQTT 3.1.1 benchmarks (run both and compare)
+- [ ] Full BenchmarkDotNet run completed for MQTT 5.0 TCP (QoS 0/1/2, 10B and 1KB payloads)
+- [ ] Full BenchmarkDotNet run completed for MQTT 5.0 TLS (QoS 0/1/2, 10B and 1KB payloads)
+- [ ] Results documented in `docs/performance/mqtt5-benchmarks.md`
+- [ ] No throughput regressions vs MQTT 3.1.1 pipeline
+- [ ] Builds with zero warnings
 
-### Task 3.12: Add MQTT 5.0 TLS benchmarks
+### Task 6.3: Define v1.0 release criteria and quality bar
 
-**PRD:** [docs/prd/mqtt5/README.md](docs/prd/mqtt5/README.md) §14
+**PRD:** https://github.com/petabridge/TurboMqtt/issues/353
 **Surface area:** cross-cutting
-**Verification:** L3
+**Verification:** L0
 
-Add TCP+TLS benchmarks for MQTT 5.0, building on the TLS support from Phase 2.5
-(Task 2.5-C) and MQTT 5.0 benchmarks from Task 3.11.
+**Requires human decision.** This task captures the release criteria discussion.
+Questions that must be answered:
+- Must MQTT 5.0 be included in 1.0, or can 1.0 ship MQTT 3.1.1 only?
+- What API stability guarantees (SemVer strict? Extend-only?)?
+- What performance benchmarks must pass?
 
 Done when:
-- [ ] `Mqtt5TlsTcpBenchmarks.cs` exists in `benchmarks/TurboMqtt.Benchmarks/Mqtt5/`
-- [ ] Benchmarks cover QoS 0 and QoS 1 over TLS at payload sizes 10 and 1024 bytes
-- [ ] TLS overhead quantified relative to plain TCP benchmarks from Task 3.11
-- [ ] Benchmark results documented in PR description
+- [ ] Release criteria documented in `docs/release/v1.0-criteria.md`
+- [ ] Criteria covers: protocol scope, API stability promise, perf bar, test pass rate
+- [ ] Issue #353 closed
 
+### Task 6.4: API stability review before 1.0 release
+
+**PRD:** https://github.com/petabridge/TurboMqtt/issues/354
+**Surface area:** cross-cutting
+**Verification:** L0
+
+**Requires human decision.** Formal review of the public API surface:
+`IMqttClient`, `MqttClientConnectOptions`, `MqttClientFactory`,
+channel-based consumer APIs, and all MQTT 5.0 additions.
+
+Done when:
+- [ ] Public API surface enumerated with `dotnet public-api` or equivalent
+- [ ] API reviewed for: naming consistency, extend-only compatibility, correct use of `internal` vs `public`, `IAsyncDisposable` consistency
+- [ ] Breaking changes from Tasks 4.6 and 4.7 reviewed for downstream impact
+- [ ] API review findings documented in `docs/release/api-review.md`
+- [ ] Issue #354 closed
 
 ---
 
 ## Dependency Graph
 
 ```
-Phase 1 (all tasks independent of each other, but ordered for clean progression):
-  1.1 --> 1.2 (release workflow must exist before verifying release creation)
-  1.3 (can run in parallel with 1.1)
-  1.4, 1.5, 1.6 (depend on 1.3 for TFM compatibility)
-  1.7 (depends on all of 1.1-1.6)
+Phase 4 (Bug Fixes & Spec Compliance)
+├── Task 4.1 (PubRec DequeueBuffered)       → no dependencies, can start immediately
+├── Task 4.2 (Double DISCONNECT)             → no dependencies, can start immediately
+├── Task 4.3 (Reconnect timeout)             → no dependencies, can start immediately
+├── Task 4.4 (Flaky heartbeat test)          → no dependencies, can start immediately
+├── Task 4.5 (Size estimator edge cases)     → no dependencies, can start immediately
+├── Task 4.6 (DelayInterval type change)     → no dependencies, can start immediately
+├── Task 4.7 (UserProperties type change)    → no dependencies, can start immediately
+│   NOTE: Task 4.5 should land BEFORE 4.7 (estimator must handle new type)
+└── Task 4.8 (Shared ReceiveMaximum)         → depends on Task 4.1 (same code area)
 
-Phase 2 (depends on Phase 1 completing):
-  2.1 --> 2.2 (generator expansion depends on base generators)
-  2.1 --> 2.3 (property tests depend on generators)
-  2.4 (independent, can run in parallel with 2.1-2.3)
-  2.5 (independent, can run in parallel)
-  2.6 (independent, can run in parallel)
-  2.7 (superseded by Phase 2.5-C)
-  2.8 (independent, can run in parallel)
+Phase 5 (Test Coverage Hardening) → starts after Phase 4
+├── Task 5.1 (Reconnecting actor test)       → depends on Phase 4 complete
+├── Task 5.2 (PublishAsync limit tests)      → depends on Phase 4 complete
+├── Task 5.3 (ReceiveMaximum encoder test)   → depends on Phase 4 complete
+├── Task 5.4 (No-credentials auth test)      → depends on Phase 4 complete
+├── Task 5.5 (Single-char topic test)        → depends on Phase 4 complete
+├── Task 5.6 (Empty ClientId test)           → depends on Phase 4 complete
+├── Task 5.7 (await using convention)        → depends on Phase 4 complete
+└── Task 5.8 (RetainHandling tracking)       → depends on Phase 4 complete
 
-Phase 2.5 (depends on Phase 2 tasks 2.1-2.6 completing):
-  2.5-A (Stream abstraction) <--> 2.5-B (race fixes)  [can run in parallel]
-  2.5-A --> 2.5-C (TLS depends on IStreamProvider)
-  2.5-A + 2.5-B --> 2.5-D (hardening depends on both)
-
-Phase 3 (depends on Phase 2 tasks 2.1-2.5 for testing infrastructure + Phase 2.5):
-  3.0 (property infrastructure, first task)
-  3.1 (packet field additions, can parallel with 3.0)
-  3.0 + 3.1 --> 3.2 (encoder uses property writer + needs complete packet types)
-  3.0 + 3.1 --> 3.3 (decoder uses property reader + needs complete packet types)
-  3.2 + 3.3 --> 3.4 (property tests need both encoder and decoder)
-  3.2 + 3.3 --> 3.5 (pipeline wiring needs both)
-  3.5 --> 3.6 (broker limit enforcement needs pipeline)
-  3.5 --> 3.7 (auth flow needs pipeline)
-  3.5 --> 3.8 (server disconnect + public API needs pipeline)
-  3.5 --> 3.9 (E2E tests need pipeline)
-  3.7 --> 3.10 (auth E2E needs auth flow)
-  3.9 --> 3.11 (benchmarks need working E2E)
-  3.11 + 2.5-C --> 3.12 (TLS benchmarks need both TLS and MQTT 5.0 benchmarks)
+Phase 6 (Release Preparation) → starts after Phase 5
+├── Task 6.1 (Release test gate)             → no dependencies within phase
+├── Task 6.2 (Production benchmarks)         → depends on all code changes (Phase 4+5)
+├── Task 6.3 (Release criteria)              → requires human decision
+└── Task 6.4 (API review)                    → depends on Tasks 4.6, 4.7 (breaking changes)
 ```

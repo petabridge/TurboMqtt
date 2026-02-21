@@ -28,9 +28,6 @@ internal static class DisconnectToBinary
     public static (IMemoryOwner<byte> buffer, int estimatedSize) ToBinary(this DisconnectPacket packet,
         MqttProtocolVersion version)
     {
-        if (version == MqttProtocolVersion.V5_0)
-            throw new NotSupportedException();
-
         var estimate = MqttPacketSizeEstimator.EstimatePacketSize(packet, version);
         var fullSize = estimate.TotalSize;
         Memory<byte> bytes = new byte[fullSize];
@@ -40,6 +37,13 @@ internal static class DisconnectToBinary
             case MqttProtocolVersion.V3_1_1:
             {
                 var actualSize = Mqtt311Encoder.EncodePacket(packet, ref bytes, estimate);
+                Debug.Assert(actualSize == fullSize,
+                    $"Actual size {actualSize} did not match estimated size {fullSize}");
+                break;
+            }
+            case MqttProtocolVersion.V5_0:
+            {
+                var actualSize = Mqtt5Encoder.EncodePacket(packet, ref bytes, estimate);
                 Debug.Assert(actualSize == fullSize,
                     $"Actual size {actualSize} did not match estimated size {fullSize}");
                 break;

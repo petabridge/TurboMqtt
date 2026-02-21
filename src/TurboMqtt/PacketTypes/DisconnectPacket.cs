@@ -44,9 +44,15 @@ public sealed class DisconnectPacket : MqttPacket
     /// </summary>
     public uint? SessionExpiryInterval { get; set; } // MQTT 5.0 only
 
+    /// <summary>
+    /// Reason String, available in MQTT 5.0.
+    /// This optional property provides a human-readable string explaining the reason for the disconnect.
+    /// </summary>
+    public string? ReasonString { get; set; } // MQTT 5.0 only
+
     public override string ToString()
     {
-        return $"Disconnect: [ReasonCode={ReasonCode}]";
+        return $"Disconnect: [ReasonCode={ReasonCode}] [ReasonString={ReasonString}]";
     }
 }
 

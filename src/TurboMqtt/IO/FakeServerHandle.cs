@@ -30,6 +30,203 @@ internal interface IFakeServerHandle
     void DisconnectFromServer();
 }
 
+/// <summary>
+/// MQTT 5.0 fake server handle for use in benchmarks and in-process tests.
+/// </summary>
+internal sealed class FakeMqtt5ServerHandle : IFakeServerHandle
+{
+    private readonly TaskCompletionSource<string> _clientIdAssigned = new();
+    private readonly Mqtt5Decoder _decoder = new();
+    private readonly Func<(IMemoryOwner<byte> buffer, int estimatedSize), bool> _pushMessage;
+    private readonly Func<Task> _closingAction;
+    private readonly HashSet<string> _subscribedTopics = [];
+    private readonly TimeSpan _heartbeatDelay;
+    private readonly TaskCompletionSource _terminated = new();
+    private readonly List<(MqttPacket packet, PacketSize estimatedSize)> _pendingPackets = new();
+
+    public FakeMqtt5ServerHandle(
+        Func<(IMemoryOwner<byte> buffer, int estimatedSize), bool> pushMessage,
+        Func<Task> closingAction, ILoggingAdapter log, TimeSpan? heartbeatDelay = null)
+    {
+        _pushMessage = pushMessage;
+        _closingAction = closingAction;
+        Log = log;
+        _heartbeatDelay = heartbeatDelay ?? TimeSpan.Zero;
+    }
+
+    public Task<string> WhenClientIdAssigned => _clientIdAssigned.Task;
+    public Task WhenTerminated => _terminated.Task;
+    public MqttProtocolVersion ProtocolVersion => MqttProtocolVersion.V5_0;
+    public ILoggingAdapter Log { get; }
+
+    public bool TryPush(MqttPacket packet)
+    {
+        if (Log.IsDebugEnabled)
+            Log.Debug("Sending packet of type {0} using {1}", packet.PacketType, ProtocolVersion);
+        var estimatedSize = MqttPacketSizeEstimator.EstimateMqtt5PacketSize(packet);
+        _pendingPackets.Add((packet, estimatedSize));
+        return true;
+    }
+
+    public void FlushPackets()
+    {
+        if (_pendingPackets.Count == 0)
+            return;
+
+        var totalSize = _pendingPackets.Sum(c => c.estimatedSize.TotalSize);
+        var bufferPooled = new UnsharedMemoryOwner<byte>(new Memory<byte>(new byte[totalSize]));
+        var buffer = bufferPooled.Memory[..totalSize];
+
+        var encodedBytes = Mqtt5Encoder.EncodePackets(_pendingPackets, ref buffer);
+
+        if (encodedBytes != totalSize)
+        {
+            var errMsg = $"Expected to encode {totalSize} bytes, but only encoded {encodedBytes} bytes.";
+            Log.Error(errMsg);
+            throw new ArgumentOutOfRangeException(errMsg);
+        }
+
+        var didWrite = _pushMessage((bufferPooled, encodedBytes));
+        if (!didWrite)
+            Log.Error("Failed to write [{0}] packets [{1} bytes] to transport.", _pendingPackets.Count, totalSize);
+        else
+            Log.Debug("Successfully wrote N packets {0} [{1} bytes] to transport.", _pendingPackets.Count, totalSize);
+
+        bufferPooled.Dispose();
+        _pendingPackets.Clear();
+    }
+
+    public void DisconnectFromServer()
+    {
+        var pushed = TryPush(DisconnectPacket.Instance);
+        if (!pushed)
+            Log.Warning("Failed to write DISCONNECT packet to transport.");
+
+        _closingAction();
+        _terminated.TrySetResult();
+    }
+
+    public void HandleBytes(in ReadOnlyMemory<byte> bytes)
+    {
+        if (_decoder.TryDecode(bytes, out var packets))
+        {
+            if (Log.IsDebugEnabled)
+                Log.Debug("Decoded {0} packets from transport.", packets.Count);
+            foreach (var packet in packets)
+                HandlePacket(packet);
+            FlushPackets();
+        }
+        else
+        {
+            if (Log.IsDebugEnabled)
+                Log.Debug("Didn't have enough bytes to decode a packet. Waiting for more.");
+        }
+    }
+
+    public void HandlePacket(MqttPacket packet)
+    {
+        if (Log.IsDebugEnabled)
+            Log.Debug("Received packet of type {0}", packet.PacketType);
+
+        switch (packet.PacketType)
+        {
+            case MqttPacketType.Connect:
+                var connect = (ConnectPacket)packet;
+                _clientIdAssigned.TrySetResult(connect.ClientId);
+                TryPush(new ConnAckPacket
+                {
+                    SessionPresent = false,
+                    ReasonCode = ConnAckReasonCode.Success
+                });
+                break;
+
+            case MqttPacketType.Publish:
+                var publish = (PublishPacket)packet;
+                switch (publish.QualityOfService)
+                {
+                    case QualityOfService.AtLeastOnce:
+                        TryPush(publish.ToPubAck());
+                        break;
+                    case QualityOfService.ExactlyOnce:
+                        TryPush(publish.ToPubRec());
+                        break;
+                }
+
+                if (_subscribedTopics.Contains(publish.TopicName))
+                    TryPush(publish);
+                break;
+
+            case MqttPacketType.PubAck:
+                break;
+
+            case MqttPacketType.PubRec:
+                TryPush(((PubRecPacket)packet).ToPubRel());
+                break;
+
+            case MqttPacketType.PubRel:
+                TryPush(((PubRelPacket)packet).ToPubComp());
+                break;
+
+            case MqttPacketType.PubComp:
+                break;
+
+            case MqttPacketType.Subscribe:
+                var subscribe = (SubscribePacket)packet;
+                foreach (var topic in subscribe.Topics)
+                    _subscribedTopics.Add(topic.Topic);
+
+                TryPush(subscribe.ToSubAckPacket(subscribe.Topics.Select(c =>
+                {
+                    if (!MqttTopicValidator.ValidateSubscribeTopic(c.Topic).IsValid)
+                        return MqttSubscribeReasonCode.TopicFilterInvalid;
+                    return c.Options.QoS switch
+                    {
+                        QualityOfService.AtMostOnce => MqttSubscribeReasonCode.GrantedQoS0,
+                        QualityOfService.AtLeastOnce => MqttSubscribeReasonCode.GrantedQoS1,
+                        QualityOfService.ExactlyOnce => MqttSubscribeReasonCode.GrantedQoS2,
+                        _ => MqttSubscribeReasonCode.UnspecifiedError
+                    };
+                }).ToArray()));
+                break;
+
+            case MqttPacketType.Unsubscribe:
+                var unsubscribe = (UnsubscribePacket)packet;
+                foreach (var topic in unsubscribe.Topics)
+                    _subscribedTopics.Remove(topic);
+
+                TryPush(new UnsubAckPacket
+                {
+                    PacketId = unsubscribe.PacketId,
+                    ReasonCodes = unsubscribe.Topics.Select(c =>
+                        !MqttTopicValidator.ValidateSubscribeTopic(c).IsValid
+                            ? MqttUnsubscribeReasonCode.TopicFilterInvalid
+                            : MqttUnsubscribeReasonCode.Success).ToArray()
+                });
+                break;
+
+            case MqttPacketType.PingReq:
+                if (_heartbeatDelay > TimeSpan.Zero)
+                    Task.Delay(_heartbeatDelay).ContinueWith(_ => TryPush(PingRespPacket.Instance));
+                else
+                    TryPush(PingRespPacket.Instance);
+                break;
+
+            case MqttPacketType.Auth:
+                // Enhanced auth not needed for benchmark fake server — ignore.
+                break;
+
+            case MqttPacketType.Disconnect:
+                _ = _closingAction();
+                _terminated.TrySetResult();
+                break;
+
+            default:
+                Log.Warning("FakeMqtt5ServerHandle: unsupported packet type {0}", packet.PacketType);
+                break;
+        }
+    }
+}
+
 internal class FakeMqtt311ServerHandle : IFakeServerHandle
 {
     protected readonly TaskCompletionSource<string> ClientIdAssigned = new();

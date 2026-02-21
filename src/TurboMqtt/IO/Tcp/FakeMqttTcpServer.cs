@@ -62,8 +62,6 @@ internal sealed class FakeMqttTcpServer
         _heatBeatDelay = heartbeatDelay;
         _handleFactory = handleFactory;
 
-        if (_version == MqttProtocolVersion.V5_0)
-            throw new NotSupportedException("V5.0 not supported.");
     }
 
     public void Bind()

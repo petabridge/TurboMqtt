@@ -816,6 +816,9 @@ public class Mqtt5Decoder : Mqtt311Decoder
                 case Mqtt5PropertyIdentifiers.SessionExpiryInterval:
                     packet.SessionExpiryInterval = Mqtt5PropertyReader.ReadFourByteInt(ref props);
                     break;
+                case Mqtt5PropertyIdentifiers.ReasonString:
+                    packet.ReasonString = Mqtt5PropertyReader.ReadUtf8String(ref props);
+                    break;
                 case Mqtt5PropertyIdentifiers.ServerReference:
                     packet.ServerReference = Mqtt5PropertyReader.ReadUtf8String(ref props);
                     break;

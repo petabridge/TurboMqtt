@@ -156,6 +156,13 @@ public sealed class MqttClient : IInternalMqttClient
     private readonly ILoggingAdapter _log;
     private readonly UShortCounter _packetIdCounter = new();
 
+    // Broker-advertised limits applied after successful CONNACK (MQTT 5.0 only)
+    private ushort _brokerReceiveMaximum;   // 0 = no limit from broker
+    private uint _brokerMaximumPacketSize = uint.MaxValue;
+    private QualityOfService _brokerMaximumQoS = QualityOfService.ExactlyOnce;
+    private bool _brokerRetainAvailable = true;
+    private string? _assignedClientId;
+
     /// <summary>
     /// Thread-safe read of the current transport.
     /// </summary>
@@ -186,7 +193,7 @@ public sealed class MqttClient : IInternalMqttClient
     }
 
     public MqttProtocolVersion ProtocolVersion => _options.ProtocolVersion;
-    public string ClientId => _options.ClientId;
+    public string ClientId => _assignedClientId ?? _options.ClientId;
     public bool IsConnected => Transport.Status == ConnectionStatus.Connected;
 
     public async Task AbortConnectionAsync()
@@ -243,25 +250,50 @@ public sealed class MqttClient : IInternalMqttClient
             ReceiveMaximum = _options.ReceiveMaximum,
         };
 
+        // MQTT 5.0 enhanced authentication: embed method + initial data in CONNECT
+        if (_options.ProtocolVersion == MqttProtocolVersion.V5_0 && _options.AuthHandler is { } authHandler)
+        {
+            connectPacket.AuthenticationMethod = authHandler.AuthenticationMethod;
+            connectPacket.AuthenticationData = authHandler.GetInitialAuthData();
+        }
+
+        // MQTT 5.0 CONNECT properties
+        if (_options.ProtocolVersion == MqttProtocolVersion.V5_0)
+        {
+            connectPacket.SessionExpiryInterval = _options.SessionExpiryInterval;
+            connectPacket.TopicAliasMaximum = _options.TopicAliasMaximum;
+            connectPacket.RequestResponseInformation = _options.RequestResponseInformation;
+            connectPacket.RequestProblemInformation = _options.RequestProblemInformation;
+            connectPacket.UserProperties = _options.UserProperties;
+        }
+
         if (_options.LastWill != null)
         {
             var lastWill = _options.LastWill;
 
             var will = new MqttLastWill(lastWill.Topic, lastWill.Message);
 
-            // MQTT 5.0 properties we don't support yet
-            // will.ContentType = lastWill.ContentType;
-            // will.DelayInterval = lastWill.DelayInterval;
-            // will.MessageExpiryInterval = lastWill.MessageExpiryInterval;
-            // will.PayloadFormatIndicator = lastWill.PayloadFormatIndicator;
-            // will.ResponseTopic = lastWill.ResponseTopic;
-            // will.WillCorrelationData = lastWill.WillCorrelationData;
-            // will.WillProperties = lastWill.WillProperties;
+            if (_options.ProtocolVersion == MqttProtocolVersion.V5_0)
+            {
+                will.ContentType = lastWill.ContentType;
+                will.DelayInterval = lastWill.DelayInterval;
+                will.MessageExpiryInterval = lastWill.MessageExpiryInterval;
+                will.PayloadFormatIndicator = lastWill.PayloadFormatIndicator;
+                will.ResponseTopic = lastWill.ResponseTopic;
+                will.WillCorrelationData = lastWill.WillCorrelationData;
+                will.WillProperties = lastWill.WillProperties;
+            }
+
             connectPacket.Will = will;
         }
 
         // send the CONNECT packet for completion tracking
-        var askTask = _requiredActors.ClientAck.Ask<IConnectResponse>(connectPacket, cancellationToken);
+        // When an auth handler is configured use ConnectWithAuthHandler so the actor
+        // can participate in MQTT 5.0 challenge-response before CONNACK arrives.
+        object connectMessage = _options.ProtocolVersion == MqttProtocolVersion.V5_0 && _options.AuthHandler is not null
+            ? new ClientAcksActor.ConnectWithAuthHandler(connectPacket, _options.AuthHandler)
+            : (object)connectPacket;
+        var askTask = _requiredActors.ClientAck.Ask<IConnectResponse>(connectMessage, cancellationToken);
 
         // flush the packet to the wire
         var wrote = _packetWriter.TryWrite(connectPacket);
@@ -282,6 +314,10 @@ public sealed class MqttClient : IInternalMqttClient
                 return resp;
             }
 
+            // Apply broker-advertised limits from CONNACK (MQTT 5.0 only)
+            if (resp is AckProtocol.ConnectSuccess { ConnAck: { } connAck })
+                ApplyBrokerLimits(connAck);
+
             return resp;
         }
         catch (OperationCanceledException)
@@ -294,6 +330,53 @@ public sealed class MqttClient : IInternalMqttClient
             _log.Error(ex, "Failed to connect to MQTT broker - Reason: {0}", ex.Message);
             _ = AbortConnectionAsync();
             return new AckProtocol.ConnectFailure(ex.Message);
+        }
+    }
+
+    /// <summary>
+    /// Applies broker-advertised limits from a CONNACK packet.
+    /// Called after a successful connect; stores limits in fields and notifies child actors.
+    /// </summary>
+    private void ApplyBrokerLimits(ConnAckPacket connAck)
+    {
+        if (connAck.ReceiveMaximum is { } rm && rm > 0)
+        {
+            _brokerReceiveMaximum = rm;
+            var msg = new PublishingProtocol.SetReceiveMaximum(rm);
+            _requiredActors.Qos1Actor.Tell(msg);
+            _requiredActors.Qos2Actor.Tell(msg);
+            _log.Info("Broker ReceiveMaximum = {0}; throttling QoS 1/2 in-flight publishes.", rm);
+        }
+
+        if (connAck.MaximumPacketSize is { } mps)
+        {
+            _brokerMaximumPacketSize = mps;
+            _log.Info("Broker MaximumPacketSize = {0} bytes.", mps);
+        }
+
+        if (connAck.MaximumQoS is { } maxQoS)
+        {
+            _brokerMaximumQoS = maxQoS;
+            _log.Info("Broker MaximumQoS = {0}.", maxQoS);
+        }
+
+        if (connAck.RetainAvailable is { } retainAvail)
+        {
+            _brokerRetainAvailable = retainAvail;
+            if (!retainAvail)
+                _log.Info("Broker does not support retained messages.");
+        }
+
+        if (connAck.ServerKeepAlive is { } ska)
+        {
+            _requiredActors.HeartBeatActor.Tell(new HeartBeatActor.UpdateKeepAlive(ska));
+            _log.Info("Broker requested keep-alive = {0}s.", ska);
+        }
+
+        if (connAck.AssignedClientIdentifier is { } aci)
+        {
+            _assignedClientId = aci;
+            _log.Info("Broker assigned client ID = '{0}'.", aci);
         }
     }
 
@@ -350,6 +433,24 @@ public sealed class MqttClient : IInternalMqttClient
     {
         var publishPacket = message.ToPacket();
 
+        // Validate broker-advertised limits before sending
+        if (publishPacket.RetainRequested && !_brokerRetainAvailable)
+            return new PublishingProtocol.PublishFailure("Broker does not support retained messages (RetainAvailable=false).");
+
+        if (publishPacket.QualityOfService > _brokerMaximumQoS)
+            return new PublishingProtocol.PublishFailure(
+                $"Broker maximum QoS is {_brokerMaximumQoS}; cannot publish at {publishPacket.QualityOfService}.");
+
+        if (_brokerMaximumPacketSize < uint.MaxValue)
+        {
+            var estimatedSize = _options.ProtocolVersion == MqttProtocolVersion.V5_0
+                ? MqttPacketSizeEstimator.EstimateMqtt5PacketSize(publishPacket).TotalSize
+                : MqttPacketSizeEstimator.EstimateMqtt3PacketSize(publishPacket).TotalSize;
+            if ((uint)estimatedSize > _brokerMaximumPacketSize)
+                return new PublishingProtocol.PublishFailure(
+                    $"Packet size {estimatedSize} bytes exceeds broker maximum ({_brokerMaximumPacketSize} bytes).");
+        }
+
         Task<IPublishResult> WaitForAck(IActorRef targetActor, PublishPacket packet)
         {
             var task = targetActor.Ask<IPublishResult>(packet, cancellationToken);
@@ -368,28 +469,36 @@ public sealed class MqttClient : IInternalMqttClient
         }
 
         var ackTask = Qos0Task;
+        // When broker has ReceiveMaximum set, the retry actor owns the initial channel write
+        // for QoS 1/2 so it can throttle against the limit.
+        var actorOwnsInitialSend = false;
         switch (publishPacket.QualityOfService)
         {
             case QualityOfService.AtLeastOnce:
             {
                 publishPacket.PacketId = _packetIdCounter.GetNextValue();
                 ackTask = WaitForAck(_requiredActors.Qos1Actor, publishPacket);
+                actorOwnsInitialSend = _brokerReceiveMaximum > 0;
                 break;
             }
             case QualityOfService.ExactlyOnce:
             {
                 publishPacket.PacketId = _packetIdCounter.GetNextValue();
                 ackTask = WaitForAck(_requiredActors.Qos2Actor, publishPacket);
+                actorOwnsInitialSend = _brokerReceiveMaximum > 0;
                 break;
             }
         }
 
-        // flush the packet to the wire
-        var didWrite = _packetWriter.TryWrite(publishPacket);
-        if (!didWrite)
+        // flush the packet to the wire (unless the retry actor owns the send for ReceiveMaximum throttling)
+        if (!actorOwnsInitialSend)
         {
-            _log.Error("Failed to write PUBLISH packet to wire.");
-            return new PublishingProtocol.PublishFailure("Failed to write PUBLISH packet to wire.");
+            var didWrite = _packetWriter.TryWrite(publishPacket);
+            if (!didWrite)
+            {
+                _log.Error("Failed to write PUBLISH packet to wire.");
+                return new PublishingProtocol.PublishFailure("Failed to write PUBLISH packet to wire.");
+            }
         }
 
         // wait for the response
