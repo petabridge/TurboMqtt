@@ -459,6 +459,92 @@ Done when:
 - [x] Criteria covers: protocol scope, API stability promise, perf bar, test pass rate
 - [x] Issue #353 closed
 
+### Task 6.5: Remove duplicate ConnectPacket.ConnectFlags property
+
+**PRD:** https://github.com/petabridge/TurboMqtt/issues/348
+**Surface area:** domain
+**Verification:** L1
+
+**BREAKING CHANGE.** `ConnectPacket` has two properties of the same type: `Flags`
+(used by encoders/decoders) and `ConnectFlags` (used by client code). Tests already
+exclude `ConnectFlags` from equality comparisons with a comment marking it as a
+duplicate. Remove `ConnectFlags` and update all call sites to use `Flags`.
+
+Key files:
+- `src/TurboMqtt/PacketTypes/ConnectPacket.cs`
+- `src/TurboMqtt/Client/IMqttClient.cs` (sets `ConnectFlags`)
+
+Done when:
+- [ ] `ConnectPacket.ConnectFlags` property removed
+- [ ] All references updated to use `Flags`
+- [ ] The `.Excluding(x => x.ConnectFlags)` exclusion in roundtrip tests removed
+- [ ] Roundtrip property tests pass with the unified `Flags` property
+- [ ] Builds with zero warnings
+- [ ] All existing tests pass
+
+### Task 6.6: Add ConnectFlags reserved bit and WillQoS validation
+
+**PRD:** https://github.com/petabridge/TurboMqtt/issues/344 and https://github.com/petabridge/TurboMqtt/issues/345
+**Surface area:** domain
+**Verification:** L1
+
+`ConnectFlags.Decode` does not validate: (a) that bit 0 (reserved) must be 0
+[MQTT-3.1.2-3]; (b) that WillQoS ≤ 2 when WillFlag is set [MQTT-3.1.2-14].
+Malformed packets are silently accepted instead of being rejected.
+
+Key file: `src/TurboMqtt/PacketTypes/ConnectPacket.cs`, `ConnectFlags.Decode` method (line ~141).
+
+Done when:
+- [ ] Decode throws `ArgumentOutOfRangeException` when bit 0 is 1, with message referencing MQTT-3.1.2-3
+- [ ] Decode throws `ArgumentOutOfRangeException` when WillFlag=true and WillQoS > 2, with message referencing MQTT-3.1.2-14
+- [ ] Deterministic unit tests cover both rejection cases
+- [ ] Existing decode tests still pass
+- [ ] Builds with zero warnings
+- [ ] All existing tests pass
+
+### Task 6.7: Validate fixed header reserved bits for SUBSCRIBE/UNSUBSCRIBE/PUBREL
+
+**PRD:** https://github.com/petabridge/TurboMqtt/issues/346
+**Surface area:** domain
+**Verification:** L1
+
+The decoder extracts only the upper nibble (packet type) from the first fixed
+header byte and ignores the lower nibble entirely. Per MQTT-2.2.2, SUBSCRIBE,
+UNSUBSCRIBE, and PUBREL must have lower nibble = 0x2. Packets with wrong reserved
+bits are silently accepted.
+
+Key file: `src/TurboMqtt/Protocol/Mqtt311Decoder.cs` (line ~60 where `packetType` is extracted).
+Also check `Mqtt5Decoder.cs` if it has its own first-byte parsing.
+
+Done when:
+- [ ] Decoder validates lower nibble = 0x2 for SUBSCRIBE (expected first byte 0x82)
+- [ ] Decoder validates lower nibble = 0x2 for UNSUBSCRIBE (expected first byte 0xA2)
+- [ ] Decoder validates lower nibble = 0x2 for PUBREL (expected first byte 0x62)
+- [ ] Invalid reserved bits cause a decode error (not silent acceptance)
+- [ ] Deterministic tests verify rejection for each of the three packet types
+- [ ] Builds with zero warnings
+- [ ] All existing tests pass
+
+### Task 6.8: Add buffer size validation to Mqtt311EncoderOptimized
+
+**PRD:** https://github.com/petabridge/TurboMqtt/issues/350
+**Surface area:** domain
+**Verification:** L1
+
+`Mqtt311EncoderOptimized.EncodePacket` has no buffer size guard before writing
+packet data, risking `IndexOutOfRangeException` on undersized buffers.
+`Mqtt311Encoder.EncodePacket` has the guard (`if (buffer.Length < estimatedSize.TotalSize) throw`).
+The optimized encoder should have the same protection.
+
+Key file: `src/TurboMqtt/Protocol/Mqtt311EncoderOptimized.cs` (line ~40, `EncodePacket` method).
+
+Done when:
+- [ ] `EncodePacket` validates `buffer.Length >= estimatedSize.TotalSize` before writing
+- [ ] Throws `ArgumentException` with a descriptive message on undersized buffer
+- [ ] Test verifies the exception is thrown when an undersized buffer is passed
+- [ ] Builds with zero warnings
+- [ ] All existing tests pass
+
 ### Task 6.4: API stability review before 1.0 release
 
 **PRD:** https://github.com/petabridge/TurboMqtt/issues/354
@@ -506,5 +592,9 @@ Phase 6 (Release Preparation) → starts after Phase 5
 ├── Task 6.1 (Release test gate)             → no dependencies within phase
 ├── Task 6.2 (Production benchmarks)         → depends on all code changes (Phase 4+5)
 ├── Task 6.3 (Release criteria)              → requires human decision
-└── Task 6.4 (API review)                    → depends on Tasks 4.6, 4.7 (breaking changes)
+├── Task 6.5 (Remove duplicate ConnectFlags) → no dependencies, BREAKING CHANGE
+├── Task 6.6 (ConnectFlags validation)       → no dependencies
+├── Task 6.7 (Fixed header reserved bits)    → no dependencies
+├── Task 6.8 (Encoder buffer validation)     → no dependencies
+└── Task 6.4 (API review)                    → depends on Tasks 4.6, 4.7, 6.5 (breaking changes)
 ```
