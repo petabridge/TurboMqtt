@@ -42,7 +42,7 @@ public abstract class TransportSpecBase : TestKit
     [Fact]
     public async Task ShouldConnectAndDisconnect()
     {
-        var client = await CreateClient();
+        await using var client = await CreateClient();
 
         using var cts = new CancellationTokenSource(RemainingOrDefault);
         var connectResult = await client.ConnectAsync(cts.Token);
@@ -101,7 +101,7 @@ public abstract class TransportSpecBase : TestKit
     [MemberData(nameof(PublishMessages))]
     public async Task ShouldPublishMessages(MqttMessage[] messages)
     {
-        var client = await CreateClient();
+        await using var client = await CreateClient();
 
         using var cts = new CancellationTokenSource(RemainingOrDefault);
         var connectResult = await client.ConnectAsync(cts.Token);
@@ -121,7 +121,7 @@ public abstract class TransportSpecBase : TestKit
     [MemberData(nameof(PublishMessages))]
     public async Task ShouldSubscribeAndReceiveMessages(MqttMessage[] messages)
     {
-        var client = await CreateClient();
+        await using var client = await CreateClient();
 
         using var cts = new CancellationTokenSource(RemainingOrDefault);
         var connectResult = await client.ConnectAsync(cts.Token);
@@ -166,7 +166,7 @@ public abstract class TransportSpecBase : TestKit
     [Fact]
     public async Task ShouldSubscribeAndReceiveMessagesWithMultipleSubscriptions()
     {
-        var client = await CreateClient();
+        await using var client = await CreateClient();
 
         using var cts = new CancellationTokenSource(RemainingOrDefault);
         var connectResult = await client.ConnectAsync(cts.Token);
@@ -228,7 +228,7 @@ public abstract class TransportSpecBase : TestKit
     [Fact]
     public async Task ShouldSubscribeAndReceiveMessagesWithMultipleSubscriptionsAndUnsubscribe()
     {
-        var client = await CreateClient();
+        await using var client = await CreateClient();
 
         using var cts = new CancellationTokenSource(RemainingOrDefault);
         var connectResult = await client.ConnectAsync(cts.Token);

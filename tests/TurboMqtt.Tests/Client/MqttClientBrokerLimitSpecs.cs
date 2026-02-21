@@ -81,6 +81,7 @@ public sealed class MqttClientBrokerLimitSpecs : TestKit
         var inboundChannel = Channel.CreateUnbounded<MqttMessage>();
         var options = new MqttClientConnectOptions("test-client", MqttProtocolVersion.V3_1_1);
         var tcs = new TaskCompletionSource<DisconnectReasonCode>();
+        tcs.SetResult(DisconnectReasonCode.NormalDisconnection);
 
         var requiredActors = new MqttRequiredActors(
             Qos2Actor: qos2Probe.Ref,
@@ -129,6 +130,7 @@ public sealed class MqttClientBrokerLimitSpecs : TestKit
         var inboundChannel = Channel.CreateUnbounded<MqttMessage>();
         var options = new MqttClientConnectOptions("test-client", MqttProtocolVersion.V3_1_1);
         var tcs = new TaskCompletionSource<DisconnectReasonCode>();
+        tcs.SetResult(DisconnectReasonCode.NormalDisconnection);
 
         var requiredActors = new MqttRequiredActors(
             Qos2Actor: qos2Probe.Ref,
@@ -159,7 +161,7 @@ public sealed class MqttClientBrokerLimitSpecs : TestKit
             ReasonCode = ConnAckReasonCode.Success,
             RetainAvailable = false
         };
-        var client = await CreateClientWithBrokerLimits(connAck);
+        await using var client = await CreateClientWithBrokerLimits(connAck);
 
         var message = new MqttMessage("topic", "payload")
         {
@@ -181,7 +183,7 @@ public sealed class MqttClientBrokerLimitSpecs : TestKit
             ReasonCode = ConnAckReasonCode.Success,
             MaximumQoS = QualityOfService.AtLeastOnce  // broker only supports QoS 0 and 1
         };
-        var client = await CreateClientWithBrokerLimits(connAck);
+        await using var client = await CreateClientWithBrokerLimits(connAck);
 
         var message = new MqttMessage("topic", "payload")
         {
@@ -204,7 +206,7 @@ public sealed class MqttClientBrokerLimitSpecs : TestKit
             ReasonCode = ConnAckReasonCode.Success,
             MaximumPacketSize = 10u
         };
-        var client = await CreateClientWithBrokerLimits(connAck);
+        await using var client = await CreateClientWithBrokerLimits(connAck);
 
         // A 50-byte payload will produce a packet well over 10 bytes
         var message = new MqttMessage("topic", new byte[50])
@@ -223,7 +225,7 @@ public sealed class MqttClientBrokerLimitSpecs : TestKit
     public async Task PublishAsync_succeeds_when_message_within_all_broker_limits()
     {
         // Default broker limits: retain=true, maxQoS=ExactlyOnce, maxPacketSize=uint.MaxValue
-        var client = CreateClientWithDefaults();
+        await using var client = CreateClientWithDefaults();
 
         // QoS 0, no retain, small payload — passes all default limit checks
         var message = new MqttMessage("topic", "hello")

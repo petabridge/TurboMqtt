@@ -47,7 +47,7 @@ public class EmqxMqtt5End2EndSpecs : TestKit
     [Fact]
     public async Task ShouldConnectAndDisconnect()
     {
-        var client = await _clientFactory.CreateTcpClient(ConnectOptions("v5-connect-disc"), TcpOptions);
+        await using var client = await _clientFactory.CreateTcpClient(ConnectOptions("v5-connect-disc"), TcpOptions);
 
         using var cts = new CancellationTokenSource(RemainingOrDefault);
         var connectResult = await client.ConnectAsync(cts.Token);
@@ -63,7 +63,7 @@ public class EmqxMqtt5End2EndSpecs : TestKit
     [Fact]
     public async Task ShouldPublishAndSubscribeAtQoS0()
     {
-        var client = await _clientFactory.CreateTcpClient(ConnectOptions("v5-pubsub-qos0"), TcpOptions);
+        await using var client = await _clientFactory.CreateTcpClient(ConnectOptions("v5-pubsub-qos0"), TcpOptions);
 
         using var cts = new CancellationTokenSource(RemainingOrDefault);
         var connectResult = await client.ConnectAsync(cts.Token);
@@ -101,7 +101,7 @@ public class EmqxMqtt5End2EndSpecs : TestKit
     [Fact]
     public async Task ShouldPublishAndSubscribeAtQoS1()
     {
-        var client = await _clientFactory.CreateTcpClient(ConnectOptions("v5-pubsub-qos1"), TcpOptions);
+        await using var client = await _clientFactory.CreateTcpClient(ConnectOptions("v5-pubsub-qos1"), TcpOptions);
 
         using var cts = new CancellationTokenSource(RemainingOrDefault);
         var connectResult = await client.ConnectAsync(cts.Token);
@@ -139,7 +139,7 @@ public class EmqxMqtt5End2EndSpecs : TestKit
     [Fact]
     public async Task ShouldPublishAndSubscribeAtQoS2()
     {
-        var client = await _clientFactory.CreateTcpClient(ConnectOptions("v5-pubsub-qos2"), TcpOptions);
+        await using var client = await _clientFactory.CreateTcpClient(ConnectOptions("v5-pubsub-qos2"), TcpOptions);
 
         using var cts = new CancellationTokenSource(RemainingOrDefault);
         var connectResult = await client.ConnectAsync(cts.Token);
@@ -190,7 +190,7 @@ public class EmqxMqtt5End2EndSpecs : TestKit
             }
         };
 
-        var client = await _clientFactory.CreateTcpClient(connectOptions, TcpOptions);
+        await using var client = await _clientFactory.CreateTcpClient(connectOptions, TcpOptions);
 
         using var cts = new CancellationTokenSource(RemainingOrDefault);
         var connectResult = await client.ConnectAsync(cts.Token);
@@ -208,7 +208,7 @@ public class EmqxMqtt5End2EndSpecs : TestKit
     [Fact]
     public async Task ShouldPublishWithUserPropertiesAndReceiveOnSubscriber()
     {
-        var client = await _clientFactory.CreateTcpClient(ConnectOptions("v5-userprops-pubsub"), TcpOptions);
+        await using var client = await _clientFactory.CreateTcpClient(ConnectOptions("v5-userprops-pubsub"), TcpOptions);
 
         using var cts = new CancellationTokenSource(RemainingOrDefault);
         var connectResult = await client.ConnectAsync(cts.Token);
@@ -274,7 +274,7 @@ public class EmqxMqtt5End2EndSpecs : TestKit
             KeepAliveSeconds = 60,
             MaxReconnectAttempts = 0
         };
-        var clientA = await _clientFactory.CreateTcpClient(connectOptionsA, TcpOptions);
+        await using var clientA = await _clientFactory.CreateTcpClient(connectOptionsA, TcpOptions);
 
         using var cts = new CancellationTokenSource(RemainingOrDefault);
         var connectResultA = await clientA.ConnectAsync(cts.Token);
@@ -295,7 +295,7 @@ public class EmqxMqtt5End2EndSpecs : TestKit
                 KeepAliveSeconds = 60,
                 MaxReconnectAttempts = 0
             };
-            var clientB = await factory2.CreateTcpClient(connectOptionsB, TcpOptions);
+            await using var clientB = await factory2.CreateTcpClient(connectOptionsB, TcpOptions);
             var connectResultB = await clientB.ConnectAsync(cts.Token);
             connectResultB.IsSuccess.Should().BeTrue("client B should connect successfully (triggering session takeover)");
 

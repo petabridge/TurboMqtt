@@ -133,7 +133,7 @@ public sealed class ReconnectTimeoutSpecs : TestKit
                 KeepAliveSeconds = 60 // disable heartbeat interference
             };
 
-            var client = await factory.CreateTcpClient(connectOptions, tcpOptions);
+            await using var client = await factory.CreateTcpClient(connectOptions, tcpOptions);
 
             // Phase 1: initial connect succeeds
             using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));

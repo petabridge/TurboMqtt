@@ -108,7 +108,7 @@ public sealed class ClientStreamOwnerReconnectingSpecs : TestKit
                 KeepAliveSeconds = 60
             };
             var tcpOptions = new MqttClientTcpOptions("localhost", server.BoundPort);
-            var client = await factory.CreateTcpClient(connectOptions, tcpOptions);
+            await using var client = await factory.CreateTcpClient(connectOptions, tcpOptions);
 
             // Phase 1: initial connect succeeds
             var connectResult = await client.ConnectAsync(cts.Token);
@@ -167,7 +167,7 @@ public sealed class ClientStreamOwnerReconnectingSpecs : TestKit
                 KeepAliveSeconds = 60
             };
             var tcpOptions = new MqttClientTcpOptions("localhost", server.BoundPort);
-            var client = await factory.CreateTcpClient(connectOptions, tcpOptions);
+            await using var client = await factory.CreateTcpClient(connectOptions, tcpOptions);
 
             // Phase 1: initial connect succeeds (connection #1 = real handle)
             var connectResult = await client.ConnectAsync(cts.Token);
@@ -223,7 +223,7 @@ public sealed class ClientStreamOwnerReconnectingSpecs : TestKit
                 KeepAliveSeconds = 60
             };
             var tcpOptions = new MqttClientTcpOptions("localhost", server.BoundPort);
-            var client = await factory.CreateTcpClient(connectOptions, tcpOptions);
+            await using var client = await factory.CreateTcpClient(connectOptions, tcpOptions);
 
             // Phase 1: initial connect succeeds
             var connectResult = await client.ConnectAsync(cts.Token);
@@ -277,7 +277,7 @@ public sealed class ClientStreamOwnerReconnectingSpecs : TestKit
                 KeepAliveSeconds = 60
             };
             var tcpOptions = new MqttClientTcpOptions("localhost", server.BoundPort);
-            var client = await factory.CreateTcpClient(connectOptions, tcpOptions);
+            await using var client = await factory.CreateTcpClient(connectOptions, tcpOptions);
 
             // Phase 1: initial connect succeeds
             var connectResult = await client.ConnectAsync(cts.Token);

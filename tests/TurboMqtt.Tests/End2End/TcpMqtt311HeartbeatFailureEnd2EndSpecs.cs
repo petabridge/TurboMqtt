@@ -61,7 +61,7 @@ public class TcpMqtt311HeartbeatFailureEnd2EndSpecs : TestKit
     [Fact]
     public async Task ShouldAutomaticallyReconnectandSubscribeAfterHeartbeatFailure()
     {
-        var client = await ClientFactory.CreateTcpClient(DefaultConnectOptions, DefaultTcpOptions);
+        await using var client = await ClientFactory.CreateTcpClient(DefaultConnectOptions, DefaultTcpOptions);
 
         // need a longer timeout for this test
         var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));

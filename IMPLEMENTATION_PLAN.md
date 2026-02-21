@@ -379,10 +379,10 @@ Test methods create `IMqttClient` instances without `await using`. Since
 shutdown, which is nondeterministic.
 
 Done when:
-- [ ] All test methods that create `IMqttClient` use `await using` pattern
-- [ ] No test method stores a client in a field without a corresponding dispose in teardown
-- [ ] Builds with zero warnings
-- [ ] All existing tests pass
+- [x] All test methods that create `IMqttClient` use `await using` pattern
+- [x] No test method stores a client in a field without a corresponding dispose in teardown
+- [x] Builds with zero warnings
+- [x] All existing tests pass
 
 ### Task 5.8: Close RetainHandling bit-mask tracking issue
 

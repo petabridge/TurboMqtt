@@ -54,7 +54,7 @@ public class EmqxMqtt311TlsEnd2EndSpecs : TestKit
     [Fact]
     public async Task ShouldConnectAndDisconnectOverTls()
     {
-        var client = await _clientFactory.CreateTlsTcpClient(
+        await using var client = await _clientFactory.CreateTlsTcpClient(
             DefaultConnectOptions, DefaultTcpOptions, DefaultTlsOptions);
 
         using var cts = new CancellationTokenSource(RemainingOrDefault);
@@ -67,7 +67,7 @@ public class EmqxMqtt311TlsEnd2EndSpecs : TestKit
     [Fact]
     public async Task ShouldPublishAndSubscribeOverTls_QoS0()
     {
-        var client = await _clientFactory.CreateTlsTcpClient(
+        await using var client = await _clientFactory.CreateTlsTcpClient(
             DefaultConnectOptions, DefaultTcpOptions, DefaultTlsOptions);
 
         using var cts = new CancellationTokenSource(RemainingOrDefault);
@@ -103,7 +103,7 @@ public class EmqxMqtt311TlsEnd2EndSpecs : TestKit
     [Fact]
     public async Task ShouldPublishAndSubscribeOverTls_QoS1()
     {
-        var client = await _clientFactory.CreateTlsTcpClient(
+        await using var client = await _clientFactory.CreateTlsTcpClient(
             DefaultConnectOptions, DefaultTcpOptions, DefaultTlsOptions);
 
         using var cts = new CancellationTokenSource(RemainingOrDefault);
@@ -150,7 +150,7 @@ public class EmqxMqtt311TlsEnd2EndSpecs : TestKit
             }
         };
 
-        var client = await _clientFactory.CreateTlsTcpClient(
+        await using var client = await _clientFactory.CreateTlsTcpClient(
             DefaultConnectOptions, DefaultTcpOptions, tlsOptions);
 
         using var cts = new CancellationTokenSource(RemainingOrDefault);
