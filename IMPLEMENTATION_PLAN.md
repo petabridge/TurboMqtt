@@ -282,12 +282,12 @@ are only partially covered by E2E tests.
 Key file: `src/TurboMqtt/Client/IMqttClient.cs`, `MqttClient.PublishAsync` lines 437-451.
 
 Done when:
-- [ ] Test: publish with `RetainRequested=true` when `_brokerRetainAvailable=false` returns failure
-- [ ] Test: publish with QoS 2 when `_brokerMaximumQoS=QoS1` returns failure
-- [ ] Test: publish with payload exceeding `_brokerMaximumPacketSize` returns failure
-- [ ] Test: publish within all limits succeeds
-- [ ] Builds with zero warnings
-- [ ] All existing tests pass
+- [x] Test: publish with `RetainRequested=true` when `_brokerRetainAvailable=false` returns failure
+- [x] Test: publish with QoS 2 when `_brokerMaximumQoS=QoS1` returns failure
+- [x] Test: publish with payload exceeding `_brokerMaximumPacketSize` returns failure
+- [x] Test: publish within all limits succeeds
+- [x] Builds with zero warnings
+- [x] All existing tests pass
 
 ### Task 5.3: Add deterministic encoder test for ReceiveMaximum > 0
 
