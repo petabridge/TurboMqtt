@@ -62,6 +62,30 @@ public class EmqxMqtt311AuthEnd2EndSpecs : TestKit
     }
 
     /// <summary>
+    /// Verifies that a client connecting without any credentials (no username,
+    /// no password) is rejected when the broker has anonymous access disabled
+    /// (<c>EMQX_MQTT__ALLOW_ANONYMOUS=false</c>).
+    /// EMQX sends CONNACK with return code 0x04 or 0x05 (MQTT 3.1.1 §3.2.2.3).
+    /// </summary>
+    [Fact]
+    public async Task ShouldRejectConnectionWithNoCredentials()
+    {
+        var noCredentialsOptions = new MqttClientConnectOptions("auth-connect-no-creds", MqttProtocolVersion.V3_1_1)
+        {
+            KeepAliveSeconds = 60
+            // No UserName, no Password
+        };
+
+        var client = await _clientFactory.CreateTcpClient(noCredentialsOptions, TcpOptions);
+
+        using var cts = new CancellationTokenSource(RemainingOrDefault);
+        var connectResult = await client.ConnectAsync(cts.Token);
+
+        connectResult.IsSuccess.Should().BeFalse(
+            "connecting without credentials should be refused when the broker has anonymous access disabled");
+    }
+
+    /// <summary>
     /// Verifies that a client connecting with the correct username but wrong
     /// password is rejected. The built-in database authenticator returns a
     /// definitive DENY (not a no-match) when the user exists but the password

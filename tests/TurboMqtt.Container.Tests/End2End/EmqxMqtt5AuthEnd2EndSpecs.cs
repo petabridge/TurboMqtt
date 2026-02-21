@@ -62,6 +62,30 @@ public class EmqxMqtt5AuthEnd2EndSpecs : TestKit
     }
 
     /// <summary>
+    /// Verifies that a MQTT 5.0 client connecting without any credentials (no username,
+    /// no password) is rejected when the broker has anonymous access disabled
+    /// (<c>EMQX_MQTT__ALLOW_ANONYMOUS=false</c>).
+    /// EMQX sends CONNACK with Reason Code 0x87 (Not Authorized) per MQTT 5.0 §3.2.2.2.
+    /// </summary>
+    [Fact]
+    public async Task ShouldRejectConnectionWithNoCredentials()
+    {
+        var noCredentialsOptions = new MqttClientConnectOptions("v5-auth-connect-no-creds", MqttProtocolVersion.V5_0)
+        {
+            KeepAliveSeconds = 60
+            // No UserName, no Password
+        };
+
+        var client = await _clientFactory.CreateTcpClient(noCredentialsOptions, TcpOptions);
+
+        using var cts = new CancellationTokenSource(RemainingOrDefault);
+        var connectResult = await client.ConnectAsync(cts.Token);
+
+        connectResult.IsSuccess.Should().BeFalse(
+            "MQTT 5.0 connecting without credentials should be refused when the broker has anonymous access disabled");
+    }
+
+    /// <summary>
     /// Verifies that a MQTT 5.0 client connecting with the correct username but wrong
     /// password is rejected by the broker.
     /// EMQX sends CONNACK with Reason Code 0x86 (Bad User Name or Password) per MQTT 5.0 §3.2.2.2.

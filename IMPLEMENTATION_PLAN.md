@@ -333,10 +333,10 @@ no-credentials-at-all against an auth-enabled EMQX broker
 (`EMQX_MQTT__ALLOW_ANONYMOUS=false`).
 
 Done when:
-- [ ] Container test `ShouldRejectConnectionWithNoCredentials` connects to EMQX without username/password and asserts connect failure
-- [ ] Test runs in `TurboMqtt.Container.Tests` project
-- [ ] Builds with zero warnings
-- [ ] All existing tests pass
+- [x] Container test `ShouldRejectConnectionWithNoCredentials` connects to EMQX without username/password and asserts connect failure
+- [x] Test runs in `TurboMqtt.Container.Tests` project
+- [x] Builds with zero warnings
+- [x] All existing tests pass
 
 ### Task 5.5: Add dedicated regression test for 1-char MQTT topic name
 
