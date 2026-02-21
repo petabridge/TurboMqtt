@@ -74,3 +74,70 @@
 - **Issue:** The `Reconnecting` state in `ClientStreamOwner` is only tested via FakeMqttTcpServer E2E. An isolated TestKit test with TestProbe would verify the message flow (ReconnectSuccess/ReconnectFailed) more reliably and run faster.
 - **Date parked:** 2026-02-20
 
+### Establish `await using` convention for IMqttClient in tests
+- **Source:** Adversarial review 20260220-202420, finding B-1
+- **Issue:** `ShouldRejectConnectionWithInvalidPassword` (and other tests) create `IMqttClient` instances without calling `DisposeAsync()`. `IMqttClient : IAsyncDisposable`. Currently relies on TestKit actor system shutdown for cleanup. Consistent pattern across repo but not ideal.
+- **Decision needed:** Should all test methods use `await using` for clients? Would require updating existing tests too.
+- **Date parked:** 2026-02-20
+
+### Add "no credentials" negative auth test
+- **Source:** Adversarial review 20260220-202420, finding B-2
+- **Issue:** Task 2.8 tests wrong-password rejection but not no-credentials-at-all against the auth-enabled broker. A `ShouldRejectConnectionWithNoCredentials` test would validate the `EMQX_MQTT__ALLOW_ANONYMOUS=false` enforcement.
+- **Date parked:** 2026-02-20
+
+### Dedicated regression test for 1-char MQTT topic name
+- **Source:** Adversarial review 20260220-202420, finding F-3
+- **Issue:** The decoder bug fix (minBytes 2→1 for PUBLISH topic name, commit 21120a6) is covered probabilistically by FsCheck property tests but lacks a self-documenting deterministic test like `Decoder_Publish_SingleCharTopic_DecodesSuccessfully`.
+- **Date parked:** 2026-02-20
+
+### Task 2.4 Windows validation
+- **Source:** Adversarial review 20260220-202420, finding F-1
+- **Issue:** "All tests pass on both Linux and Windows" criterion was checked but only Linux was verified in the RALPH run. PR CI will validate Windows when the PR is created.
+- **Date parked:** 2026-02-20
+
+### MqttLastWill.DelayInterval should be uint, not NonZeroUInt16
+- **Source:** Adversarial review 20260220-202420 iter-10, finding F-5
+- **Issue:** MQTT 5.0 spec §3.1.3.2.2 defines Will Delay Interval as a Four Byte Integer (uint32, 0–4294967295). `MqttLastWill.DelayInterval` is `NonZeroUInt16` (ushort, 0–65535). The `Mqtt5Decoder` at line 567 does `(ushort)ReadFourByteInt()` which silently truncates. Also, `NonZeroUInt16` semantically implies non-zero but the spec allows 0 (publish immediately).
+- **Decision needed:** Change `MqttLastWill.DelayInterval` from `NonZeroUInt16` to `uint?` (or `uint`). This is a breaking change to the data model.
+- **Date parked:** 2026-02-20
+
+### UserProperties should support duplicate keys per MQTT 5.0 spec
+- **Source:** Adversarial review 20260220-202420 iter-10, finding F-6
+- **Issue:** All packet types use `IReadOnlyDictionary<string, string>?` for User Properties. MQTT 5.0 §3.1.2.11.8 says "The same name is allowed to appear more than once." `Dictionary<string, string>` silently drops duplicate keys.
+- **Decision needed:** Change to `IReadOnlyList<KeyValuePair<string, string>>?` or similar across all packet types. This is a breaking change.
+- **Date parked:** 2026-02-20
+
+### DisconnectPacket missing ReasonString property
+- **Source:** Adversarial review 20260220-202420 iter-10, finding F-7
+- **Issue:** Per MQTT 5.0 §3.14.2.2.2, DISCONNECT can include Reason String (0x1F). The `DisconnectPacket` class does not have a `ReasonString` property, so encoder/decoder cannot support it.
+- **Decision needed:** Add `string? ReasonString` to `DisconnectPacket` and update encoder/decoder to handle it.
+- **Date parked:** 2026-02-20
+
+### File GitHub issue for RetainHandling bit-mask bug fix
+- **Source:** Adversarial review 20260220-202420 iter-10, finding F-9
+- **Issue:** Commit `8f94444` fixed `ToSubscriptionOptions` decoding RetainHandling from wrong bits (3-4 instead of 4-5). Bug fix is correct but no GitHub issue filed. Phase 2 code review filed issues #344-350 for similar findings.
+- **Date parked:** 2026-02-20
+
+### Pre-existing flaky HeartbeatFailure test
+- **Source:** Adversarial review 20260220-202420 iter-10, finding F-8
+- **Issue:** `TcpMqtt311HeartbeatFailureEnd2EndSpecs.ShouldAutomaticallyReconnectandSubscribeAfterHeartbeatFailure` fails with `SocketException: Address already in use`. Confirmed pre-existing — fails identically on base commit. Port binding issue on test machine.
+- **Decision needed:** Fix `FakeMqttTcpServer` to use ephemeral ports, or mark test with known-flaky annotation, or fix the port conflict.
+- **Date parked:** 2026-02-20
+
+### Empty ClientId MQTT 5.0 CONNECT test
+- **Source:** Adversarial review 20260220-202420 iter-10, finding B-3
+- **Issue:** `Mqtt5Decoder.DecodeConnect` allows empty client IDs (overriding base class throw). No dedicated test exercises this. Will be covered by Task 3.4 FsCheck generators.
+- **Date parked:** 2026-02-20
+
+### RALPH flight recorder log drift enforcement
+- **Source:** Diagnostics review 20260220-202420, ISSUE-1 and ISSUE-2
+- **Issue:** Iterations 05, 09, and 10 in run 20260220-202420 dropped required RALPH flight recorder sections (surface area, verification level, skills consulted, deviations, follow-ups, done-when table). iter-05 covers the highest-stakes E2E work yet has the weakest structural record. Pattern correlates with end-of-session fatigue.
+- **Decision needed:** Create a `ralph-flight-recorder` skill or template that enforces all required sections. Alternatively, add a pre-commit structural validation step to the RALPH loop.
+- **Date parked:** 2026-02-20
+
+### Extract `mqtt5-codec-patterns` skill
+- **Source:** Diagnostics review 20260220-202420, ISSUE-7
+- **Issue:** Three consecutive iterations (3.0, 3.2, 3.3) implemented the same MQTT 5.0 property read/write loop pattern (VBI property length prefix, per-identifier switch dispatch, compact ACK forms) without proposing a skill. This violates the CLAUDE.md rule "If a workflow is repeated 3+ times, extract it into a repo skill or script."
+- **Decision needed:** Create the skill before the next MQTT 5.0 codec-related task (Task 3.4 or later), or defer if the pattern is considered sufficiently documented in the existing code.
+- **Date parked:** 2026-02-20
+
