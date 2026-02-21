@@ -72,9 +72,10 @@ public class ConnAckPacketSpecs
                 SessionPresent = sessionCreated,
                 ReasonCode = reasonCode
             };
-            MqttPacketSizeEstimator.EstimatePacketSize(packet, MqttProtocolVersion.V5_0).Should().Be(new PacketSize(2));
+            // MQTT 5.0 CONNACK: session present (1) + reason code (1) + properties VBI (1, encoding 0) = 3 bytes
+            MqttPacketSizeEstimator.EstimatePacketSize(packet, MqttProtocolVersion.V5_0).Should().Be(new PacketSize(3));
         }
-        
+
         [Fact]
         public void ShouldEstimateSizeCorrectlyWithProperties()
         {
@@ -88,7 +89,8 @@ public class ConnAckPacketSpecs
                     { "key2", "value2" }
                 }
             };
-            MqttPacketSizeEstimator.EstimatePacketSize(packet, MqttProtocolVersion.V5_0).Should().Be(new PacketSize(32));
+            // MQTT 5.0 CONNACK: SP(1) + RC(1) + propVBI(1) + 2 user props (15 each) = 33 bytes
+            MqttPacketSizeEstimator.EstimatePacketSize(packet, MqttProtocolVersion.V5_0).Should().Be(new PacketSize(33));
         }
     }
     

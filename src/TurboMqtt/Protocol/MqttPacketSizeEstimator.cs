@@ -196,393 +196,273 @@ internal static class MqttPacketSizeEstimator
         }
     }
 
+    // ── MQTT 5.0 estimator helpers ───────────────────────────────────────────
+
+    private static int ComputeUserPropertiesSize(IReadOnlyDictionary<string, string> userProperties)
+    {
+        var userPropertiesSize = 0;
+        foreach (var (key, value) in userProperties)
+        {
+            // Include 1 byte for the property identifier for each user property
+            userPropertiesSize += 1; // Property identifier byte for "User Property"
+            userPropertiesSize += 2 + Encoding.UTF8.GetByteCount(key); // Length of key + key bytes
+            userPropertiesSize += 2 + Encoding.UTF8.GetByteCount(value); // Length of value + value bytes
+        }
+
+        return userPropertiesSize;
+    }
+
+    // ── AUTH ─────────────────────────────────────────────────────────────────
+
     private static int EstimateAuthPacketSizeMqtt5(AuthPacket packet)
     {
-        var size = 0; // fixed header not included in length calculation
-        size += 1; // Reason code is 1 byte
-
-        // Start calculating the properties size
-        var propertiesSize = 0;
-
-        if (!string.IsNullOrEmpty(packet.AuthenticationMethod))
-        {
-            propertiesSize += 2 + Encoding.UTF8.GetByteCount(packet.AuthenticationMethod);
-        }
-
+        // Mirror Mqtt5Encoder.EncodeAuthPacket
+        var propsSize = 0;
+        // Authentication Method is always present on AuthPacket
+        propsSize += 1 + 2 + Encoding.UTF8.GetByteCount(packet.AuthenticationMethod);
         if (!packet.AuthenticationData.IsEmpty)
-        {
-            propertiesSize += 2 + packet.AuthenticationData.Length;
-        }
-
-        // reason string
+            propsSize += 1 + 2 + packet.AuthenticationData.Length;
         if (!string.IsNullOrEmpty(packet.ReasonString))
-        {
-            propertiesSize += 2 + Encoding.UTF8.GetByteCount(packet.ReasonString);
-        }
-
-        // user properties
+            propsSize += 1 + 2 + Encoding.UTF8.GetByteCount(packet.ReasonString);
         if (packet.UserProperties != null && packet.UserProperties.Any())
-        {
-            propertiesSize = ComputeUserPropertiesSize(packet.UserProperties);
-        }
+            propsSize += ComputeUserPropertiesSize(packet.UserProperties);
 
-        return size + propertiesSize;
+        // contentSize = reason code (1) + VBI(propsSize) + propsSize
+        return 1 + Mqtt5PropertyWriter.GetVariableByteIntSize((uint)propsSize) + propsSize;
     }
+
+    // ── UNSUBACK ─────────────────────────────────────────────────────────────
 
     private static int EstimateUnsubscribeAckPacketSizeMqtt5(UnsubAckPacket packet)
     {
-        var size = 0; // fixed header not included in length calculation
-
-        // packet id
-        size += PacketIdLength;
-
-        // Start calculating the properties size
-        var propertiesSize = 0;
-
-        foreach (var reasonCode in packet.ReasonCodes)
-        {
-            propertiesSize += 1; // Reason code
-        }
-
-        // reason string
+        // Mirror Mqtt5Encoder.EncodeUnsubAckPacket
+        var propsSize = 0;
         if (!string.IsNullOrEmpty(packet.ReasonString))
-        {
-            propertiesSize += 2 + Encoding.UTF8.GetByteCount(packet.ReasonString);
-        }
-
-        // user properties
+            propsSize += 1 + 2 + Encoding.UTF8.GetByteCount(packet.ReasonString);
         if (packet.UserProperties != null && packet.UserProperties.Any())
-        {
-            propertiesSize = ComputeUserPropertiesSize(packet.UserProperties);
-        }
+            propsSize += ComputeUserPropertiesSize(packet.UserProperties);
 
-        return size + propertiesSize;
+        // contentSize = packet ID (2) + VBI(propsSize) + propsSize + reason codes (1 each)
+        return 2
+            + Mqtt5PropertyWriter.GetVariableByteIntSize((uint)propsSize)
+            + propsSize
+            + packet.ReasonCodes.Count;
     }
+
+    // ── UNSUBSCRIBE ───────────────────────────────────────────────────────────
 
     private static int EstimateUnsubscribePacketSizeMqtt5(UnsubscribePacket packet)
     {
-        var size = 0; // fixed header not included in length calculation
+        // Mirror Mqtt5Encoder.EncodeUnsubscribePacket
+        var propsSize = packet.UserProperties != null && packet.UserProperties.Any()
+            ? ComputeUserPropertiesSize(packet.UserProperties)
+            : 0;
+        var topicsPayloadSize = packet.Topics.Sum(t => 2 + Encoding.UTF8.GetByteCount(t));
 
-        // packet id
-        size += PacketIdLength;
-
-        // Start calculating the properties size
-        var propertiesSize = 0;
-
-        foreach (var topic in packet.Topics)
-        {
-            propertiesSize += 2 + Encoding.UTF8.GetByteCount(topic); // Topic name
-        }
-
-        // user properties
-        if (packet.UserProperties != null && packet.UserProperties.Any())
-        {
-            propertiesSize = ComputeUserPropertiesSize(packet.UserProperties);
-        }
-
-        return size + propertiesSize;
+        // contentSize = packet ID (2) + VBI(propsSize) + propsSize + topics payload
+        return 2
+            + Mqtt5PropertyWriter.GetVariableByteIntSize((uint)propsSize)
+            + propsSize
+            + topicsPayloadSize;
     }
+
+    // ── SUBACK ───────────────────────────────────────────────────────────────
 
     private static int EstimateSubAckPacketSizeMqtt5(SubAckPacket packet)
     {
-        var size = 0; // fixed header not included in length calculation
-        size += 1; // Reason code is 1 byte
-
-        // packet id
-        size += PacketIdLength;
-
-        // Start calculating the properties size
-        var propertiesSize = 0;
-
-        foreach (var reasonCode in packet.ReasonCodes)
-        {
-            propertiesSize += 1; // Reason code
-        }
-
-        // reason string
+        // Mirror Mqtt5Encoder.EncodeSubAckPacket
+        var propsSize = 0;
         if (!string.IsNullOrEmpty(packet.ReasonString))
-        {
-            propertiesSize += 2 + Encoding.UTF8.GetByteCount(packet.ReasonString);
-        }
-
-        // user properties
+            propsSize += 1 + 2 + Encoding.UTF8.GetByteCount(packet.ReasonString);
         if (packet.UserProperties != null && packet.UserProperties.Any())
-        {
-            propertiesSize = ComputeUserPropertiesSize(packet.UserProperties);
-        }
+            propsSize += ComputeUserPropertiesSize(packet.UserProperties);
 
-        return size + propertiesSize;
+        // contentSize = packet ID (2) + VBI(propsSize) + propsSize + reason codes (1 each)
+        return 2
+            + Mqtt5PropertyWriter.GetVariableByteIntSize((uint)propsSize)
+            + propsSize
+            + packet.ReasonCodes.Count;
     }
+
+    // ── SUBSCRIBE ─────────────────────────────────────────────────────────────
 
     private static int EstimateSubscribePacketSizeMqtt5(SubscribePacket packet)
     {
-        var size = 0; // fixed header not included in length calculation
-
-        // Start calculating the properties size
-        var propertiesSize = 0;
-
-        // packet id
-        size += PacketIdLength;
-
-        // Start calculating the properties size
-        propertiesSize += 1; // Subscription identifier
-        propertiesSize += 1; // User properties
-
-        foreach (var topic in packet.Topics)
-        {
-            propertiesSize += 2 + Encoding.UTF8.GetByteCount(topic.Topic); // Topic name
-            propertiesSize += 1; // subscription options
-        }
-
-        // user properties
+        // Mirror Mqtt5Encoder.EncodeSubscribePacket
+        var propsSize = 0;
+        if (packet.SubscriptionIdentifier.HasValue)
+            propsSize += 1 + Mqtt5PropertyWriter.GetVariableByteIntSize(packet.SubscriptionIdentifier.Value);
         if (packet.UserProperties != null && packet.UserProperties.Any())
-        {
-            propertiesSize = ComputeUserPropertiesSize(packet.UserProperties);
-        }
+            propsSize += ComputeUserPropertiesSize(packet.UserProperties);
 
-        return size + propertiesSize;
+        // Topics payload: 2 (length prefix) + topic bytes + 1 (subscription options)
+        var topicsPayloadSize = packet.Topics.Sum(t => 2 + Encoding.UTF8.GetByteCount(t.Topic) + 1);
+
+        // contentSize = packet ID (2) + VBI(propsSize) + propsSize + topics payload
+        return 2
+            + Mqtt5PropertyWriter.GetVariableByteIntSize((uint)propsSize)
+            + propsSize
+            + topicsPayloadSize;
     }
+
+    // ── PUBCOMP ──────────────────────────────────────────────────────────────
 
     private static int EstimatePubCompPacketSizeMqtt5(PubCompPacket packet)
     {
-        var size = 0; // fixed header not included in length calculation
-        size += 1; // Reason code is 1 byte
+        // Mirror Mqtt5Encoder.EncodePubCompPacket (compact form logic)
+        var reasonCode = packet.ReasonCode ?? PubCompReasonCode.Success;
+        var hasProps = !string.IsNullOrEmpty(packet.ReasonString)
+            || (packet.UserProperties != null && packet.UserProperties.Count > 0);
+        var isCompact = reasonCode == PubCompReasonCode.Success && !hasProps;
 
-        // packet id
-        size += PacketIdLength;
+        if (isCompact)
+            return 2; // packet ID only
 
-        // Start calculating the properties size
-        var propertiesSize = 0;
-
-        // reason string
+        var propsSize = 0;
         if (!string.IsNullOrEmpty(packet.ReasonString))
-        {
-            propertiesSize += 2 + Encoding.UTF8.GetByteCount(packet.ReasonString);
-        }
-
-        // user properties
+            propsSize += 1 + 2 + Encoding.UTF8.GetByteCount(packet.ReasonString);
         if (packet.UserProperties != null && packet.UserProperties.Any())
-        {
-            propertiesSize = ComputeUserPropertiesSize(packet.UserProperties);
-        }
+            propsSize += ComputeUserPropertiesSize(packet.UserProperties);
 
-        return size + propertiesSize;
+        // contentSize = packet ID (2) + reason code (1) + VBI(propsSize) + propsSize
+        return 2 + 1 + Mqtt5PropertyWriter.GetVariableByteIntSize((uint)propsSize) + propsSize;
     }
+
+    // ── PUBREL ───────────────────────────────────────────────────────────────
 
     private static int EstimatePubRelPacketSizeMqtt5(PubRelPacket packet)
     {
-        var size = 0; // fixed header not included in length calculation
-        size += 1; // Reason code is 1 byte
+        // Mirror Mqtt5Encoder.EncodePubRelPacket (compact form logic)
+        var reasonCode = packet.ReasonCode ?? PubRelReasonCode.Success;
+        var hasProps = !string.IsNullOrEmpty(packet.ReasonString)
+            || (packet.UserProperties != null && packet.UserProperties.Count > 0);
+        var isCompact = reasonCode == PubRelReasonCode.Success && !hasProps;
 
-        // packet id
-        size += PacketIdLength;
+        if (isCompact)
+            return 2; // packet ID only
 
-        // Start calculating the properties size
-        var propertiesSize = 0;
-
-        // reason string
+        var propsSize = 0;
         if (!string.IsNullOrEmpty(packet.ReasonString))
-        {
-            propertiesSize += 2 + Encoding.UTF8.GetByteCount(packet.ReasonString);
-        }
-
-        // user properties
+            propsSize += 1 + 2 + Encoding.UTF8.GetByteCount(packet.ReasonString);
         if (packet.UserProperties != null && packet.UserProperties.Any())
-        {
-            propertiesSize = ComputeUserPropertiesSize(packet.UserProperties);
-        }
+            propsSize += ComputeUserPropertiesSize(packet.UserProperties);
 
-        return size + propertiesSize;
+        // contentSize = packet ID (2) + reason code (1) + VBI(propsSize) + propsSize
+        return 2 + 1 + Mqtt5PropertyWriter.GetVariableByteIntSize((uint)propsSize) + propsSize;
     }
+
+    // ── PUBREC ───────────────────────────────────────────────────────────────
 
     private static int EstimatePubRecPacketSizeMqtt5(PubRecPacket packet)
     {
-        var size = 0; // fixed header not included in length calculation
-        size += 1; // Reason code is 1 byte
+        // Mirror Mqtt5Encoder.EncodePubRecPacket (compact form logic)
+        var reasonCode = packet.ReasonCode ?? PubRecReasonCode.Success;
+        var hasProps = !string.IsNullOrEmpty(packet.ReasonString)
+            || (packet.UserProperties != null && packet.UserProperties.Count > 0);
+        var isCompact = reasonCode == PubRecReasonCode.Success && !hasProps;
 
-        // packet id
-        size += PacketIdLength;
+        if (isCompact)
+            return 2; // packet ID only
 
-        // Start calculating the properties size
-        var propertiesSize = 0;
-
-        // reason string
+        var propsSize = 0;
         if (!string.IsNullOrEmpty(packet.ReasonString))
-        {
-            propertiesSize += 2 + Encoding.UTF8.GetByteCount(packet.ReasonString);
-        }
-
-        // user properties
+            propsSize += 1 + 2 + Encoding.UTF8.GetByteCount(packet.ReasonString);
         if (packet.UserProperties != null && packet.UserProperties.Any())
-        {
-            propertiesSize = ComputeUserPropertiesSize(packet.UserProperties);
-        }
+            propsSize += ComputeUserPropertiesSize(packet.UserProperties);
 
-        return size + propertiesSize;
+        // contentSize = packet ID (2) + reason code (1) + VBI(propsSize) + propsSize
+        return 2 + 1 + Mqtt5PropertyWriter.GetVariableByteIntSize((uint)propsSize) + propsSize;
     }
+
+    // ── PUBACK ───────────────────────────────────────────────────────────────
 
     private static int EstimatePubAckPacketSizeMqtt5(PubAckPacket packet)
     {
-        var size = 0; // fixed header not included in length calculation
-        size += 1; // Reason code is 1 byte
+        // Mirror Mqtt5Encoder.EncodePubAckPacket (compact form logic)
+        var hasProps = !string.IsNullOrEmpty(packet.ReasonString)
+            || (packet.UserProperties != null && packet.UserProperties.Count > 0);
+        var isCompact = packet.ReasonCode == MqttPubAckReasonCode.Success && !hasProps;
 
-        // packet id
-        size += PacketIdLength;
+        if (isCompact)
+            return 2; // packet ID only
 
-        // Start calculating the properties size
-        var propertiesSize = 0;
-
-        // reason string
+        var propsSize = 0;
         if (!string.IsNullOrEmpty(packet.ReasonString))
-        {
-            propertiesSize += 2 + Encoding.UTF8.GetByteCount(packet.ReasonString);
-        }
+            propsSize += 1 + 2 + Encoding.UTF8.GetByteCount(packet.ReasonString);
+        if (packet.UserProperties != null && packet.UserProperties.Any())
+            propsSize += ComputeUserPropertiesSize(packet.UserProperties);
 
-        return size + propertiesSize;
+        // contentSize = packet ID (2) + reason code (1) + VBI(propsSize) + propsSize
+        return 2 + 1 + Mqtt5PropertyWriter.GetVariableByteIntSize((uint)propsSize) + propsSize;
     }
+
+    // ── PUBLISH ──────────────────────────────────────────────────────────────
 
     private static int EstimatePublishPacketSizeMqtt5(PublishPacket packet)
     {
-        var size = 0; // fixed header not included in length calculation
-
-        // Variable header:
-        /*
-            +-------------------+-------------------+-------------------+
-            | Topic Name        | Packet Identifier | Payload           |
-            | X Bytes           | 2 Bytes           | X Bytes           |
-            +-------------------+-------------------+-------------------+
-            */
-
-        size += StringSizeLength + Encoding.UTF8.GetByteCount(packet.TopicName); // Topic Name
-
-
-        // Start calculating the properties size
-        var propertiesSize = 0;
-
-        if (packet.QualityOfService > QualityOfService.AtMostOnce)
-        {
-            propertiesSize += PacketIdLength; // Packet Identifier
-        }
-
-        /*  Header properties for MQTT 5.0
-
-          | Identifier | Property Name            | Type                  |
-          |------------|--------------------------|-----------------------|
-          | 0x01       | Payload Format Indicator | Byte                  |
-          | 0x02       | Message Expiry Interval  | Four Byte Integer     |
-          | 0x23       | Topic Alias              | Two Byte Integer      |
-          | 0x08       | Response Topic           | UTF-8 Encoded String  |
-          | 0x09       | Correlation Data         | Binary Data           |
-          | 0x26       | User Property            | UTF-8 String Pair     |
-          | 0x0B       | Subscription Identifier  | Variable Byte Integer |
-          | 0x03       | Content Type             | UTF-8 Encoded String  |
-
-       */
-        propertiesSize += 1 + 1; // Payload Format Indicator
-        propertiesSize += 1 + 4; // Message Expiry Interval
-        propertiesSize += 1 + 2; // Topic Alias
-        propertiesSize +=
-            1 + (packet.ResponseTopic is null ? 0 : Encoding.UTF8.GetByteCount(packet.ResponseTopic)); // Response topic
-        propertiesSize += 1 + (packet.CorrelationData?.Length ?? 0); // Correlation data
-
+        // Mirror Mqtt5Encoder.EncodePublishPacket / ComputePublishPropertiesSize
+        var propsSize = 0;
+        if (packet.PayloadFormatIndicator != PayloadFormatIndicator.Unspecified) propsSize += 1 + 1;
+        if (packet.MessageExpiryInterval != 0) propsSize += 1 + 4;
+        if (packet.TopicAlias != 0) propsSize += 1 + 2;
+        if (!string.IsNullOrEmpty(packet.ResponseTopic))
+            propsSize += 1 + 2 + Encoding.UTF8.GetByteCount(packet.ResponseTopic);
+        if (packet.CorrelationData.HasValue && !packet.CorrelationData.Value.IsEmpty)
+            propsSize += 1 + 2 + packet.CorrelationData.Value.Length;
         if (packet.UserProperties != null && packet.UserProperties.Any())
+            propsSize += ComputeUserPropertiesSize(packet.UserProperties);
+        if (packet.SubscriptionIdentifiers != null && packet.SubscriptionIdentifiers.Count > 0)
         {
-            propertiesSize = ComputeUserPropertiesSize(packet.UserProperties);
+            foreach (var sid in packet.SubscriptionIdentifiers)
+                propsSize += 1 + Mqtt5PropertyWriter.GetVariableByteIntSize(sid);
         }
-
-        if (packet.SubscriptionIdentifiers != null && packet.SubscriptionIdentifiers.Any())
-        {
-            propertiesSize += 1 + packet.SubscriptionIdentifiers.Count * MaxVariableLength; // Subscription Identifier
-        }
-
         if (!string.IsNullOrEmpty(packet.ContentType))
-        {
-            propertiesSize +=
-                2 + Encoding.UTF8.GetByteCount(packet
-                    .ContentType); // 2 bytes for the length of the content type + the content type bytes
-        }
+            propsSize += 1 + 2 + Encoding.UTF8.GetByteCount(packet.ContentType);
 
+        var topicBytes = Encoding.UTF8.GetByteCount(packet.TopicName);
 
-        return size + propertiesSize + packet.Payload.Length;
+        // contentSize = topic (2+len) + [packet ID (2)] + VBI(propsSize) + propsSize + payload
+        return 2 + topicBytes
+            + (packet.QualityOfService > QualityOfService.AtMostOnce ? 2 : 0)
+            + Mqtt5PropertyWriter.GetVariableByteIntSize((uint)propsSize)
+            + propsSize
+            + packet.Payload.Length;
     }
+
+    // ── CONNACK ──────────────────────────────────────────────────────────────
 
     private static int EstimateConnAckPacketSizeMqtt5(ConnAckPacket packet)
     {
-        var size = 0; // fixed header not included in length calculation
-        size += 2; // Reason code is 1 byte, session present is 1 byte
+        // Mirror Mqtt5Encoder.EncodeConnAckPacket / ComputeConnAckPropertiesSize
+        var propsSize = 0;
 
-        // Start calculating the properties size
-        var propertiesSize = 0;
-
-        // Session Expiry Interval (0x11): 1 byte identifier + 4 bytes uint
-        if (packet.SessionExpiryInterval.HasValue)
-            propertiesSize += 1 + 4;
-
-        // Receive Maximum (0x21): 1 byte identifier + 2 bytes ushort
-        if (packet.ReceiveMaximum.HasValue)
-            propertiesSize += 1 + 2;
-
-        // Maximum QoS (0x24): 1 byte identifier + 1 byte value
-        if (packet.MaximumQoS.HasValue)
-            propertiesSize += 1 + 1;
-
-        // Retain Available (0x25): 1 byte identifier + 1 byte bool
-        if (packet.RetainAvailable.HasValue)
-            propertiesSize += 1 + 1;
-
-        // Maximum Packet Size (0x27): 1 byte identifier + 4 bytes uint
-        if (packet.MaximumPacketSize.HasValue)
-            propertiesSize += 1 + 4;
-
-        // Assigned Client Identifier (0x12): 1 byte identifier + 2 byte length prefix + string bytes
+        if (packet.SessionExpiryInterval.HasValue) propsSize += 1 + 4;
+        if (packet.ReceiveMaximum.HasValue) propsSize += 1 + 2;
+        if (packet.MaximumQoS.HasValue) propsSize += 1 + 1;
+        if (packet.RetainAvailable.HasValue) propsSize += 1 + 1;
+        if (packet.MaximumPacketSize.HasValue) propsSize += 1 + 4;
         if (!string.IsNullOrEmpty(packet.AssignedClientIdentifier))
-            propertiesSize += 1 + 2 + Encoding.UTF8.GetByteCount(packet.AssignedClientIdentifier);
-
-        // Topic Alias Maximum (0x22): 1 byte identifier + 2 bytes ushort
-        if (packet.TopicAliasMaximum.HasValue)
-            propertiesSize += 1 + 2;
-
-        // Reason String (0x1F): 1 byte identifier + 2 byte length prefix + string bytes
+            propsSize += 1 + 2 + Encoding.UTF8.GetByteCount(packet.AssignedClientIdentifier);
+        if (packet.TopicAliasMaximum.HasValue) propsSize += 1 + 2;
         if (!string.IsNullOrEmpty(packet.ReasonString))
-            propertiesSize += 1 + 2 + Encoding.UTF8.GetByteCount(packet.ReasonString);
-
-        // User Properties (0x26)
+            propsSize += 1 + 2 + Encoding.UTF8.GetByteCount(packet.ReasonString);
         if (packet.UserProperties != null && packet.UserProperties.Any())
-            propertiesSize += ComputeUserPropertiesSize(packet.UserProperties);
-
-        // Wildcard Subscription Available (0x28): 1 byte identifier + 1 byte bool
-        if (packet.WildcardSubscriptionAvailable.HasValue)
-            propertiesSize += 1 + 1;
-
-        // Subscription Identifiers Available (0x29): 1 byte identifier + 1 byte bool
-        if (packet.SubscriptionIdentifiersAvailable.HasValue)
-            propertiesSize += 1 + 1;
-
-        // Shared Subscription Available (0x2A): 1 byte identifier + 1 byte bool
-        if (packet.SharedSubscriptionAvailable.HasValue)
-            propertiesSize += 1 + 1;
-
-        // Server Keep Alive (0x13): 1 byte identifier + 2 bytes ushort
-        if (packet.ServerKeepAlive.HasValue)
-            propertiesSize += 1 + 2;
-
-        // Response Information (0x1A): 1 byte identifier + 2 byte length prefix + string bytes
+            propsSize += ComputeUserPropertiesSize(packet.UserProperties);
+        if (packet.WildcardSubscriptionAvailable.HasValue) propsSize += 1 + 1;
+        if (packet.SubscriptionIdentifiersAvailable.HasValue) propsSize += 1 + 1;
+        if (packet.SharedSubscriptionAvailable.HasValue) propsSize += 1 + 1;
+        if (packet.ServerKeepAlive.HasValue) propsSize += 1 + 2;
         if (!string.IsNullOrEmpty(packet.ResponseInformation))
-            propertiesSize += 1 + 2 + Encoding.UTF8.GetByteCount(packet.ResponseInformation);
-
-        // Server Reference (0x1C): 1 byte identifier + 2 byte length prefix + string bytes
+            propsSize += 1 + 2 + Encoding.UTF8.GetByteCount(packet.ResponseInformation);
         if (!string.IsNullOrEmpty(packet.ServerReference))
-            propertiesSize += 1 + 2 + Encoding.UTF8.GetByteCount(packet.ServerReference);
-
-        // Authentication Method (0x15): 1 byte identifier + 2 byte length prefix + string bytes
+            propsSize += 1 + 2 + Encoding.UTF8.GetByteCount(packet.ServerReference);
         if (!string.IsNullOrEmpty(packet.AuthenticationMethod))
-            propertiesSize += 1 + 2 + Encoding.UTF8.GetByteCount(packet.AuthenticationMethod);
-
-        // Authentication Data (0x16): 1 byte identifier + 2 byte length prefix + data bytes
+            propsSize += 1 + 2 + Encoding.UTF8.GetByteCount(packet.AuthenticationMethod);
         if (packet.AuthenticationData.HasValue && !packet.AuthenticationData.Value.IsEmpty)
-            propertiesSize += 1 + 2 + packet.AuthenticationData.Value.Length;
+            propsSize += 1 + 2 + packet.AuthenticationData.Value.Length;
 
-        return size + propertiesSize;
+        // contentSize = session present (1) + reason code (1) + VBI(propsSize) + propsSize
+        return 2 + Mqtt5PropertyWriter.GetVariableByteIntSize((uint)propsSize) + propsSize;
     }
 
     /// <summary>
@@ -604,57 +484,33 @@ internal static class MqttPacketSizeEstimator
         };
     }
 
-    private static int ComputeUserPropertiesSize(IReadOnlyDictionary<string, string> userProperties)
-    {
-        var userPropertiesSize = 0;
-        foreach (var (key, value) in userProperties)
-        {
-            // Include 1 byte for the property identifier for each user property
-            userPropertiesSize += 1; // Property identifier byte for "User Property"
-            userPropertiesSize += 2 + Encoding.UTF8.GetByteCount(key); // Length of key + key bytes
-            userPropertiesSize += 2 + Encoding.UTF8.GetByteCount(value); // Length of value + value bytes
-        }
-
-        return userPropertiesSize;
-    }
+    // ── DISCONNECT ───────────────────────────────────────────────────────────
 
     /// <summary>
     /// Gets just the packet size back - **does not include the size of the length header**
     /// </summary>
-    /// <param name="packet">The <see cref="DisconnectPacket"/></param>
-    /// <returns>The size of the packet not including the length headers.</returns>
-    /// <remarks>
-    /// Only used for MQTT 5.0 packets.
-    /// </remarks>
     private static int EstimateDisconnectPacketSizeMqtt5(DisconnectPacket packet)
     {
-        var size = 0; // fixed header not included in length calculation
-
-        if (packet.ReasonCode.HasValue)
-        {
-            size += 1; // Reason code is 1 byte
-        }
-
-        // Start calculating the properties size
-        var propertiesSize = 0;
-
-        if (packet.UserProperties != null && packet.UserProperties.Any())
-        {
-            propertiesSize = ComputeUserPropertiesSize(packet.UserProperties);
-        }
-
+        // Mirror Mqtt5Encoder.EncodeDisconnectPacket (compact form logic)
+        var reasonCode = packet.ReasonCode ?? DisconnectReasonCode.NormalDisconnection;
+        var propsSize = 0;
         if (!string.IsNullOrEmpty(packet.ServerReference))
-        {
-            propertiesSize += 2 + Encoding.UTF8.GetByteCount(packet.ServerReference);
-        }
-
+            propsSize += 1 + 2 + Encoding.UTF8.GetByteCount(packet.ServerReference);
         if (packet.SessionExpiryInterval.HasValue)
-        {
-            propertiesSize += 5; // 1 byte for the identifier plus 4 bytes for the value
-        }
+            propsSize += 1 + 4;
+        if (packet.UserProperties != null && packet.UserProperties.Any())
+            propsSize += ComputeUserPropertiesSize(packet.UserProperties);
 
-        return size + propertiesSize;
+        var isCompact = reasonCode == DisconnectReasonCode.NormalDisconnection && propsSize == 0;
+
+        if (isCompact)
+            return 0; // compact form: Remaining Length = 0
+
+        // non-compact: reason code (1) + VBI(propsSize) + propsSize
+        return 1 + Mqtt5PropertyWriter.GetVariableByteIntSize((uint)propsSize) + propsSize;
     }
+
+    // ── CONNECT (MQTT 3.1.1) ─────────────────────────────────────────────────
 
     private static int EstimateConnectPacketSizeMqtt311(ConnectPacket packet)
     {
@@ -706,120 +562,83 @@ internal static class MqttPacketSizeEstimator
         return size + payloadSize;
     }
 
+    // ── CONNECT (MQTT 5.0) ───────────────────────────────────────────────────
+
     private static int EstimateConnectPacketSizeMqtt5(ConnectPacket packet)
     {
-        var size = 0; // fixed header not included in length calculation
+        // Mirror Mqtt5Encoder.EncodeConnectPacket / ComputeConnectContentSize
+        var connectPropsSize = ComputeConnectPropertiesSizeMqtt5(packet);
+        var willPropsSize = packet.Flags.WillFlag && packet.Will != null
+            ? ComputeWillPropertiesSizeMqtt5(packet.Will)
+            : 0;
+
+        var size = 0;
 
         // Variable header:
-
-        /*
-            +-------------------+-----------------+----------------+------------+----------------+
-            |  Protocol Name    | Protocol Version| Connect Flags  |  Keep Alive|    Properties  |
-            |      X Bytes      |      1 Byte     |     1 Byte     |   2 Bytes  |      X Bytes   |
-            +-------------------+-----------------+----------------+------------+----------------+
-            */
-
-
-        // Protocol Name (2 bytes length + actual length of string)
-
-        size += 2 + Encoding.UTF8.GetByteCount(
-            Mqtt5ProtocolName); // Note: MQTT usually uses ASCII, not UTF8, for the protocol name: https://www.emqx.com/en/blog/mqtt-5-0-control-packets-01-connect-connack#connect-packet-structure
-
+        // Protocol Name "MQTT": 2-byte length prefix + 4 bytes
+        size += 2 + 4;
         // Protocol Version (1 byte)
         size += 1;
-
         // Connect Flags (1 byte)
         size += 1;
-
         // Keep Alive (2 bytes)
         size += 2;
+        // Connect Properties section: VBI + properties
+        size += Mqtt5PropertyWriter.GetVariableByteIntSize((uint)connectPropsSize) + connectPropsSize;
 
-        // Start calculating the properties size
-        var propertiesSize = 0;
+        // Payload: Client ID
+        size += 2 + Encoding.UTF8.GetByteCount(packet.ClientId);
 
-        /*
-            | Identifier | Property Name                | Type                 |
-            |------------|------------------------------|----------------------|
-            | 0x11       | Session Expiry Interval      | Four Byte Integer    |
-            | 0x21       | Receive Maximum              | Two Byte Integer     |
-            | 0x27       | Maximum Packet Size          | Four Byte Integer    |
-            | 0x22       | Topic Alias Maximum          | Two Byte Integer     |
-            | 0x19       | Request Response Information | Byte                 |
-            | 0x17       | Request Problem Information  | Byte                 |
-            | 0x26       | User Property                | UTF-8 String Pair    |
-            | 0x15       | Authentication Method        | UTF-8 Encoded String |
-            | 0x16       | Authentication Data          | Binary Data          |
+        // Payload: Will (if present)
+        if (packet.Flags.WillFlag && packet.Will != null)
+        {
+            size += Mqtt5PropertyWriter.GetVariableByteIntSize((uint)willPropsSize) + willPropsSize;
+            size += 2 + Encoding.UTF8.GetByteCount(packet.Will.Topic);
+            size += 2 + packet.Will.Message.Length;
+        }
 
-            Source: https://www.emqx.com/en/blog/mqtt-5-0-control-packets-01-connect-connack#connect-packet-structure
-         */
+        // Payload: Username
+        if (packet.Flags.UsernameFlag && packet.UserName != null)
+            size += 2 + Encoding.UTF8.GetByteCount(packet.UserName);
 
-        // "OINK OINK! 🐷" the premature optimizer says! "Why not just turn this into a single constant value?"
-        // Because the JIT will do that anyway - in the meantime, I want whoever is working on this code to understand
-        // where the numbers come from. - Aaron
-        propertiesSize += 1 + 4; // Session expiry interval
+        // Payload: Password
+        if (packet.Flags.PasswordFlag && packet.Password != null)
+            size += 2 + Encoding.UTF8.GetByteCount(packet.Password);
 
-        // so why a "1 + n" for each of these? The 1 represents the 1 byte const delimiter in the header, the "n" represents the actual size of the value
+        return size;
+    }
 
-        propertiesSize += 1 + 2; // Receive maximum
-        propertiesSize += 1 + 4; // Maximum packet size
-        propertiesSize += 1 + 2; // Topic alias maximum
-        propertiesSize += 1 + 1; // Request response information
-        propertiesSize += 1 + 1; // Request problem information
+    private static int ComputeConnectPropertiesSizeMqtt5(ConnectPacket packet)
+    {
+        // These 6 properties are always written (matching Mqtt5Encoder.ComputeConnectPropertiesSize)
+        // SEI (1+4) + RcvMax (1+2) + MaxPktSz (1+4) + TopAlias (1+2) + RRI (1+1) + RPI (1+1) = 20
+        var size = 5 + 3 + 5 + 3 + 2 + 2;
 
         if (packet.UserProperties != null && packet.UserProperties.Any())
-        {
-            propertiesSize = ComputeUserPropertiesSize(packet.UserProperties);
-        }
-
+            size += ComputeUserPropertiesSize(packet.UserProperties);
         if (!string.IsNullOrEmpty(packet.AuthenticationMethod))
-        {
-            propertiesSize += 2 + Encoding.UTF8.GetByteCount(packet.AuthenticationMethod);
-        }
+            size += 1 + 2 + Encoding.UTF8.GetByteCount(packet.AuthenticationMethod);
+        if (packet.AuthenticationData.HasValue && !packet.AuthenticationData.Value.IsEmpty)
+            size += 1 + 2 + packet.AuthenticationData.Value.Length;
 
-        if (packet.AuthenticationData.HasValue)
-        {
-            propertiesSize += 2 + packet.AuthenticationData.Value.Length;
-        }
+        return size;
+    }
 
-        var payloadSize = 0;
-        payloadSize += 2 + Encoding.UTF8.GetByteCount(packet.ClientId);
-
-        if (packet.Will != null)
-        {
-            payloadSize += 2 + Encoding.UTF8.GetByteCount(packet.Will.Topic);
-            payloadSize += 2 + packet.Will.Message.Length;
-
-            if (!string.IsNullOrEmpty(packet.Will.ResponseTopic))
-            {
-                payloadSize += 2 + Encoding.UTF8.GetByteCount(packet.Will.ResponseTopic);
-            }
-
-            if (packet.Will.WillCorrelationData.HasValue)
-            {
-                payloadSize += 2 + packet.Will.WillCorrelationData.Value.Length;
-            }
-
-            if (!string.IsNullOrEmpty(packet.Will.ContentType))
-            {
-                payloadSize += 2 + Encoding.UTF8.GetByteCount(packet.Will.ContentType);
-            }
-
-            if (packet.Will.WillProperties != null && packet.Will.WillProperties.Any())
-            {
-                payloadSize += ComputeUserPropertiesSize(packet.Will.WillProperties);
-            }
-        }
-
-        if (!string.IsNullOrEmpty(packet.UserName))
-        {
-            payloadSize += 2 + Encoding.UTF8.GetByteCount(packet.UserName);
-        }
-
-        if (!string.IsNullOrEmpty(packet.Password))
-        {
-            payloadSize += 2 + Encoding.UTF8.GetByteCount(packet.Password);
-        }
-
-        return size + propertiesSize + payloadSize;
+    private static int ComputeWillPropertiesSizeMqtt5(MqttLastWill will)
+    {
+        // Mirror Mqtt5Encoder.ComputeWillPropertiesSize
+        var size = 0;
+        if (will.DelayInterval.Value != 0) size += 1 + 4;
+        if (will.PayloadFormatIndicator != PayloadFormatIndicator.Unspecified) size += 1 + 1;
+        if (will.MessageExpiryInterval != 0) size += 1 + 4;
+        if (!string.IsNullOrEmpty(will.ContentType))
+            size += 1 + 2 + Encoding.UTF8.GetByteCount(will.ContentType);
+        if (!string.IsNullOrEmpty(will.ResponseTopic))
+            size += 1 + 2 + Encoding.UTF8.GetByteCount(will.ResponseTopic);
+        if (will.WillCorrelationData.HasValue && !will.WillCorrelationData.Value.IsEmpty)
+            size += 1 + 2 + will.WillCorrelationData.Value.Length;
+        if (will.WillProperties != null && will.WillProperties.Count > 0)
+            size += ComputeUserPropertiesSize(will.WillProperties);
+        return size;
     }
 }

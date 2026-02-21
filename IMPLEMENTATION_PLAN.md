@@ -532,11 +532,11 @@ reuses the pattern established in Phase 2 tasks 2.1-2.3 but with MQTT 5.0 specif
 fields (reason codes, user properties, etc.).
 
 Done when:
-- [ ] FsCheck generators exist for all 15 MQTT 5.0 packet types (including Auth)
-- [ ] Generators randomize MQTT 5.0 specific fields: reason codes, user properties, session expiry, receive maximum, etc.
-- [ ] Roundtrip property test: encode with `Mqtt5Encoder`, decode with `Mqtt5Decoder`, assert structural equality
-- [ ] All property tests pass with default FsCheck iteration count (100)
-- [ ] Error path tests: malformed property lengths, unknown property identifiers, oversized packets
+- [x] FsCheck generators exist for all 15 MQTT 5.0 packet types (including Auth)
+- [x] Generators randomize MQTT 5.0 specific fields: reason codes, user properties, session expiry, receive maximum, etc.
+- [x] Roundtrip property test: encode with `Mqtt5Encoder`, decode with `Mqtt5Decoder`, assert structural equality
+- [x] All property tests pass with default FsCheck iteration count (100)
+- [x] Error path tests: malformed property lengths, unknown property identifiers, oversized packets
 
 ### Task 3.5: Wire Mqtt5Encoder/Decoder into Akka.Streams pipeline
 
