@@ -243,9 +243,11 @@ public class ClientAcksActorSpecs : TestKit
         connectFailure.Reason.Should().Be(connAckPacket.ReasonCode.ToString());
     }
     
-    // add a timeout scenario for Connects
+    // Connect operations intentionally have no internal actor-side deadline.
+    // Timeout is the sole responsibility of the CancellationToken passed to ConnectAsync's Ask call.
+    // This test verifies that CheckTimeout does NOT fire a ConnectFailure for pending connects.
     [Fact]
-    public async Task ClientAcksActor_should_handle_pending_connects_with_timeout()
+    public async Task ClientAcksActor_should_not_timeout_pending_connects_internally()
     {
         // create a new ClientAcksActor
         var clientAcksActor = Sys.ActorOf(Props.Create(() => new ClientAcksActor(TimeSpan.Zero)));
@@ -256,13 +258,16 @@ public class ClientAcksActorSpecs : TestKit
             ClientId = "test-client"
         };
 
-        // send the ConnectPacket to the ClientAcksActor
+        // send the ConnectPacket and immediately trigger the timeout sweep
         clientAcksActor.Tell(connectPacket);
         clientAcksActor.Tell(PublishProtocolDefaults.CheckTimeout.Instance);
 
-        // expect the ClientAcksActor to have a pending connect
-        var connectFailure = await ExpectMsgAsync<ConnectFailure>();
-        connectFailure.IsSuccess.Should().BeFalse();
-        connectFailure.Reason.Should().Be("Timeout");
+        // The actor must NOT send a ConnectFailure("Timeout") because connect deadlines are
+        // disabled. A subsequent ConnAck should still succeed.
+        var connAck = new ConnAckPacket { ReasonCode = ConnAckReasonCode.Success };
+        clientAcksActor.Tell(connAck);
+
+        var connectSuccess = await ExpectMsgAsync<ConnectSuccess>();
+        connectSuccess.IsSuccess.Should().BeTrue();
     }
 }
