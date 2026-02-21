@@ -289,6 +289,23 @@ Done when:
 - [x] Builds with zero warnings
 - [x] All existing tests pass
 
+### Task 5.2.1: Stabilize flaky DoDisconnect_WhileReconnecting_ShutsDownImmediately test
+
+**Source:** Adversarial review after iter-10, finding F-6 (run 20260221-053113)
+**Surface area:** cross-cutting
+**Verification:** L2
+
+`ClientStreamOwnerReconnectingSpecs.DoDisconnect_WhileReconnecting_ShutsDownImmediately` fails
+intermittently when run as part of the full parallel test suite but passes consistently
+in isolation. The `AwaitAssertAsync` polling at 20ms intervals (Phase 3) races with test
+parallelism scheduling.
+
+Done when:
+- [x] Test passes reliably in 10 consecutive full-suite runs (`dotnet test tests/TurboMqtt.Tests/ -c Release`)
+- [x] Fix uses a deterministic signal (e.g., EventFilter on transport FSM log) rather than polling, OR increases timeout with documented justification
+- [x] Builds with zero warnings
+- [x] All existing tests pass
+
 ### Task 5.3: Add deterministic encoder test for ReceiveMaximum > 0
 
 **PRD:** https://github.com/petabridge/TurboMqtt/issues/370

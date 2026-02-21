@@ -549,6 +549,7 @@ internal sealed class ClientStreamOwner : UntypedActor
 
         // swap transports
         _client!.SwapTransport(_currentTransport);
+        _log.Info("Transport swapped: new connection is now active.");
 
         // Reset the ack actor connection state
         _clientAckActor!.Tell(ClientAcksActor.Reconnect.Instance);

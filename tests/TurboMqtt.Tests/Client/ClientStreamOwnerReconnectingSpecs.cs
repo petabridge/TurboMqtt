@@ -253,12 +253,11 @@ public sealed class ClientStreamOwnerReconnectingSpecs : TestKit
     /// PoisonPill to itself — bypassing the reconnect timeout.
     ///
     /// Strategy:
-    ///   1. EventFilter detects "Stream terminated. Entering Reconnecting state." —
-    ///      at that moment the old transport is Aborted (IsConnected = false) and
-    ///      the actor is definitively in Reconnecting.
-    ///   2. Poll until the new TCP transport connects to the stalling server
-    ///      (IsConnected = true, actor still in Reconnecting, CONNACK pending).
-    ///   3. Call DisconnectAsync — the Reconnecting DoDisconnect handler fires
+    ///   1. Nested EventFilters detect first "Stream terminated. Entering Reconnecting
+    ///      state." (inner) and then "Transport swapped: new connection is now active."
+    ///      (outer). The outer filter fires immediately after SwapTransport(), guaranteeing
+    ///      IsConnected = true when it resolves — no polling required.
+    ///   2. Call DisconnectAsync — the Reconnecting DoDisconnect handler fires
     ///      immediately, PoisonPill is sent, client terminates before the 30 s CTS.
     /// </summary>
     [Fact]
@@ -284,38 +283,50 @@ public sealed class ClientStreamOwnerReconnectingSpecs : TestKit
             var connectResult = await client.ConnectAsync(cts.Token);
             connectResult.IsSuccess.Should().BeTrue("initial connection should succeed");
 
-            // Phase 2: kick the client.  EventFilter waits for the "Stream terminated.
-            // Entering Reconnecting state." Info log.  At that point:
-            //   - The actor IS in Reconnecting state (Become(Reconnecting) just ran).
-            //   - The old transport has been Aborted (IsConnected = false).
-            //   - BeginReconnect() has been called (via RunTask, running asynchronously).
-            await EventFilter.Info(contains: "Stream terminated. Entering Reconnecting state.")
+            // Phase 2+3: kick the client; wait deterministically for the new transport
+            // to be swapped in.
+            //
+            // The outer EventFilter waits for "Transport swapped: new connection is now
+            // active." — this fires immediately after SwapTransport() returns, guaranteeing
+            // IsConnected = true when the filter resolves.
+            //
+            // The inner EventFilter waits for "Stream terminated. Entering Reconnecting
+            // state." to confirm the actor entered Reconnecting before the kick returns.
+            //
+            // Using nested EventFilters instead of AwaitAssertAsync polling eliminates the
+            // 20 ms polling race that caused intermittent failures under parallel test load.
+            await EventFilter.Info(contains: "Transport swapped: new connection is now active.")
                 .ExpectAsync(1, async () =>
                 {
-                    var kicked = server.TryKickClient("reconnect-disconnect-test");
-                    kicked.Should().BeTrue("server must have the client registered");
-                    await Task.CompletedTask;
+                    await EventFilter.Info(contains: "Stream terminated. Entering Reconnecting state.")
+                        .ExpectAsync(1, async () =>
+                        {
+                            var kicked = server.TryKickClient("reconnect-disconnect-test");
+                            kicked.Should().BeTrue("server must have the client registered");
+                            await Task.CompletedTask;
+                        }, cancellationToken: cts.Token);
                 }, cancellationToken: cts.Token);
 
-            // Phase 3: BeginReconnect() runs asynchronously.  Poll (every 20 ms) until
-            // ReplaceTransport/SwapTransport completes and the new TCP transport connects
-            // to the stalling server.  Once IsConnected = true, Transport.Status = Connected
-            // and DisconnectAsync will proceed past the early-return guard.
-            await AwaitAssertAsync(
-                () => client.IsConnected.Should().BeTrue(
-                    "new TCP transport should be connected to stalling server"),
-                duration: TimeSpan.FromSeconds(5),
-                interval: TimeSpan.FromMilliseconds(20),
-                cancellationToken: cts.Token);
+            // Phase 4: call DisconnectAsync wrapped in an EventFilter that waits for the
+            // transport to be fully disposed.
+            //
+            // DisconnectAsync returns after WhenTerminated fires (ClientStreamOwner terminated),
+            // but AbortAsync() is fire-and-forget in PostStop — the TcpTransportActor processes
+            // the PoisonPill asynchronously AFTER WhenTerminated.  The EventFilter on
+            // "Disposing of TCP transport stream." guarantees that State.Status has been set to
+            // a non-Connected value (Disconnected) before we assert, eliminating the race window.
+            //
+            // Note: the first "Disposing" (for transport $a, kicked in Phase 2+3) fires BEFORE
+            // this EventFilter is set up, so count=1 captures only transport $b's disposal.
+            await EventFilter.Info(contains: "Disposing of TCP transport stream.")
+                .ExpectAsync(1, async () =>
+                {
+                    using var disconnectCts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+                    await client.DisconnectAsync(disconnectCts.Token);
+                }, cancellationToken: cts.Token);
 
-            // Phase 4: call DisconnectAsync while actor is in Reconnecting state.
-            // The Reconnecting.DoDisconnect handler responds immediately with
-            // DisconnectComplete and sends PoisonPill — no 30 s wait.
-            // DisconnectAsync then waits for WhenTerminated (up to 1 s) → PostStop.
-            using var disconnectCts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
-            await client.DisconnectAsync(disconnectCts.Token);
-
-            // Phase 5: client is now terminated (WhenTerminated completed in DisconnectAsync)
+            // Phase 5: transport $b is now disposed (Status = Disconnected); IsConnected is
+            // deterministically false — no polling required.
             client.IsConnected.Should().BeFalse("client should be shut down after DoDisconnect during reconnect");
         }
         finally
