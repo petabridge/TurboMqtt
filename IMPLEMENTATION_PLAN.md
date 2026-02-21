@@ -648,10 +648,10 @@ Done when:
 Test MQTT 5.0 authentication against EMQX.
 
 Done when:
-- [ ] Container test: MQTT 5.0 connect with username/password authentication
-- [ ] Container test: MQTT 5.0 connect rejected with invalid credentials
-- [ ] Container test: MQTT 5.0 publish and subscribe work over authenticated connection
-- [ ] All tests pass with `dotnet test tests/TurboMqtt.Container.Tests/ -c Release`
+- [x] Container test: MQTT 5.0 connect with username/password authentication *(ShouldConnectWithValidCredentials)*
+- [x] Container test: MQTT 5.0 connect rejected with invalid credentials *(ShouldRejectConnectionWithInvalidPassword)*
+- [x] Container test: MQTT 5.0 publish and subscribe work over authenticated connection *(ShouldPublishAndSubscribeWithAuth_QoS0, ShouldPublishAndSubscribeWithAuth_QoS1)*
+- [x] All tests pass with `dotnet test tests/TurboMqtt.Container.Tests/ -c Release` *(30/30 pass)*
 
 ### Task 3.11: Add MQTT 5.0 TCP benchmarks
 
