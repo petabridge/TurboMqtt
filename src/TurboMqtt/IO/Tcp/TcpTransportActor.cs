@@ -512,6 +512,15 @@ internal sealed class TcpTransportActor : UntypedActor
                 _closureSelf.Tell(ReadFinished.Instance);
                 return;
             }
+            catch (Exception)
+            {
+                // PipeWriter was completed with an exception (e.g. socket IOException propagated
+                // through DoWriteToPipeAsync). The faulted pipe surfaces as an exception here
+                // rather than as result.IsCompleted, so we must handle it explicitly to ensure
+                // ReadFinished is always self-told and BackgroundTasksCompleted can fire.
+                _closureSelf.Tell(ReadFinished.Instance);
+                return;
+            }
         }
     }
 
