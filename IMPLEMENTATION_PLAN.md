@@ -23,6 +23,471 @@ and do not need to be resolved before merging this branch.
 | [#349](https://github.com/petabridge/TurboMqtt/issues/349) | MQTT 5.0 size estimators — `=` instead of `+=` for `ComputeUserPropertiesSize` | Bug |
 | [#350](https://github.com/petabridge/TurboMqtt/issues/350) | `Mqtt311EncoderOptimized` — no input buffer size validation | Safety |
 
+## Open GitHub Issues — Filed During RALPH Run 20260221-020516
+
+Issues filed during after-action review. Organized into Phases 4–6 below.
+
+| Issue | Title | Phase |
+|-------|-------|-------|
+| [#356](https://github.com/petabridge/TurboMqtt/issues/356) | Double DISCONNECT injection in Draining→Closing path | 4 |
+| [#357](https://github.com/petabridge/TurboMqtt/issues/357) | Propagate ConnectTimeout to reconnect CTS | 4 |
+| [#362](https://github.com/petabridge/TurboMqtt/issues/362) | MqttLastWill.DelayInterval should be uint, not NonZeroUInt16 | 4 |
+| [#363](https://github.com/petabridge/TurboMqtt/issues/363) | UserProperties should support duplicate keys per MQTT 5.0 spec | 4 |
+| [#365](https://github.com/petabridge/TurboMqtt/issues/365) | Pre-existing flaky HeartbeatFailure test — port binding conflict | 4 |
+| [#367](https://github.com/petabridge/TurboMqtt/issues/367) | ReceiveMaximum quota should be shared across QoS 1 and QoS 2 actors | 4 |
+| [#368](https://github.com/petabridge/TurboMqtt/issues/368) | Investigate MqttPacketSizeEstimator underestimation edge cases | 4 |
+| [#372](https://github.com/petabridge/TurboMqtt/issues/372) | ExactlyOncePublishRetryActor missing DequeueBuffered() on PubRec failure path | 4 |
+| [#358](https://github.com/petabridge/TurboMqtt/issues/358) | Add isolated actor test for ClientStreamOwner.Reconnecting behavior | 5 |
+| [#359](https://github.com/petabridge/TurboMqtt/issues/359) | Establish await using convention for IMqttClient in tests | 5 |
+| [#360](https://github.com/petabridge/TurboMqtt/issues/360) | Add no-credentials negative auth test | 5 |
+| [#361](https://github.com/petabridge/TurboMqtt/issues/361) | Add dedicated regression test for 1-char MQTT topic name | 5 |
+| [#364](https://github.com/petabridge/TurboMqtt/issues/364) | File GitHub issue for RetainHandling bit-mask bug fix (tracking) | 5 |
+| [#366](https://github.com/petabridge/TurboMqtt/issues/366) | Add empty ClientId test for MQTT 5.0 CONNECT | 5 |
+| [#369](https://github.com/petabridge/TurboMqtt/issues/369) | Add unit tests for MqttClient.PublishAsync broker limit validation | 5 |
+| [#370](https://github.com/petabridge/TurboMqtt/issues/370) | Add deterministic encoder test for ReceiveMaximum > 0 | 5 |
+| [#353](https://github.com/petabridge/TurboMqtt/issues/353) | Define v1.0 release criteria and quality bar | 6 |
+| [#354](https://github.com/petabridge/TurboMqtt/issues/354) | API stability review before 1.0 release | 6 |
+| [#355](https://github.com/petabridge/TurboMqtt/issues/355) | Add test gate to release.yaml workflow | 6 |
+| [#371](https://github.com/petabridge/TurboMqtt/issues/371) | Run full production benchmarks for MQTT 5.0 before PR merge | 6 |
+
 ---
 
-*No active tasks. Plan exhausted.*
+## Phase 4: Bug Fixes & Spec Compliance
+
+> Correctness fixes that must land before any 1.0 release. Ordered so that
+> non-breaking fixes come first, followed by breaking data model changes, then
+> the larger architectural fix (shared ReceiveMaximum quota).
+
+### Task 4.1: Fix missing DequeueBuffered() on PubRec failure path
+
+**PRD:** https://github.com/petabridge/TurboMqtt/issues/372
+**Surface area:** domain
+**Verification:** L2
+
+In `ExactlyOncePublishRetryActor`, when a PubRec arrives with a non-success
+reason code, the pending packet is removed and the sender is notified, but
+`DequeueBuffered()` is not called. This permanently leaks a ReceiveMaximum
+quota slot. The QoS 1 actor handles this correctly on all paths.
+
+Key file: `src/TurboMqtt/Protocol/Pub/ExactlyOncePublishRetryActor.cs` lines 100-108.
+
+Done when:
+- [ ] `DequeueBuffered()` is called after `_pendingPackets.Remove` in the PubRec failure handler (line 103 area)
+- [ ] Akka.Hosting.TestKit test exercises: send N+1 publishes where N = ReceiveMaximum, have the broker reply with a failing PubRec for one, verify the buffered publish is promoted and eventually completes
+- [ ] Existing `ExactlyOncePublishRetryActor` tests still pass
+- [ ] Builds with zero warnings
+- [ ] All existing tests pass
+
+### Task 4.2: Fix double DISCONNECT injection in Draining-to-Closing transition
+
+**PRD:** https://github.com/petabridge/TurboMqtt/issues/356
+**Surface area:** cross-cutting
+**Verification:** L2
+
+`TcpTransportActor.BecomeClosing()` unconditionally injects a DISCONNECT
+packet into the reads channel (line 569). When called from the `Draining`
+handler after `OutboundFlushed`, a DISCONNECT was already injected at line 537.
+Two DISCONNECT packets enter the reads channel on the graceful drain path.
+
+Key file: `src/TurboMqtt/IO/Tcp/TcpTransportActor.cs`.
+
+Done when:
+- [ ] Only one DISCONNECT packet is injected into `_readsFromTransport` on the Draining -> Closing path (guard added to `BecomeClosing` or injection removed from `Draining.OutboundFlushed` handler)
+- [ ] The Connected -> Closing path (no draining) still injects exactly one DISCONNECT
+- [ ] The Aborted path still injects exactly one DISCONNECT
+- [ ] Akka.Hosting.TestKit test verifies the graceful drain path produces exactly one DISCONNECT in the reads channel
+- [ ] Builds with zero warnings
+- [ ] All existing tests pass
+
+### Task 4.3: Propagate ConnectTimeout to reconnect CTS
+
+**PRD:** https://github.com/petabridge/TurboMqtt/issues/357
+**Surface area:** cross-cutting
+**Verification:** L1
+
+`ClientStreamOwner.BeginReconnect()` hardcodes `TimeSpan.FromSeconds(5)` for
+the reconnect CTS (line 555). This ignores the user-configured
+`MqttClientTcpOptions.ConnectTimeout`. The reconnect timeout should use the
+configured value or a separate configurable property.
+
+Key file: `src/TurboMqtt/Client/ClientStreamOwner.cs`.
+
+Done when:
+- [ ] `BeginReconnect()` uses a configurable timeout instead of the hardcoded 5 seconds
+- [ ] The timeout is sourced from `MqttClientConnectOptions` (new property or existing timeout)
+- [ ] Unit test verifies the reconnect CTS uses the configured timeout value
+- [ ] Builds with zero warnings
+- [ ] All existing tests pass
+
+### Task 4.4: Fix flaky HeartbeatFailure test port binding conflict
+
+**PRD:** https://github.com/petabridge/TurboMqtt/issues/365
+**Surface area:** cross-cutting
+**Verification:** L2
+
+`TcpMqtt311HeartbeatFailureEnd2EndSpecs` hardcodes port 21887. When multiple
+test runs execute in parallel or the port is held by a previous run, the test
+fails with `SocketException: Address already in use`.
+
+Key file: `tests/TurboMqtt.Tests/End2End/TcpMqtt311HeartbeatFailureEnd2EndSpecs.cs`.
+
+Done when:
+- [ ] `FakeMqttTcpServer` uses an ephemeral port (bind to port 0, read back assigned port)
+- [ ] `TcpMqtt311HeartbeatFailureEnd2EndSpecs` uses the dynamically assigned port
+- [ ] Test passes reliably on at least 10 consecutive local runs
+- [ ] Builds with zero warnings
+- [ ] All existing tests pass
+
+### Task 4.5: Investigate and fix MqttPacketSizeEstimator underestimation edge cases
+
+**PRD:** https://github.com/petabridge/TurboMqtt/issues/368
+**Surface area:** domain
+**Verification:** L1
+
+FsCheck roundtrip tests intermittently fail with "Destination is too short" in
+`Mqtt5Encoder`, indicating the size estimator returns values smaller than the
+actual encoded size for certain property combinations. The `=` vs `+=` bug was
+fixed, but additional edge cases remain.
+
+Key file: `src/TurboMqtt/Protocol/MqttPacketSizeEstimator.cs`.
+
+Done when:
+- [ ] FsCheck tests run at 1000+ iterations with no "Destination is too short" failures for all MQTT 5.0 packet types
+- [ ] Any newly discovered estimator bugs are fixed with deterministic regression tests
+- [ ] Fixed-seed regression tests added for each discovered edge case
+- [ ] Builds with zero warnings
+- [ ] All existing tests pass
+
+### Task 4.6: Change MqttLastWill.DelayInterval from NonZeroUInt16 to uint
+
+**PRD:** https://github.com/petabridge/TurboMqtt/issues/362
+**Surface area:** domain
+**Verification:** L1
+
+**BREAKING CHANGE.** MQTT 5.0 spec section 3.1.3.2.2 defines Will Delay Interval as a
+Four Byte Integer (uint32, range 0-4294967295). `MqttLastWill.DelayInterval`
+is currently `NonZeroUInt16` (ushort, 0-65535). The decoder silently truncates
+via `(ushort)ReadFourByteInt()`. The `NonZeroUInt16` type also semantically
+implies non-zero, but the spec allows 0 (publish immediately).
+
+Key files:
+- `src/TurboMqtt/PacketTypes/ConnectPacket.cs` (`MqttLastWill.DelayInterval`)
+- `src/TurboMqtt/Client/MqttClientConnectOptions.cs` (`LastWillAndTestament.DelayInterval`)
+- `src/TurboMqtt/Protocol/Mqtt5Decoder.cs` (truncating cast)
+- `src/TurboMqtt/Protocol/MqttPacketSizeEstimator.cs` (`.Value` access)
+
+Done when:
+- [ ] `MqttLastWill.DelayInterval` type changed from `NonZeroUInt16` to `uint`
+- [ ] `LastWillAndTestament.DelayInterval` type changed from `NonZeroUInt16` to `uint`
+- [ ] Decoder reads full four-byte integer without truncation
+- [ ] Encoder writes full four-byte integer
+- [ ] Size estimator correctly accounts for the 4-byte field
+- [ ] Value of 0 is accepted (no `NonZeroUInt16` constraint)
+- [ ] FsCheck property test covers roundtrip with values > 65535
+- [ ] Builds with zero warnings
+- [ ] All existing tests pass
+
+### Task 4.7: Change UserProperties from IReadOnlyDictionary to support duplicate keys
+
+**PRD:** https://github.com/petabridge/TurboMqtt/issues/363
+**Surface area:** cross-cutting
+**Verification:** L1
+
+**BREAKING CHANGE.** MQTT 5.0 spec section 3.1.2.11.8 states "The same name is
+allowed to appear more than once" for User Properties. All packet types
+currently use `IReadOnlyDictionary<string, string>?` which silently drops
+duplicate keys.
+
+Affected types (all in `src/TurboMqtt/PacketTypes/`): `ConnectPacket`,
+`ConnAckPacket`, `PublishPacket`, `PubAckPacket`, `PubRecPacket`,
+`PubRelPacket`, `PubCompPacket`, `SubscribePacket`, `SubAckPacket`,
+`UnsubscribePacket`, `UnsubAckPacket`, `DisconnectPacket`, `AuthPacket`,
+`MqttLastWill`, and `MqttClientConnectOptions`.
+
+Also affects encoder, decoder, and size estimator code that iterates these collections.
+
+Done when:
+- [ ] All `UserProperties` and `WillProperties` changed from `IReadOnlyDictionary<string, string>?` to `IReadOnlyList<KeyValuePair<string, string>>?` (or equivalent)
+- [ ] Encoder iterates the list-based type
+- [ ] Decoder populates the list-based type
+- [ ] `ComputeUserPropertiesSize` in `MqttPacketSizeEstimator` iterates the list-based type
+- [ ] FsCheck generators updated to produce duplicate keys
+- [ ] Roundtrip test verifies duplicate keys are preserved
+- [ ] Builds with zero warnings
+- [ ] All existing tests pass
+
+### Task 4.8: Implement shared ReceiveMaximum quota across QoS 1 and QoS 2 actors
+
+**PRD:** https://github.com/petabridge/TurboMqtt/issues/367
+**Surface area:** cross-cutting
+**Verification:** L2
+
+MQTT 5.0 section 4.9 requires a shared Receive Maximum quota across both QoS
+levels. Current implementation sends `SetReceiveMaximum` to each actor
+independently, so total in-flight can reach 2x ReceiveMaximum when both QoS
+levels are active.
+
+Key files:
+- `src/TurboMqtt/Protocol/Pub/AtLeastOncePublishRetryActor.cs`
+- `src/TurboMqtt/Protocol/Pub/ExactlyOncePublishRetryActor.cs`
+- `src/TurboMqtt/Client/IMqttClient.cs` (`MqttClient.ApplyBrokerLimits`)
+
+Done when:
+- [ ] A shared quota mechanism limits total in-flight QoS 1 + QoS 2 publishes to ReceiveMaximum
+- [ ] When one QoS level frees a slot, the other can use it
+- [ ] Integration test publishes interleaved QoS 1 and QoS 2 messages against a broker with ReceiveMaximum=5, verifying total in-flight never exceeds 5
+- [ ] Existing QoS 1 and QoS 2 tests still pass
+- [ ] Builds with zero warnings
+- [ ] All existing tests pass
+
+---
+
+## Phase 5: Test Coverage Hardening
+
+> Fill test gaps identified during adversarial code reviews. No production
+> code changes except the `await using` convention fix. Ordered from most
+> impactful (isolated actor test, broker limit tests) to lighter items.
+
+### Task 5.1: Add isolated actor test for ClientStreamOwner.Reconnecting behavior
+
+**PRD:** https://github.com/petabridge/TurboMqtt/issues/358
+**Surface area:** cross-cutting
+**Verification:** L2
+
+The Reconnecting state in `ClientStreamOwner` is only tested via E2E tests
+with `FakeMqttTcpServer`. An isolated Akka.Hosting.TestKit test with
+TestProbes would verify the message flow (ReconnectSuccess / ReconnectFailed /
+DoDisconnect during reconnect) more reliably and faster.
+
+Key file: `src/TurboMqtt/Client/ClientStreamOwner.cs`, `Reconnecting` method.
+
+Done when:
+- [ ] TestKit test covers: ReconnectSuccess -> returns to Running
+- [ ] TestKit test covers: ReconnectFailed with remaining attempts -> retries
+- [ ] TestKit test covers: ReconnectFailed with no remaining attempts -> PoisonPill
+- [ ] TestKit test covers: DoDisconnect while reconnecting -> immediate shutdown
+- [ ] Builds with zero warnings
+- [ ] All existing tests pass
+
+### Task 5.2: Add unit tests for MqttClient.PublishAsync broker limit validation
+
+**PRD:** https://github.com/petabridge/TurboMqtt/issues/369
+**Surface area:** cross-cutting
+**Verification:** L2
+
+`MqttClient.PublishAsync` validates broker-advertised limits (MaximumPacketSize,
+MaximumQoS, RetainAvailable) but has no dedicated unit tests. These code paths
+are only partially covered by E2E tests.
+
+Key file: `src/TurboMqtt/Client/IMqttClient.cs`, `MqttClient.PublishAsync` lines 437-451.
+
+Done when:
+- [ ] Test: publish with `RetainRequested=true` when `_brokerRetainAvailable=false` returns failure
+- [ ] Test: publish with QoS 2 when `_brokerMaximumQoS=QoS1` returns failure
+- [ ] Test: publish with payload exceeding `_brokerMaximumPacketSize` returns failure
+- [ ] Test: publish within all limits succeeds
+- [ ] Builds with zero warnings
+- [ ] All existing tests pass
+
+### Task 5.3: Add deterministic encoder test for ReceiveMaximum > 0
+
+**PRD:** https://github.com/petabridge/TurboMqtt/issues/370
+**Surface area:** domain
+**Verification:** L1
+
+All existing `Mqtt5EncoderSpecs` CONNECT tests use default ReceiveMaximum=0.
+No deterministic test verifies the 20-byte properties block with
+ReceiveMaximum included.
+
+Done when:
+- [ ] Deterministic encode-decode test creates a ConnectPacket with ReceiveMaximum > 0 and verifies roundtrip
+- [ ] The encoded properties block includes the ReceiveMaximum property identifier and 2-byte value
+- [ ] Builds with zero warnings
+- [ ] All existing tests pass
+
+### Task 5.4: Add no-credentials negative auth test
+
+**PRD:** https://github.com/petabridge/TurboMqtt/issues/360
+**Surface area:** cross-cutting
+**Verification:** L2
+
+The existing test suite validates wrong-password rejection but not
+no-credentials-at-all against an auth-enabled EMQX broker
+(`EMQX_MQTT__ALLOW_ANONYMOUS=false`).
+
+Done when:
+- [ ] Container test `ShouldRejectConnectionWithNoCredentials` connects to EMQX without username/password and asserts connect failure
+- [ ] Test runs in `TurboMqtt.Container.Tests` project
+- [ ] Builds with zero warnings
+- [ ] All existing tests pass
+
+### Task 5.5: Add dedicated regression test for 1-char MQTT topic name
+
+**PRD:** https://github.com/petabridge/TurboMqtt/issues/361
+**Surface area:** domain
+**Verification:** L1
+
+The decoder bug fix (minBytes 2 to 1 for PUBLISH topic name) is covered
+probabilistically by FsCheck but lacks a self-documenting deterministic test.
+
+Done when:
+- [ ] Deterministic test `Decoder_Publish_SingleCharTopic_DecodesSuccessfully` encodes and decodes a PUBLISH with a 1-character topic
+- [ ] Test covers both MQTT 3.1.1 and MQTT 5.0 decoders
+- [ ] Builds with zero warnings
+- [ ] All existing tests pass
+
+### Task 5.6: Add empty ClientId test for MQTT 5.0 CONNECT
+
+**PRD:** https://github.com/petabridge/TurboMqtt/issues/366
+**Surface area:** domain
+**Verification:** L1
+
+`Mqtt5Decoder.DecodeConnect` allows empty client IDs (overriding base class
+throw), but no dedicated test exercises this path.
+
+Done when:
+- [ ] Deterministic test encodes a CONNECT packet with empty ClientId and verifies successful decode
+- [ ] Test verifies the decoded ClientId is empty string
+- [ ] Builds with zero warnings
+- [ ] All existing tests pass
+
+### Task 5.7: Establish await using convention for IMqttClient in tests
+
+**PRD:** https://github.com/petabridge/TurboMqtt/issues/359
+**Surface area:** cross-cutting
+**Verification:** L1
+
+Test methods create `IMqttClient` instances without `await using`. Since
+`IMqttClient : IAsyncDisposable`, this leaves cleanup to actor system
+shutdown, which is nondeterministic.
+
+Done when:
+- [ ] All test methods that create `IMqttClient` use `await using` pattern
+- [ ] No test method stores a client in a field without a corresponding dispose in teardown
+- [ ] Builds with zero warnings
+- [ ] All existing tests pass
+
+### Task 5.8: Close RetainHandling bit-mask tracking issue
+
+**PRD:** https://github.com/petabridge/TurboMqtt/issues/364
+**Surface area:** domain
+**Verification:** L0
+
+This is a tracking-only issue. The RetainHandling bit-mask bug was already
+fixed in commit 8f94444. This task verifies the fix is tested and closes the
+issue.
+
+Done when:
+- [ ] Verify that existing tests cover RetainHandling decode with all three values (0, 1, 2)
+- [ ] If not covered, add a deterministic test
+- [ ] Close issue #364 on GitHub
+
+---
+
+## Phase 6: Release Preparation
+
+> CI hardening, benchmarking, API review, and release criteria. These tasks
+> gate the v1.0 release. Tasks 6.1-6.2 are independent; 6.3-6.4 require
+> human decisions documented in the issues.
+
+### Task 6.1: Add test gate to release.yaml workflow
+
+**PRD:** https://github.com/petabridge/TurboMqtt/issues/355
+**Surface area:** cross-cutting
+**Verification:** L0
+
+The release workflow (`release.yaml`) builds, signs, and publishes to NuGet.org
+but does not run `dotnet test`. A tag pushed from an untested commit could
+publish broken packages.
+
+Key file: `.github/workflows/release.yaml`.
+
+Done when:
+- [ ] `dotnet test` step added to `release.yaml` after the build step and before the pack step
+- [ ] Test step runs `dotnet test -c Release tests/TurboMqtt.Tests/` (unit tests only, no containers)
+- [ ] Workflow fails and does not publish if tests fail
+- [ ] Builds with zero warnings
+
+### Task 6.2: Run full production benchmarks for MQTT 5.0
+
+**PRD:** https://github.com/petabridge/TurboMqtt/issues/371
+**Surface area:** cross-cutting
+**Verification:** L3
+
+Dry-run benchmarks showed ~320k req/s QoS0/10B TCP and ~250k req/s QoS0/10B TLS.
+Full production runs (launchCount=10, warmupCount=10) should be executed and results
+documented before the 1.0 release.
+
+Done when:
+- [ ] Full BenchmarkDotNet run completed for MQTT 5.0 TCP (QoS 0/1/2, 10B and 1KB payloads)
+- [ ] Full BenchmarkDotNet run completed for MQTT 5.0 TLS (QoS 0/1/2, 10B and 1KB payloads)
+- [ ] Results documented in `docs/performance/mqtt5-benchmarks.md`
+- [ ] No throughput regressions vs MQTT 3.1.1 pipeline
+- [ ] Builds with zero warnings
+
+### Task 6.3: Define v1.0 release criteria and quality bar
+
+**PRD:** https://github.com/petabridge/TurboMqtt/issues/353
+**Surface area:** cross-cutting
+**Verification:** L0
+
+**Requires human decision.** This task captures the release criteria discussion.
+Questions that must be answered:
+- Must MQTT 5.0 be included in 1.0, or can 1.0 ship MQTT 3.1.1 only?
+- What API stability guarantees (SemVer strict? Extend-only?)?
+- What performance benchmarks must pass?
+
+Done when:
+- [ ] Release criteria documented in `docs/release/v1.0-criteria.md`
+- [ ] Criteria covers: protocol scope, API stability promise, perf bar, test pass rate
+- [ ] Issue #353 closed
+
+### Task 6.4: API stability review before 1.0 release
+
+**PRD:** https://github.com/petabridge/TurboMqtt/issues/354
+**Surface area:** cross-cutting
+**Verification:** L0
+
+**Requires human decision.** Formal review of the public API surface:
+`IMqttClient`, `MqttClientConnectOptions`, `MqttClientFactory`,
+channel-based consumer APIs, and all MQTT 5.0 additions.
+
+Done when:
+- [ ] Public API surface enumerated with `dotnet public-api` or equivalent
+- [ ] API reviewed for: naming consistency, extend-only compatibility, correct use of `internal` vs `public`, `IAsyncDisposable` consistency
+- [ ] Breaking changes from Tasks 4.6 and 4.7 reviewed for downstream impact
+- [ ] API review findings documented in `docs/release/api-review.md`
+- [ ] Issue #354 closed
+
+---
+
+## Dependency Graph
+
+```
+Phase 4 (Bug Fixes & Spec Compliance)
+├── Task 4.1 (PubRec DequeueBuffered)       → no dependencies, can start immediately
+├── Task 4.2 (Double DISCONNECT)             → no dependencies, can start immediately
+├── Task 4.3 (Reconnect timeout)             → no dependencies, can start immediately
+├── Task 4.4 (Flaky heartbeat test)          → no dependencies, can start immediately
+├── Task 4.5 (Size estimator edge cases)     → no dependencies, can start immediately
+├── Task 4.6 (DelayInterval type change)     → no dependencies, can start immediately
+├── Task 4.7 (UserProperties type change)    → no dependencies, can start immediately
+│   NOTE: Task 4.5 should land BEFORE 4.7 (estimator must handle new type)
+└── Task 4.8 (Shared ReceiveMaximum)         → depends on Task 4.1 (same code area)
+
+Phase 5 (Test Coverage Hardening) → starts after Phase 4
+├── Task 5.1 (Reconnecting actor test)       → depends on Phase 4 complete
+├── Task 5.2 (PublishAsync limit tests)      → depends on Phase 4 complete
+├── Task 5.3 (ReceiveMaximum encoder test)   → depends on Phase 4 complete
+├── Task 5.4 (No-credentials auth test)      → depends on Phase 4 complete
+├── Task 5.5 (Single-char topic test)        → depends on Phase 4 complete
+├── Task 5.6 (Empty ClientId test)           → depends on Phase 4 complete
+├── Task 5.7 (await using convention)        → depends on Phase 4 complete
+└── Task 5.8 (RetainHandling tracking)       → depends on Phase 4 complete
+
+Phase 6 (Release Preparation) → starts after Phase 5
+├── Task 6.1 (Release test gate)             → no dependencies within phase
+├── Task 6.2 (Production benchmarks)         → depends on all code changes (Phase 4+5)
+├── Task 6.3 (Release criteria)              → requires human decision
+└── Task 6.4 (API review)                    → depends on Tasks 4.6, 4.7 (breaking changes)
+```
