@@ -436,11 +436,11 @@ Full production runs (launchCount=10, warmupCount=10) should be executed and res
 documented before the 1.0 release.
 
 Done when:
-- [ ] Full BenchmarkDotNet run completed for MQTT 5.0 TCP (QoS 0/1/2, 10B and 1KB payloads)
-- [ ] Full BenchmarkDotNet run completed for MQTT 5.0 TLS (QoS 0/1/2, 10B and 1KB payloads)
-- [ ] Results documented in `docs/performance/mqtt5-benchmarks.md`
-- [ ] No throughput regressions vs MQTT 3.1.1 pipeline
-- [ ] Builds with zero warnings
+- [x] Full BenchmarkDotNet run completed for MQTT 5.0 TCP (QoS 0/1/2, 10B and 1KB payloads)
+- [x] Full BenchmarkDotNet run completed for MQTT 5.0 TLS (QoS 0/1/2, 10B and 1KB payloads)
+- [x] Results documented in `docs/performance/mqtt5-benchmarks.md`
+- [x] No throughput regressions vs MQTT 3.1.1 pipeline
+- [x] Builds with zero warnings
 
 ### Task 6.3: Define v1.0 release criteria and quality bar
 
