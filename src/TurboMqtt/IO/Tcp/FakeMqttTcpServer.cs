@@ -230,8 +230,8 @@ internal sealed class FakeMqttTcpServer
             {
                 if (t.IsCompletedSuccessfully)
                 {
-                    _clientCts.TryAdd(t.Result, (clientShutdownCts, handle.WhenTerminated));
-                    _clientSockets.TryAdd(t.Result, socket);
+                    _clientCts[t.Result] = (clientShutdownCts, handle.WhenTerminated);
+                    _clientSockets[t.Result] = socket;
                 }
             }, clientShutdownCts.Token);
            
