@@ -105,19 +105,33 @@ internal sealed class FakeMqttTcpServer
 
     public bool TryKickClient(string clientId)
     {
-        if (_clientCts.TryRemove(clientId, out var cts))
+        // The ContinueWith on WhenClientIdAssigned populates _clientCts on a thread-pool
+        // thread, which may not have fired yet by the time ConnectAsync returns to the
+        // caller on a loaded CI runner. Spin briefly to let the registration land.
+        var deadline = DateTime.UtcNow.AddMilliseconds(500);
+        do
         {
-            cts.ct.Cancel();
-            return true;
-        }
+            if (_clientCts.TryRemove(clientId, out var cts))
+            {
+                cts.ct.Cancel();
+                return true;
+            }
+            Thread.Sleep(5);
+        } while (DateTime.UtcNow < deadline);
 
         return false;
     }
 
     public bool TryDisconnectClientSocket(string clientId)
     {
-        if (!_clientSockets.TryRemove(clientId, out var socket)) 
-            return false;
+        // Same registration race as TryKickClient: spin briefly for _clientSockets to be populated.
+        var deadline = DateTime.UtcNow.AddMilliseconds(500);
+        Socket? socket = null;
+        while (!_clientSockets.TryRemove(clientId, out socket))
+        {
+            if (DateTime.UtcNow >= deadline) return false;
+            Thread.Sleep(5);
+        }
 
         if (!socket.Connected) 
             return false;
