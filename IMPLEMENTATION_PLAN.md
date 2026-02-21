@@ -517,13 +517,13 @@ Key file: `src/TurboMqtt/Protocol/Mqtt311Decoder.cs` (line ~60 where `packetType
 Also check `Mqtt5Decoder.cs` if it has its own first-byte parsing.
 
 Done when:
-- [ ] Decoder validates lower nibble = 0x2 for SUBSCRIBE (expected first byte 0x82)
-- [ ] Decoder validates lower nibble = 0x2 for UNSUBSCRIBE (expected first byte 0xA2)
-- [ ] Decoder validates lower nibble = 0x2 for PUBREL (expected first byte 0x62)
-- [ ] Invalid reserved bits cause a decode error (not silent acceptance)
-- [ ] Deterministic tests verify rejection for each of the three packet types
-- [ ] Builds with zero warnings
-- [ ] All existing tests pass
+- [x] Decoder validates lower nibble = 0x2 for SUBSCRIBE (expected first byte 0x82)
+- [x] Decoder validates lower nibble = 0x2 for UNSUBSCRIBE (expected first byte 0xA2)
+- [x] Decoder validates lower nibble = 0x2 for PUBREL (expected first byte 0x62)
+- [x] Invalid reserved bits cause a decode error (not silent acceptance)
+- [x] Deterministic tests verify rejection for each of the three packet types
+- [x] Builds with zero warnings
+- [x] All existing tests pass
 
 ### Task 6.8: Add buffer size validation to Mqtt311EncoderOptimized
 
