@@ -31,20 +31,28 @@ internal sealed class ClientAcksActor : UntypedActor, IWithTimers
     }
     
     public record struct PendingSubscribe(SubscribePacket Packet, Deadline Deadline, IActorRef Sender);
-    
+
     public record struct PendingUnsubscribe(UnsubscribePacket Packet, Deadline Deadline, IActorRef Sender);
-    public record struct PendingConnect(ConnectPacket Packet, Deadline Deadline, IActorRef Sender);
 
     /// <summary>
-    /// Timeout period used for connects and subscribes.
+    /// Connect pending state. The Deadline is nullable: <c>null</c> means the connect has no
+    /// internal actor-side deadline and relies entirely on the <see cref="Ask"/> CancellationToken
+    /// supplied by the caller.
+    /// </summary>
+    public record struct PendingConnect(ConnectPacket Packet, Deadline? Deadline, IActorRef Sender);
+
+    /// <summary>
+    /// Timeout period used for subscribes and unsubscribes.
+    /// Connect operations do NOT use this deadline; they rely on the CancellationToken
+    /// passed to the Ask call in ConnectAsync.
     /// </summary>
     private readonly TimeSpan _actionTimeout;
-    
+
     // pending subscribes, connects, and disconnects
     private readonly Dictionary<NonZeroUInt16, PendingSubscribe> _pendingSubscribes = new();
     private readonly Dictionary<NonZeroUInt16, PendingUnsubscribe> _pendingUnsubscribes = new();
     private PendingConnect? _pendingConnect = null;
-    
+
     private readonly ILoggingAdapter _log = Context.GetLogger();
 
     public ClientAcksActor(TimeSpan? actionTimeout = null)
@@ -108,8 +116,10 @@ internal sealed class ClientAcksActor : UntypedActor, IWithTimers
                     return;
                 }
 
-                var deadline = Deadline.FromNow(_actionTimeout);
-                _pendingConnect = new PendingConnect(connect, deadline, Sender);
+                // No internal deadline for connect: the caller's CancellationToken on the Ask
+                // is the authoritative timeout. Using _actionTimeout (PublishRetryInterval=5s) here
+                // races with the test CTS (also ~5s) and causes spurious ConnectFailure("Timeout").
+                _pendingConnect = new PendingConnect(connect, null, Sender);
                 break;
             }
             
@@ -178,28 +188,46 @@ internal sealed class ClientAcksActor : UntypedActor, IWithTimers
             
             case PublishProtocolDefaults.CheckTimeout _:
             {
-                var now = Deadline.Now;
+                // Snapshot keys first to avoid InvalidOperationException from mutating the
+                // Dictionary while iterating it (Dictionary.Remove during foreach throws in all
+                // .NET versions including .NET 10).
+                List<NonZeroUInt16>? timedOutSubscribes = null;
                 foreach (var (packetId, pending) in _pendingSubscribes)
                 {
                     if (pending.Deadline.IsOverdue)
+                        (timedOutSubscribes ??= new()).Add(packetId);
+                }
+                if (timedOutSubscribes is not null)
+                {
+                    foreach (var packetId in timedOutSubscribes)
                     {
-                        _pendingSubscribes.Remove(packetId, out _);
-                        pending.Sender.Tell(new AckProtocol.SubscribeFailure("Timeout"));
+                        if (_pendingSubscribes.Remove(packetId, out var pending))
+                            pending.Sender.Tell(new AckProtocol.SubscribeFailure("Timeout"));
                     }
                 }
-                
+
+                List<NonZeroUInt16>? timedOutUnsubscribes = null;
                 foreach (var (packetId, pending) in _pendingUnsubscribes)
                 {
                     if (pending.Deadline.IsOverdue)
+                        (timedOutUnsubscribes ??= new()).Add(packetId);
+                }
+                if (timedOutUnsubscribes is not null)
+                {
+                    foreach (var packetId in timedOutUnsubscribes)
                     {
-                        _pendingUnsubscribes.Remove(packetId, out _);
-                        pending.Sender.Tell(new AckProtocol.UnsubscribeFailure("Timeout"));
+                        if (_pendingUnsubscribes.Remove(packetId, out var pending))
+                            pending.Sender.Tell(new AckProtocol.UnsubscribeFailure("Timeout"));
                     }
                 }
-                
-                if (_pendingConnect is not null && _pendingConnect.Value.Deadline.IsOverdue)
+
+                // Connect has no internal deadline (Deadline is null). The caller's
+                // CancellationToken on the Ask call is the sole timeout mechanism for connects.
+                // If Deadline is non-null (future extensibility), respect it here.
+                if (_pendingConnect is { Deadline: { } connectDeadline } pendingConn
+                    && connectDeadline.IsOverdue)
                 {
-                    _pendingConnect.Value.Sender.Tell(new AckProtocol.ConnectFailure("Timeout"));
+                    pendingConn.Sender.Tell(new AckProtocol.ConnectFailure("Timeout"));
                     _pendingConnect = null;
                 }
                 break;
