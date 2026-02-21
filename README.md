@@ -8,7 +8,7 @@ TurboMqtt is written on top of [Akka.NET](https://getakka.net/) and Akka.Streams
 
 ## Key Features
 
-* MQTT 3.1.1 support;
+* **MQTT 3.1.1 support** — Production-ready for v1.0 (MQTT 5.0 coming in v1.1);
 * Extremely high performance - hundreds of thousands of messages per second;
 * Extremely resource-efficient - pools memory and leverages asynchronous I/O best practices;
 * Extremely robust fault tolerance - this is one of [Akka.NET's great strengths](https://petabridge.com/blog/akkadotnet-actors-restart/) and we've leveraged it in TurboMqtt;
@@ -16,8 +16,8 @@ TurboMqtt is written on top of [Akka.NET](https://getakka.net/) and Akka.Streams
 * Full [OpenTelemetry](https://opentelemetry.io/) support;
 * Automatic retry-reconnect in broker disconnect scenarios;
 * Full support for IAsyncEnumerable and backpressure on the receiver side;
-* Automatically de-duplicates packets on the receiver side; and
-* Automatically acks QoS 1 and QoS 2 packets; and
+* Automatically de-duplicates packets on the receiver side;
+* Automatically acks QoS 1 and QoS 2 packets;
 * TLS/SSL support with mutual TLS and custom certificate validation.
 
 Simple interface that works at very high rates of speed with minimal resource utilization.
@@ -25,13 +25,19 @@ Simple interface that works at very high rates of speed with minimal resource ut
 ## Documentation
 
 1. [QuickStart](https://github.com/petabridge/TurboMqtt/tree/dev?tab=readme-ov-file#quickstart)
-2. [Performance](https://github.com/petabridge/TurboMqtt/blob/dev/docs/Performance.md)
-3. [OpenTelemetry Support](https://github.com/petabridge/TurboMqtt/blob/dev/docs/Telemetry.md)
-4. [MQTT 3.1.1 Roadmap](https://github.com/petabridge/TurboMqtt/issues/66)
-5. [MQTT 5.0 Roadmap](https://github.com/petabridge/TurboMqtt/issues/67)
-6. [MQTT over Quic Roadmap](https://github.com/petabridge/TurboMqtt/issues/68)
+2. [Connection Lifecycle](https://github.com/petabridge/TurboMqtt/blob/dev/docs/ConnectionLifecycle.md) — Client states, reconnection behavior, graceful shutdown
+3. [Quality of Service (QoS)](https://github.com/petabridge/TurboMqtt/blob/dev/docs/QoS.md) — When to use QoS 0, 1, or 2; backpressure and flow control
+4. [Performance](https://github.com/petabridge/TurboMqtt/blob/dev/docs/Performance.md) — Benchmarks, throughput metrics, hardware comparisons
+5. [OpenTelemetry Support](https://github.com/petabridge/TurboMqtt/blob/dev/docs/Telemetry.md)
+6. [MQTT 3.1.1 Roadmap](https://github.com/petabridge/TurboMqtt/issues/66)
+7. [MQTT 5.0 Roadmap](https://github.com/petabridge/TurboMqtt/issues/67)
+8. [MQTT over Quic Roadmap](https://github.com/petabridge/TurboMqtt/issues/68)
 
 ## QuickStart
+
+### ⚠️ MQTT Version Note
+
+**TurboMqtt v1.0 supports MQTT 3.1.1 only.** MQTT 5.0 packet infrastructure is included but end-to-end support is coming in v1.1. Use MQTT 3.1.1 for production deployments.
 
 To get started with TurboMqtt:
 
@@ -123,6 +129,16 @@ var tlsOptions = new MqttClientTlsOptions
 };
 ```
 
+### Sample Applications
+
+TurboMqtt includes several sample applications to help you get started:
+
+- **[QuickStart](samples/TurboMqtt.Samples.QuickStart/)** — Minimal example with no dependency injection; perfect for copy-paste into your code
+- **[TLS Client](samples/TurboMqtt.Samples.TlsClient/)** — TLS/SSL connection with certificate validation options
+- **[Exactly-Once Delivery](samples/TurboMqtt.Samples.ExactlyOnce/)** — QoS 2 publish/subscribe demonstrating exactly-once guarantees
+- **[Backpressure Producer](samples/TurboMqtt.Samples.BackpressureProducer/)** — High-throughput publishing with DI and OpenTelemetry metrics
+- **[DevNull Consumer](samples/TurboMqtt.Samples.DevNullConsumer/)** — High-speed message consumption to measure throughput
+
 ### Publishing Messages
 
 Publishing messages with TurboMqtt is easy:
@@ -150,6 +166,8 @@ The `IPublishResult.IsSuccess` property will return `true` when:
 3. `QualityOfService.ExactlyOnce` (QoS 2) - after we've completed the full MQTT QoS 2 exchange and received the final `PubComp` acknowledgement from the broker.
 
 **TurboMqtt will automatically retry delivery of messages in the event of overdue ACKs from the broker**.
+
+See [docs/QoS.md](docs/QoS.md) for detailed QoS behavior and when to use each level.
 
 ### Receiving Messages
 
