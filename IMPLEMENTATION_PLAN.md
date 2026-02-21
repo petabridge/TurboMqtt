@@ -395,9 +395,9 @@ fixed in commit 8f94444. This task verifies the fix is tested and closes the
 issue.
 
 Done when:
-- [ ] Verify that existing tests cover RetainHandling decode with all three values (0, 1, 2)
-- [ ] If not covered, add a deterministic test
-- [ ] Close issue #364 on GitHub
+- [x] Verify that existing tests cover RetainHandling decode with all three values (0, 1, 2)
+- [x] If not covered, add a deterministic test
+- [x] Close issue #364 on GitHub
 
 ---
 

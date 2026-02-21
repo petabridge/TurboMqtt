@@ -438,6 +438,34 @@ public class Mqtt5DecoderSpecs
             decoded.Topics[0].Options.RetainAsPublished.Should().BeTrue();
             decoded.Topics[0].Options.RetainHandling.Should().Be(RetainHandlingOption.SendAtSubscribeIfNew);
         }
+
+        // Regression: bit-mask fix for RetainHandling (commit 8f94444).
+        // All three RetainHandlingOption values (0, 1, 2) must survive encode → decode.
+        [Theory]
+        [InlineData(RetainHandlingOption.SendAtSubscribe)]      // 0 — bits 4-5 = 00
+        [InlineData(RetainHandlingOption.SendAtSubscribeIfNew)] // 1 — bits 4-5 = 01
+        [InlineData(RetainHandlingOption.DoNotSendAtSubscribe)] // 2 — bits 4-5 = 10
+        public void Subscribe_RetainHandling_all_values_roundtrip(RetainHandlingOption retainHandling)
+        {
+            var packet = new SubscribePacket
+            {
+                PacketId = 5,
+                Topics = new[]
+                {
+                    new TopicSubscription("retain/test")
+                    {
+                        Options = new SubscriptionOptions
+                        {
+                            QoS = QualityOfService.AtMostOnce,
+                            RetainHandling = retainHandling
+                        }
+                    }
+                }
+            };
+            var decoded = Roundtrip<SubscribePacket>(m => Mqtt5Encoder.EncodeSubscribePacket(packet, ref m));
+            decoded.Topics[0].Options.RetainHandling.Should().Be(retainHandling,
+                because: $"RetainHandling value {retainHandling} ({(int)retainHandling}) must survive encode/decode");
+        }
     }
 
     // ── SUBACK ─────────────────────────────────────────────────────────────
