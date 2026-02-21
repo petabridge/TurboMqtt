@@ -86,9 +86,10 @@ public class ConnectPacketMqtt5Specs
             var packet = new ConnectPacket(MqttProtocolVersion.V5_0);
             packet.ClientId = "clientId";
             packet.ProtocolName = "MQTT";
-            // Variable header: protocolName(6) + version(1) + flags(1) + keepAlive(2) + propsVBI(1) + connectProps(20) = 31
-            // Payload: clientId "clientId" = 2+8 = 10; Total content = 41
-            MqttPacketSizeEstimator.EstimatePacketSize(packet, MqttProtocolVersion.V5_0).Should().Be(new PacketSize(41));
+            // Variable header: protocolName(6) + version(1) + flags(1) + keepAlive(2) + propsVBI(1) + connectProps(17) = 28
+            // connectProps: SEI(5)+MaxPktSz(5)+TopAlias(3)+RRI(2)+RPI(2)=17 (ReceiveMaximum omitted when 0: §3.1.2.11.3)
+            // Payload: clientId "clientId" = 2+8 = 10; Total content = 38
+            MqttPacketSizeEstimator.EstimatePacketSize(packet, MqttProtocolVersion.V5_0).Should().Be(new PacketSize(38));
         }
 
         [Fact]
@@ -105,9 +106,9 @@ public class ConnectPacketMqtt5Specs
             packet.ClientId = "clientId";
             packet.ProtocolName = "MQTT";
 
-            // connectProps = 20 (fixed) + 30 (2 user props x 15 each) = 50; propsVBI = 1
-            // Variable header: 6+1+1+2+1+50 = 61; Payload: 2+8 = 10; Total content = 71
-            MqttPacketSizeEstimator.EstimatePacketSize(packet, MqttProtocolVersion.V5_0).Should().Be(new PacketSize(71));
+            // connectProps = 17 (fixed, ReceiveMaximum omitted per §3.1.2.11.3) + 30 (2 user props x 15 each) = 47; propsVBI = 1
+            // Variable header: 6+1+1+2+1+47 = 58; Payload: 2+8 = 10; Total content = 68
+            MqttPacketSizeEstimator.EstimatePacketSize(packet, MqttProtocolVersion.V5_0).Should().Be(new PacketSize(68));
         }
 
         [Fact]
@@ -136,11 +137,11 @@ public class ConnectPacketMqtt5Specs
             packet.ProtocolName = "MQTT";
             
 
-            // connectProps = 20 (fixed) + 30 (2 user props) = 50; willProps = 2 (payloadFmt) + 13 (contentType) = 15
-            // Variable header: 6+1+1+2+propsVBI(1)+50 = 61
+            // connectProps = 17 (fixed, ReceiveMaximum omitted per §3.1.2.11.3) + 30 (2 user props) = 47; willProps = 2 (payloadFmt) + 13 (contentType) = 15
+            // Variable header: 6+1+1+2+propsVBI(1)+47 = 58
             // Payload: clientId(10) + willPropsVBI(1)+willProps(15) + willTopic(7) + willPayload(6) = 39
-            // Total content = 100
-            MqttPacketSizeEstimator.EstimatePacketSize(packet, MqttProtocolVersion.V5_0).Should().Be(new PacketSize(100));
+            // Total content = 97
+            MqttPacketSizeEstimator.EstimatePacketSize(packet, MqttProtocolVersion.V5_0).Should().Be(new PacketSize(97));
         }
     }
 }

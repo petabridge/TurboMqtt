@@ -670,11 +670,12 @@ public class Mqtt5EncoderSpecs
                 return Mqtt5Encoder.EncodeConnectPacket(packet, ref mem);
             });
 
-            // Total = 1 (fixed) + 1 (remaining VBI) + content(42)
-            // content: "MQTT"(6) + proto(1) + flags(1) + keepalive(2) + propsVBI(1) + props(20) + clientId(2+9) = 42
-            written.Should().Be(44);
+            // Total = 1 (fixed) + 1 (remaining VBI) + content(39)
+            // content: "MQTT"(6) + proto(1) + flags(1) + keepalive(2) + propsVBI(1) + props(17) + clientId(2+9) = 39
+            // props(17): SEI(5)+MaxPktSz(5)+TopAlias(3)+RRI(2)+RPI(2)=17; ReceiveMaximum omitted when 0 (§3.1.2.11.3)
+            written.Should().Be(41);
             bytes[0].Should().Be(0x10); // CONNECT fixed header
-            bytes[1].Should().Be(0x2A); // remaining length = 42
+            bytes[1].Should().Be(0x27); // remaining length = 39
             // Protocol Name
             bytes[2].Should().Be(0x00);
             bytes[3].Should().Be(0x04);
@@ -689,12 +690,12 @@ public class Mqtt5EncoderSpecs
             // Keep Alive
             bytes[10].Should().Be(0x00);
             bytes[11].Should().Be(0x00);
-            // Properties Length (20 always-present properties)
-            bytes[12].Should().Be(0x14); // 20 decimal
+            // Properties Length (17 always-present properties; ReceiveMaximum omitted when 0)
+            bytes[12].Should().Be(0x11); // 17 decimal
         }
 
         [Fact]
-        public void Connect_always_includes_six_mandatory_v5_properties()
+        public void Connect_always_includes_five_mandatory_v5_properties()
         {
             var (bytes, _) = RunEncode(mem =>
             {
@@ -702,20 +703,19 @@ public class Mqtt5EncoderSpecs
                 return Mqtt5Encoder.EncodeConnectPacket(packet, ref mem);
             });
 
-            // Properties start at byte 13, length = 20 bytes
-            var props = bytes[13..33];
-            // 0x11 (SEI) + 4-byte value
+            // Properties start at byte 13, length = 17 bytes (ReceiveMaximum omitted when 0: §3.1.2.11.3)
+            // Layout: SEI(5)+MaxPktSz(5)+TopAlias(3)+RRI(2)+RPI(2) = 17
+            var props = bytes[13..30];
+            // 0x11 (SEI) at offset 0
             props[0].Should().Be(0x11);
-            // 0x21 (ReceiveMaximum) at offset 5
-            props[5].Should().Be(0x21);
-            // 0x27 (MaxPacketSize) at offset 8
-            props[8].Should().Be(0x27);
-            // 0x22 (TopicAliasMaximum) at offset 13
-            props[13].Should().Be(0x22);
-            // 0x19 (RequestResponseInfo) at offset 16
-            props[16].Should().Be(0x19);
-            // 0x17 (RequestProblemInfo) at offset 18
-            props[18].Should().Be(0x17);
+            // 0x27 (MaxPacketSize) at offset 5
+            props[5].Should().Be(0x27);
+            // 0x22 (TopicAliasMaximum) at offset 10
+            props[10].Should().Be(0x22);
+            // 0x19 (RequestResponseInfo) at offset 13
+            props[13].Should().Be(0x19);
+            // 0x17 (RequestProblemInfo) at offset 15
+            props[15].Should().Be(0x17);
         }
 
         [Fact]
@@ -728,10 +728,10 @@ public class Mqtt5EncoderSpecs
                 return Mqtt5Encoder.EncodeConnectPacket(packet, ref mem);
             });
 
-            // ClientId starts at byte 33 (after fixed(1) + remaining(1) + var-header(10) + props-vbi(1) + props(20))
-            bytes[33].Should().Be(0x00);
-            bytes[34].Should().Be(0x09); // "turbomqtt" length = 9
-            bytes[35].Should().Be((byte)'t');
+            // ClientId starts at byte 30 (after fixed(1) + remaining(1) + var-header(10) + props-vbi(1) + props(17))
+            bytes[30].Should().Be(0x00);
+            bytes[31].Should().Be(0x09); // "turbomqtt" length = 9
+            bytes[32].Should().Be((byte)'t');
         }
 
         [Fact]
@@ -749,10 +749,10 @@ public class Mqtt5EncoderSpecs
 
             // Connect flags: UsernameFlag=0x80, PasswordFlag=0x40 → 0xC0
             bytes[9].Should().Be(0xC0);
-            // After fixed(1) + remaining(1) + var-header(10) + props-vbi(1) + props(20) + clientId(2+9)
-            // = offset 44 for username
-            bytes[44].Should().Be(0x00);
-            bytes[45].Should().Be(0x04); // "user" length = 4
+            // After fixed(1) + remaining(1) + var-header(10) + props-vbi(1) + props(17) + clientId(2+9)
+            // = offset 41 for username
+            bytes[41].Should().Be(0x00);
+            bytes[42].Should().Be(0x04); // "user" length = 4
         }
 
         [Fact]
@@ -767,11 +767,11 @@ public class Mqtt5EncoderSpecs
                 return Mqtt5Encoder.EncodeConnectPacket(packet, ref mem);
             });
 
-            // Additional auth method prop: 1+2+2 = 5 bytes added to base props (20)
-            // Props length = 25 → 0x19
-            bytes[12].Should().Be(0x19); // properties length = 25
-            // Find auth method property
-            bytes[33].Should().Be(0x15); // AuthenticationMethod id (immediately after fixed 20 props)
+            // Additional auth method prop: 1+2+2 = 5 bytes added to base props (17)
+            // Props length = 22 → 0x16
+            bytes[12].Should().Be(0x16); // properties length = 22
+            // Find auth method property (immediately after fixed 17 props)
+            bytes[30].Should().Be(0x15); // AuthenticationMethod id
         }
 
         [Fact]
@@ -788,15 +788,16 @@ public class Mqtt5EncoderSpecs
                 return Mqtt5Encoder.EncodeConnectPacket(packet, ref mem);
             });
 
-            // After standard header+props+clientId = 44 bytes
-            // Will section starts at byte 44:
+            // After standard header+props+clientId = 41 bytes
+            // fixed(1) + remaining(1) + var-header(10) + props-vbi(1) + props(17) + clientId(2+9) = 41
+            // Will section starts at byte 41:
             // NonZeroUInt16 as a struct field is default-initialized to 0 (not 1) - only new NonZeroUInt16()
             // calls the parameterless constructor with Value=1. As a field, it's zeroed.
             // will.DelayInterval.Value == 0 → not written → willPropsSize = 0
             // Will props length VBI = 0x00
             bytes[9].Should().Be(0x04); // Connect Flags: WillFlag=0x04 | WillQoS=0 (0<<3)=0x04
             // Will starts after clientId
-            var willStart = 44;
+            var willStart = 41;
             bytes[willStart].Should().Be(0x00); // will props length = 0 (no will properties)
         }
 

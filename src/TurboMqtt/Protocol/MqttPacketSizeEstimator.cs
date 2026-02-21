@@ -612,9 +612,10 @@ internal static class MqttPacketSizeEstimator
 
     private static int ComputeConnectPropertiesSizeMqtt5(ConnectPacket packet)
     {
-        // These 6 properties are always written (matching Mqtt5Encoder.ComputeConnectPropertiesSize)
-        // SEI (1+4) + RcvMax (1+2) + MaxPktSz (1+4) + TopAlias (1+2) + RRI (1+1) + RPI (1+1) = 20
-        var size = 5 + 3 + 5 + 3 + 2 + 2;
+        // SEI(1+4) + MaxPktSz(1+4) + TopAlias(1+2) + RRI(1+1) + RPI(1+1) = 17
+        // ReceiveMaximum(1+2) = 3 only when non-zero: MQTT 5.0 §3.1.2.11.3
+        // (mirrors Mqtt5Encoder.ComputeConnectPropertiesSize)
+        var size = 5 + 5 + 3 + 2 + 2 + (packet.ReceiveMaximum > 0 ? 3 : 0);
 
         if (packet.UserProperties != null && packet.UserProperties.Any())
             size += ComputeUserPropertiesSize(packet.UserProperties);

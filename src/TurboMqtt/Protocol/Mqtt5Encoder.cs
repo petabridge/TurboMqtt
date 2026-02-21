@@ -539,8 +539,10 @@ internal static class Mqtt5Encoder
 
     private static int ComputeConnectPropertiesSize(ConnectPacket packet)
     {
-        // These 6 properties are always written (matching MqttPacketSizeEstimator behaviour)
-        var size = 5 + 3 + 5 + 3 + 2 + 2; // SEI + RcvMax + MaxPktSz + TopAlias + RRI + RPI = 20
+        // SEI(1+4) + MaxPktSz(1+4) + TopAlias(1+2) + RRI(1+1) + RPI(1+1) = 17
+        // ReceiveMaximum(1+2) = 3 is written only when non-zero: MQTT 5.0 §3.1.2.11.3
+        // states it is a Protocol Error to include ReceiveMaximum with value 0.
+        var size = 5 + 5 + 3 + 2 + 2 + (packet.ReceiveMaximum > 0 ? 3 : 0);
 
         if (packet.UserProperties != null && packet.UserProperties.Count > 0)
             size += ComputeUserPropertiesSize(packet.UserProperties);
@@ -692,7 +694,9 @@ internal static class Mqtt5Encoder
         var bytesWritten = 0;
         // Always-present properties
         bytesWritten += Mqtt5PropertyWriter.WriteFourByteInt(ref span, Mqtt5PropertyIdentifiers.SessionExpiryInterval, packet.SessionExpiryInterval);
-        bytesWritten += Mqtt5PropertyWriter.WriteTwoByteInt(ref span, Mqtt5PropertyIdentifiers.ReceiveMaximum, packet.ReceiveMaximum);
+        // ReceiveMaximum=0 is a Protocol Error (MQTT 5.0 §3.1.2.11.3); only write when non-zero.
+        if (packet.ReceiveMaximum > 0)
+            bytesWritten += Mqtt5PropertyWriter.WriteTwoByteInt(ref span, Mqtt5PropertyIdentifiers.ReceiveMaximum, packet.ReceiveMaximum);
         bytesWritten += Mqtt5PropertyWriter.WriteFourByteInt(ref span, Mqtt5PropertyIdentifiers.MaximumPacketSize, packet.MaximumPacketSize);
         bytesWritten += Mqtt5PropertyWriter.WriteTwoByteInt(ref span, Mqtt5PropertyIdentifiers.TopicAliasMaximum, packet.TopicAliasMaximum);
         bytesWritten += Mqtt5PropertyWriter.WriteByte(ref span, Mqtt5PropertyIdentifiers.RequestResponseInformation,

@@ -628,14 +628,16 @@ Create container tests that exercise the full MQTT 5.0 pipeline against a real
 EMQX broker.
 
 Done when:
-- [ ] Container test: MQTT 5.0 connect and disconnect
-- [ ] Container test: MQTT 5.0 publish and subscribe at QoS 0
-- [ ] Container test: MQTT 5.0 publish and subscribe at QoS 1
-- [ ] Container test: MQTT 5.0 publish and subscribe at QoS 2
-- [ ] Container test: MQTT 5.0 connection with User Properties on CONNECT
-- [ ] Container test: MQTT 5.0 publish with User Properties, verify received on subscriber
-- [ ] Container test: Server-initiated disconnect handled correctly
-- [ ] All tests pass with `dotnet test tests/TurboMqtt.Container.Tests/ -c Release`
+- [x] Container test: MQTT 5.0 connect and disconnect *(ShouldConnectAndDisconnect)*
+- [x] Container test: MQTT 5.0 publish and subscribe at QoS 0 *(ShouldPublishAndSubscribeAtQoS0)*
+- [x] Container test: MQTT 5.0 publish and subscribe at QoS 1 *(ShouldPublishAndSubscribeAtQoS1)*
+- [x] Container test: MQTT 5.0 publish and subscribe at QoS 2 *(ShouldPublishAndSubscribeAtQoS2)*
+- [x] Container test: MQTT 5.0 connection with User Properties on CONNECT *(ShouldConnectWithUserPropertiesOnConnect)*
+- [x] Container test: MQTT 5.0 publish with User Properties, verify received on subscriber *(ShouldPublishWithUserPropertiesAndReceiveOnSubscriber)*
+- [x] Container test: Server-initiated disconnect handled correctly *(ShouldHandleServerInitiatedDisconnect — uses separate ActorSystem for session takeover)*
+- [x] All tests pass with `dotnet test tests/TurboMqtt.Container.Tests/ -c Release` *(26/26 pass)*
+- [x] Bug fix: `Mqtt5Encoder.WriteConnectProperties()` and `MqttPacketSizeEstimator.ComputeConnectPropertiesSizeMqtt5()` now omit ReceiveMaximum when 0 (MQTT 5.0 §3.1.2.11.3 — Protocol Error to include ReceiveMaximum=0)
+- [x] Builds with zero warnings
 
 ### Task 3.10: Add MQTT 5.0 E2E container tests with authentication
 
