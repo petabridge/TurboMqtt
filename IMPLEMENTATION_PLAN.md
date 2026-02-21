@@ -556,12 +556,12 @@ Files to change:
 - `IMqttClientFactory.cs` — remove `AssertMqtt311()` guard
 
 Done when:
-- [ ] `MqttClientFactory.CreateTcpClient()` succeeds with `MqttProtocolVersion.V5_0`
-- [ ] Stream stages select encoder/decoder based on protocol version
-- [ ] `ClientStreamInstance.ConfigureMqttStreams()` has working V5.0 case
-- [ ] `Mqtt311Encoder`/`Mqtt311Decoder` remain unchanged and are still used for `V3_1_1`
-- [ ] Builds with zero warnings
-- [ ] Existing MQTT 3.1.1 tests still pass (no regression)
+- [x] `MqttClientFactory.CreateTcpClient()` succeeds with `MqttProtocolVersion.V5_0`
+- [x] Stream stages select encoder/decoder based on protocol version
+- [x] `ClientStreamInstance.ConfigureMqttStreams()` has working V5.0 case
+- [x] `Mqtt311Encoder`/`Mqtt311Decoder` remain unchanged and are still used for `V3_1_1`
+- [x] Builds with zero warnings
+- [x] Existing MQTT 3.1.1 tests still pass (no regression)
 
 ### Task 3.6: Enforce broker-advertised limits from CONNACK
 

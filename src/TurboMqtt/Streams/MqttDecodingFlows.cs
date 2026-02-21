@@ -37,6 +37,23 @@ public static class MqttDecodingFlows
 
         return g;
     }
+
+    /// <summary>
+    /// Creates an MQTT 5.0 decoding flow that tries to parse multiple packets from individual byte frames.
+    /// </summary>
+    /// <remarks>
+    /// Allocates additional byte arrays internally in order to be safe - since the contents of the shared buffer
+    /// are being spread across multiple packets that all might be handled separately, this is the only safe spot
+    /// to dispose of the <see cref="IMemoryOwner{T}"/> buffer.
+    /// </remarks>
+    /// <returns>An Akka.Streams graph - still needs to be connected to a source and a sink in order to run.</returns>
+    public static IGraph<FlowShape<(IMemoryOwner<byte> buffer, int readableBytes), ImmutableList<MqttPacket>>, NotUsed> Mqtt5Decoding()
+    {
+        var g = Flow.Create<(IMemoryOwner<byte> buffer, int readableBytes)>()
+            .Via(new Mqtt5DecoderFlow());
+
+        return g;
+    }
 }
 
 /// <summary>
@@ -99,6 +116,77 @@ internal sealed class Mqtt311DecoderFlow : GraphStage<FlowShape<(
             }
             buffer.Dispose();
             
+            var decoded = _decoder.TryDecode(safeBytes, out var packets);
+            if (decoded)
+            {
+                Log.Debug("Decoded [{0}] packets totaling [{1}] bytes", packets.Count, readableBytes);
+                Push(_flow.Out, packets);
+            }
+        }
+
+        public override void OnPull()
+        {
+            Pull(_flow.In);
+        }
+    }
+}
+
+/// <summary>
+/// Accepts memory buffers and tries to decode them into a series of <see cref="MqttPacket"/> instances
+/// using the MQTT 5.0 wire format.
+/// </summary>
+internal sealed class Mqtt5DecoderFlow : GraphStage<FlowShape<(
+    IMemoryOwner<byte> buffer, int readableBytes), ImmutableList<MqttPacket>>>
+{
+    public Mqtt5DecoderFlow()
+    {
+        In = new Inlet<(IMemoryOwner<byte> buffer, int readableBytes)>("Mqtt5DecoderFlow.In");
+        Out = new Outlet<ImmutableList<MqttPacket>>("Mqtt5DecoderFlow.Out");
+        Shape = new FlowShape<(IMemoryOwner<byte> buffer, int readableBytes), ImmutableList<MqttPacket>>(In, Out);
+    }
+
+    public override FlowShape<(IMemoryOwner<byte> buffer, int readableBytes), ImmutableList<MqttPacket>> Shape { get; }
+
+    public Inlet<(IMemoryOwner<byte> buffer, int readableBytes)> In { get; }
+    public Outlet<ImmutableList<MqttPacket>> Out { get; }
+
+    protected override Attributes InitialAttributes => DefaultAttributes.Select;
+
+    protected override GraphStageLogic CreateLogic(Attributes inheritedAttributes)
+    {
+        return new Mqtt5DecoderFlowLogic(this, inheritedAttributes);
+    }
+
+    private sealed class Mqtt5DecoderFlowLogic : InAndOutGraphStageLogic
+    {
+        private readonly Mqtt5DecoderFlow _flow;
+        private readonly Decider _decider;
+        private readonly Mqtt5Decoder _decoder = new();
+
+        protected override object LogSource => Akka.Event.LogSource.Create("Mqtt5DecoderFlow");
+
+        public Mqtt5DecoderFlowLogic(Mqtt5DecoderFlow flow, Attributes inheritedAttributes) : base(flow.Shape)
+        {
+            _flow = flow;
+            var attr = inheritedAttributes.GetAttribute<ActorAttributes.SupervisionStrategy>();
+            _decider = attr != null ? attr.Decider : Deciders.StoppingDecider;
+            SetHandler(_flow.In, this);
+            SetHandler(_flow.Out, this);
+        }
+
+        public override void OnPush()
+        {
+            var (buffer, readableBytes) = Grab(_flow.In);
+
+            var safeBytes = buffer.Memory[..readableBytes];
+
+            if (buffer is not UnsharedMemoryOwner<byte>)
+            {
+                safeBytes = new Memory<byte>(new byte[readableBytes]);
+                buffer.Memory[..readableBytes].CopyTo(safeBytes);
+            }
+            buffer.Dispose();
+
             var decoded = _decoder.TryDecode(safeBytes, out var packets);
             if (decoded)
             {

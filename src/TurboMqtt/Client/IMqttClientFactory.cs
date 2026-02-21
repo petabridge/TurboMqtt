@@ -1,4 +1,4 @@
-﻿// -----------------------------------------------------------------------
+// -----------------------------------------------------------------------
 // <copyright file="IMqttClientFactory.cs" company="Petabridge, LLC">
 //      Copyright (C) 2024 - 2024 Petabridge, LLC <https://petabridge.com>
 // </copyright>
@@ -46,7 +46,7 @@ internal interface IInternalMqttClientFactory
 /// Used to create instances of <see cref="IMqttClient"/> for use in end-user applications.
 /// </summary>
 /// <remarks>
-/// Requires an <see cref="ActorSystem"/> to function properly. 
+/// Requires an <see cref="ActorSystem"/> to function properly.
 /// </remarks>
 public sealed class MqttClientFactory : IMqttClientFactory, IInternalMqttClientFactory
 {
@@ -61,7 +61,6 @@ public sealed class MqttClientFactory : IMqttClientFactory, IInternalMqttClientF
 
     public async Task<IMqttClient> CreateTcpClient(MqttClientConnectOptions options, MqttClientTcpOptions tcpOptions)
     {
-        AssertMqtt311(options);
         var transportManager = new TcpMqttTransportManager(tcpOptions, _mqttClientManager, options.ProtocolVersion);
 
         // create the client
@@ -71,14 +70,13 @@ public sealed class MqttClientFactory : IMqttClientFactory, IInternalMqttClientF
 
         var client = await clientActor.Ask<IMqttClient>(new ClientStreamOwner.CreateClient(transportManager, options))
             .ConfigureAwait(false);
-        
+
         return client;
     }
 
     public async Task<IMqttClient> CreateTlsTcpClient(MqttClientConnectOptions options, MqttClientTcpOptions tcpOptions,
         MqttClientTlsOptions tlsOptions)
     {
-        AssertMqtt311(options);
         var streamProvider = new TlsStreamProvider(tcpOptions, tlsOptions);
         var transportManager = new TcpMqttTransportManager(tcpOptions, _mqttClientManager, options.ProtocolVersion,
             streamProvider);
@@ -95,22 +93,13 @@ public sealed class MqttClientFactory : IMqttClientFactory, IInternalMqttClientF
 
     public async Task<IMqttClient> CreateInMemoryClient(MqttClientConnectOptions options)
     {
-        AssertMqtt311(options);
         var transportManager = new InMemoryMqttTransportManager((int)options.MaximumPacketSize * 2,
             _system.CreateLogger<InMemoryMqttTransportManager>(options.ClientId), options.ProtocolVersion);
-        
+
         var clientActor =
             await _mqttClientManager.Ask<IActorRef>(new ClientManagerActor.StartClientActor(options.ClientId));
         return await clientActor.Ask<IMqttClient>(new ClientStreamOwner.CreateClient(
            transportManager,
             options));
-    }
-
-    private static void AssertMqtt311(MqttClientConnectOptions options)
-    {
-        if (options.ProtocolVersion != MqttProtocolVersion.V3_1_1)
-        {
-            throw new NotSupportedException("Only MQTT 3.1.1 is supported.");
-        }
     }
 }

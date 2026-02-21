@@ -65,4 +65,49 @@ internal static class MqttClientStreams
             .Where(c => c.PacketType == MqttPacketType.Publish)
             .Select(c => ((PublishPacket)c).FromPacket()));
     }
+
+    public static Sink<MqttPacket, NotUsed> Mqtt5OutboundPacketSink(string clientId, IMqttTransport transport,
+        MemoryPool<byte> memoryPool, int maxFrameSize, int maxPacketSize, bool withTelemetry = true)
+    {
+        var finalSink = Sink.FromWriter(transport.Writer, true);
+        if (withTelemetry)
+            return Flow.Create<MqttPacket>()
+                .Via(OpenTelemetryFlows.MqttPacketRateTelemetryFlow(MqttProtocolVersion.V5_0, clientId,
+                    OpenTelemetrySupport.Direction.Outbound))
+                .Via(MqttEncodingFlows.Mqtt5Encoding(memoryPool, maxFrameSize, maxPacketSize))
+                .Via(OpenTelemetryFlows.MqttBitRateTelemetryFlow(MqttProtocolVersion.V5_0, clientId,
+                    OpenTelemetrySupport.Direction.Outbound))
+                .To(finalSink);
+
+        return Flow.Create<MqttPacket>()
+            .Via(MqttEncodingFlows.Mqtt5Encoding(memoryPool, maxFrameSize, maxPacketSize))
+            .To(finalSink);
+    }
+
+    public static Source<MqttMessage, NotUsed> Mqtt5InboundMessageSource(string clientId, IMqttTransport transport,
+        ChannelWriter<MqttPacket> outboundPackets,
+        MqttRequiredActors actors, int maxRememberedPacketIds, TimeSpan packetIdExpiry, TaskCompletionSource<DisconnectPacket> disconnectPromise, bool withTelemetry = true)
+    {
+        if (withTelemetry)
+            return (ChannelSource.FromReader(transport.Reader)
+                .Via(OpenTelemetryFlows.MqttBitRateTelemetryFlow(MqttProtocolVersion.V5_0, clientId,
+                    OpenTelemetrySupport.Direction.Inbound))
+                .Via(MqttDecodingFlows.Mqtt5Decoding())
+                .Async()
+                .Via(OpenTelemetryFlows.MqttMultiPacketRateTelemetryFlow(MqttProtocolVersion.V5_0, clientId,
+                    OpenTelemetrySupport.Direction.Inbound))
+                .Via(MqttReceiverFlows.ClientAckingFlow(outboundPackets,
+                    actors, disconnectPromise))
+                .Async()
+                .Where(c => c.PacketType == MqttPacketType.Publish)
+                .Select(c => ((PublishPacket)c).FromPacket()));
+
+        return (ChannelSource.FromReader(transport.Reader)
+            .Via(MqttDecodingFlows.Mqtt5Decoding())
+            .Async()
+            .Via(MqttReceiverFlows.ClientAckingFlow(outboundPackets, actors, disconnectPromise))
+            .Async()
+            .Where(c => c.PacketType == MqttPacketType.Publish)
+            .Select(c => ((PublishPacket)c).FromPacket()));
+    }
 }

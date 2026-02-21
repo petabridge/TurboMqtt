@@ -44,6 +44,31 @@ public static class MqttEncodingFlows
 
         return g;
     }
+
+    /// <summary>
+    /// Creates an MQTT 5.0 encoding flow that tries to group as many packets as possible into a single frame.
+    /// </summary>
+    /// <param name="memoryPool">Shared memory pool - buffers will get released by the <see cref="IMqttTransport"/> upon flush.</param>
+    /// <param name="maxFrameSize">The maximum frame size.</param>
+    /// <param name="maxPacketSize">The maximum packet size allowed on this MQTT connection</param>
+    /// <returns>An Akka.Streams graph - still needs to be connected to a source and a sink in order to run.</returns>
+    public static IGraph<FlowShape<MqttPacket, (IMemoryOwner<byte> buffer, int readableBytes)>, NotUsed>
+        Mqtt5Encoding(MemoryPool<byte> memoryPool, int maxFrameSize, int maxPacketSize)
+    {
+        var g = (Flow.Create<MqttPacket>()
+            .Select(c => (c, MqttPacketSizeEstimator.EstimateMqtt5PacketSize(c)))
+            .Via(new PacketSizeFilter(
+                maxPacketSize)) // drops any packets bigger than the maximum frame size with a warning (accounts for header too)
+            .BatchWeighted(maxFrameSize, tuple => tuple.Item2.TotalSize, tuple => new List<(MqttPacket packet, PacketSize readableBytes)>(){ tuple },
+                (list, tuple) =>
+                {
+                    list.Add(tuple);
+                    return list;
+                }) // group packets into a single frame
+            .Via(new Mqtt5EncoderFlow(memoryPool)));
+
+        return g;
+    }
 }
 
 /// <summary>
@@ -114,6 +139,82 @@ internal sealed class Mqtt311EncoderFlow : GraphStage<FlowShape<List<(MqttPacket
             var writeableBuffer = memoryOwner.Memory;
 
             var bytesWritten = Mqtt311Encoder.EncodePackets(packets, ref writeableBuffer);
+
+            System.Diagnostics.Debug.Assert(bytesWritten == totalBytes, "bytesWritten == predictedBytes");
+
+            Log.Debug("Encoded {0} messages using {1} bytes", packets.Count, bytesWritten);
+
+            Push(_flow.Out, (memoryOwner, bytesWritten));
+        }
+
+        public override void OnPull()
+        {
+            Pull(_flow.In);
+        }
+    }
+}
+
+/// <summary>
+/// Accepts a range of MqttPackets and uses a shared memory pool to encode them into an <see cref="IMemoryOwner{T}"/>
+/// using the MQTT 5.0 wire format.
+/// </summary>
+internal sealed class Mqtt5EncoderFlow : GraphStage<FlowShape<List<(MqttPacket packet, PacketSize predictedSize)>, (
+    IMemoryOwner<byte> buffer, int readableBytes)>>
+{
+    private readonly MemoryPool<byte> _memoryPool;
+
+    public Mqtt5EncoderFlow(MemoryPool<byte> memoryPool)
+    {
+        _memoryPool = memoryPool;
+        In = new Inlet<List<(MqttPacket packet, PacketSize predictedSize)>>("Mqtt5EncoderFlow.In");
+        Out = new Outlet<(IMemoryOwner<byte> buffer, int readableBytes)>("Mqtt5EncoderFlow.Out");
+        Shape =
+            new FlowShape<List<(MqttPacket packet, PacketSize predictedSize)>, (IMemoryOwner<byte> buffer, int
+                readableBytes)>(In, Out);
+    }
+
+    public Inlet<List<(MqttPacket packet, PacketSize predictedSize)>> In { get; }
+    public Outlet<(IMemoryOwner<byte> buffer, int readableBytes)> Out { get; }
+
+    protected override Attributes InitialAttributes => DefaultAttributes.Select;
+
+    public override
+        FlowShape<List<(MqttPacket packet, PacketSize predictedSize)>, (IMemoryOwner<byte> buffer, int readableBytes)>
+        Shape { get; }
+
+    protected override GraphStageLogic CreateLogic(Attributes inheritedAttributes)
+    {
+        return new Logic(this, inheritedAttributes);
+    }
+
+    private sealed class Logic : InAndOutGraphStageLogic
+    {
+        private readonly Mqtt5EncoderFlow _flow;
+        private readonly Decider _decider;
+        private readonly MemoryPool<byte> _memoryPool;
+
+        protected override object LogSource => Akka.Event.LogSource.Create("Mqtt5EncoderFlow");
+
+        public Logic(Mqtt5EncoderFlow flow, Attributes inheritedAttributes) : base(flow.Shape)
+        {
+            _flow = flow;
+            _memoryPool = flow._memoryPool;
+            var attr = inheritedAttributes.GetAttribute<ActorAttributes.SupervisionStrategy>();
+            _decider = attr != null ? attr.Decider : Deciders.StoppingDecider;
+            SetHandler(flow.In, this);
+            SetHandler(flow.Out, this);
+        }
+
+        public override void OnPush()
+        {
+            var packets = Grab(_flow.In).ToList();
+
+            var totalBytes = packets.Select(c => c.predictedSize.TotalSize).Sum();
+
+            var memoryOwner = _memoryPool.Rent(totalBytes);
+            var writeableBuffer = memoryOwner.Memory;
+
+            var bytesWritten = Mqtt5Encoder.EncodePackets(packets, ref writeableBuffer);
 
             System.Diagnostics.Debug.Assert(bytesWritten == totalBytes, "bytesWritten == predictedBytes");
 
