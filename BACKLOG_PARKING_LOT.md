@@ -107,11 +107,10 @@
 - **Decision needed:** Change to `IReadOnlyList<KeyValuePair<string, string>>?` or similar across all packet types. This is a breaking change.
 - **Date parked:** 2026-02-20
 
-### DisconnectPacket missing ReasonString property
+### ~~DisconnectPacket missing ReasonString property~~ — RESOLVED
 - **Source:** Adversarial review 20260220-202420 iter-10, finding F-7
-- **Issue:** Per MQTT 5.0 §3.14.2.2.2, DISCONNECT can include Reason String (0x1F). The `DisconnectPacket` class does not have a `ReasonString` property, so encoder/decoder cannot support it.
-- **Decision needed:** Add `string? ReasonString` to `DisconnectPacket` and update encoder/decoder to handle it.
-- **Date parked:** 2026-02-20
+- **Resolution:** Commit `53bc90f` (Task 3.8, RALPH run 20260221-020516) added `ReasonString` to `DisconnectPacket.cs`, updated `Mqtt5Decoder.ReadDisconnectProperties`, `Mqtt5Encoder.EncodeDisconnectPacket`, and `MqttPacketSizeEstimator.EstimateDisconnectPacketSizeMqtt5`.
+- **Date resolved:** 2026-02-21
 
 ### File GitHub issue for RetainHandling bit-mask bug fix
 - **Source:** Adversarial review 20260220-202420 iter-10, finding F-9
@@ -140,4 +139,21 @@
 - **Issue:** Three consecutive iterations (3.0, 3.2, 3.3) implemented the same MQTT 5.0 property read/write loop pattern (VBI property length prefix, per-identifier switch dispatch, compact ACK forms) without proposing a skill. This violates the CLAUDE.md rule "If a workflow is repeated 3+ times, extract it into a repo skill or script."
 - **Decision needed:** Create the skill before the next MQTT 5.0 codec-related task (Task 3.4 or later), or defer if the pattern is considered sufficiently documented in the existing code.
 - **Date parked:** 2026-02-20
+
+### ReceiveMaximum quota should be shared across QoS 1 and QoS 2 actors
+- **Source:** Adversarial review 20260221-020516 iter-05, finding F-1
+- **Issue:** MQTT 5.0 §4.9 requires a shared Receive Maximum quota across both QoS levels. Current implementation gives each retry actor (`AtLeastOncePublishRetryActor`, `ExactlyOncePublishRetryActor`) independent quotas. Total in-flight could reach 2× ReceiveMaximum when both QoS levels are active simultaneously.
+- **Decision needed:** Introduce shared counter/semaphore between QoS actors, or a coordinating supervisor. Pre-1.0 API review item.
+- **Date parked:** 2026-02-21
+
+### Investigate MqttPacketSizeEstimator underestimation edge cases
+- **Source:** Adversarial review 20260221-020516 iter-05, findings F-2 + B-1
+- **Issue:** FsCheck roundtrip tests intermittently fail with "Destination is too short" in `Mqtt5Encoder`. Task 3.4 fixed two known bugs (= vs +=, missing VBI byte) but RALPH iter-02 saw 14 additional failures. `Debug.Assert` catches in debug builds only; Release silently truncates.
+- **Decision needed:** Run FsCheck at higher iteration count (1000+) to identify remaining edge cases. Add fixed-seed regression tests.
+- **Date parked:** 2026-02-21
+
+### MqttClient.PublishAsync broker limit validation unit tests
+- **Source:** Adversarial review 20260221-020516 iter-05, finding B-2
+- **Issue:** `MqttClient.PublishAsync` contains non-trivial broker limit validation logic (MaximumPacketSize, MaximumQoS, RetainAvailable, actorOwnsInitialSend coordination) with no direct unit tests. Will be exercised by Task 3.9 E2E tests.
+- **Date parked:** 2026-02-21
 
