@@ -62,6 +62,19 @@ public sealed record MqttMessage
     /// This is a key-value pair that can be sent multiple times to convey additional information that is not covered by other means.
     /// </summary>
     public IReadOnlyDictionary<string, string>? UserProperties { get; init; } // MQTT 5.0 only
+
+    /// <summary>
+    /// Subscription Identifiers, available in MQTT 5.0.
+    /// This property allows associating the publication with one or more subscriptions.
+    /// Each identifier corresponds to a different subscription that matches the published message.
+    /// </summary>
+    public IReadOnlyList<uint>? SubscriptionIdentifiers { get; init; } // MQTT 5.0 only
+
+    /// <summary>
+    /// Message Expiry Interval, available in MQTT 5.0.
+    /// If present, the value is the lifetime of the message in seconds. If absent (zero), the message does not expire.
+    /// </summary>
+    public uint MessageExpiryInterval { get; init; } // MQTT 5.0 only
 }
 
 /// <summary>
@@ -79,10 +92,12 @@ internal static class MqttMessageExtensions
             ContentType = packet.ContentType,
             ResponseTopic = packet.ResponseTopic,
             CorrelationData = packet.CorrelationData,
-            UserProperties = packet.UserProperties
+            UserProperties = packet.UserProperties,
+            SubscriptionIdentifiers = packet.SubscriptionIdentifiers,
+            MessageExpiryInterval = packet.MessageExpiryInterval
         };
     }
-    
+
     // create a ToPacket method here
     internal static PublishPacket ToPacket(this MqttMessage message)
     {
@@ -93,7 +108,8 @@ internal static class MqttMessageExtensions
             ContentType = message.ContentType,
             ResponseTopic = message.ResponseTopic,
             CorrelationData = message.CorrelationData,
-            UserProperties = message.UserProperties
+            UserProperties = message.UserProperties,
+            MessageExpiryInterval = message.MessageExpiryInterval
         };
 
         return packet;

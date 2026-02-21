@@ -494,6 +494,8 @@ internal static class MqttPacketSizeEstimator
         // Mirror Mqtt5Encoder.EncodeDisconnectPacket (compact form logic)
         var reasonCode = packet.ReasonCode ?? DisconnectReasonCode.NormalDisconnection;
         var propsSize = 0;
+        if (!string.IsNullOrEmpty(packet.ReasonString))
+            propsSize += 1 + 2 + Encoding.UTF8.GetByteCount(packet.ReasonString);
         if (!string.IsNullOrEmpty(packet.ServerReference))
             propsSize += 1 + 2 + Encoding.UTF8.GetByteCount(packet.ServerReference);
         if (packet.SessionExpiryInterval.HasValue)

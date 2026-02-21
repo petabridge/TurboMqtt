@@ -611,12 +611,12 @@ In MQTT 5.0, the server can send DISCONNECT to the client (new behavior vs 3.1.1
 Also update the public API surface for V5 features.
 
 Done when:
-- [ ] Inbound DISCONNECT from server triggers graceful cleanup (actor hierarchy shutdown)
-- [ ] Server DISCONNECT Reason Code and Reason String logged and emitted as OpenTelemetry event
-- [ ] `MqttClientConnectOptions` has all V5 connection properties (uncomment TODOs + add new)
-- [ ] `MqttMessage` (channel consumer type) exposes: UserProperties, ContentType, ResponseTopic, CorrelationData, SubscriptionIdentifiers, PayloadFormatIndicator, MessageExpiryInterval
-- [ ] DisconnectReasonCode enum has all MQTT 5.0 server-sent reason codes
-- [ ] Builds with zero warnings
+- [x] Inbound DISCONNECT from server triggers graceful cleanup (actor hierarchy shutdown) *(already implemented via ClientAckingFlow + ClientStreamInstance + ClientStreamOwner)*
+- [x] Server DISCONNECT Reason Code and Reason String logged and emitted as OpenTelemetry event *(ReasonString added to DisconnectPacket; Mqtt5Decoder ReadDisconnectProperties updated; EmitServerDisconnectActivity() in ClientStreamOwner emits mqtt.server_disconnect Activity with reason_code and reason_string tags)*
+- [x] `MqttClientConnectOptions` has all V5 connection properties (uncomment TODOs + add new) *(LastWillAndTestament TODO block uncommented; SessionExpiryInterval, TopicAliasMaximum, RequestResponseInformation, RequestProblemInformation, UserProperties added; wired through in IMqttClient.ConnectAsync)*
+- [x] `MqttMessage` (channel consumer type) exposes: UserProperties, ContentType, ResponseTopic, CorrelationData, SubscriptionIdentifiers, PayloadFormatIndicator, MessageExpiryInterval *(SubscriptionIdentifiers and MessageExpiryInterval added; FromPacket/ToPacket updated)*
+- [x] DisconnectReasonCode enum has all MQTT 5.0 server-sent reason codes *(already complete — 29 reason codes present)*
+- [x] Builds with zero warnings *(verified: 0 warnings, 0 errors; 430 unit tests pass)*
 
 ### Task 3.9: Add MQTT 5.0 E2E container tests
 

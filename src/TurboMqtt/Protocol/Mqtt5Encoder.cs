@@ -462,6 +462,8 @@ internal static class Mqtt5Encoder
 
         var reasonCode = packet.ReasonCode ?? DisconnectReasonCode.NormalDisconnection;
         var propsSize = 0;
+        if (!string.IsNullOrEmpty(packet.ReasonString))
+            propsSize += 1 + 2 + Encoding.UTF8.GetByteCount(packet.ReasonString);
         if (!string.IsNullOrEmpty(packet.ServerReference))
             propsSize += 1 + 2 + Encoding.UTF8.GetByteCount(packet.ServerReference);
         if (packet.SessionExpiryInterval.HasValue)
@@ -485,6 +487,8 @@ internal static class Mqtt5Encoder
             bytesWritten += Mqtt311Encoder.WriteByte(ref span, (byte)reasonCode);
             bytesWritten += Mqtt5PropertyWriter.EncodeVariableByteInt(ref span, (uint)propsSize);
 
+            if (!string.IsNullOrEmpty(packet.ReasonString))
+                bytesWritten += Mqtt5PropertyWriter.WriteUtf8String(ref span, Mqtt5PropertyIdentifiers.ReasonString, packet.ReasonString);
             if (!string.IsNullOrEmpty(packet.ServerReference))
                 bytesWritten += Mqtt5PropertyWriter.WriteUtf8String(ref span, Mqtt5PropertyIdentifiers.ServerReference, packet.ServerReference);
             if (packet.SessionExpiryInterval.HasValue)

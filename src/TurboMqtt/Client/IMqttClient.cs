@@ -257,20 +257,33 @@ public sealed class MqttClient : IInternalMqttClient
             connectPacket.AuthenticationData = authHandler.GetInitialAuthData();
         }
 
+        // MQTT 5.0 CONNECT properties
+        if (_options.ProtocolVersion == MqttProtocolVersion.V5_0)
+        {
+            connectPacket.SessionExpiryInterval = _options.SessionExpiryInterval;
+            connectPacket.TopicAliasMaximum = _options.TopicAliasMaximum;
+            connectPacket.RequestResponseInformation = _options.RequestResponseInformation;
+            connectPacket.RequestProblemInformation = _options.RequestProblemInformation;
+            connectPacket.UserProperties = _options.UserProperties;
+        }
+
         if (_options.LastWill != null)
         {
             var lastWill = _options.LastWill;
 
             var will = new MqttLastWill(lastWill.Topic, lastWill.Message);
 
-            // MQTT 5.0 properties we don't support yet
-            // will.ContentType = lastWill.ContentType;
-            // will.DelayInterval = lastWill.DelayInterval;
-            // will.MessageExpiryInterval = lastWill.MessageExpiryInterval;
-            // will.PayloadFormatIndicator = lastWill.PayloadFormatIndicator;
-            // will.ResponseTopic = lastWill.ResponseTopic;
-            // will.WillCorrelationData = lastWill.WillCorrelationData;
-            // will.WillProperties = lastWill.WillProperties;
+            if (_options.ProtocolVersion == MqttProtocolVersion.V5_0)
+            {
+                will.ContentType = lastWill.ContentType;
+                will.DelayInterval = lastWill.DelayInterval;
+                will.MessageExpiryInterval = lastWill.MessageExpiryInterval;
+                will.PayloadFormatIndicator = lastWill.PayloadFormatIndicator;
+                will.ResponseTopic = lastWill.ResponseTopic;
+                will.WillCorrelationData = lastWill.WillCorrelationData;
+                will.WillProperties = lastWill.WillProperties;
+            }
+
             connectPacket.Will = will;
         }
 
