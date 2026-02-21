@@ -63,6 +63,10 @@ All code must compile with zero warnings (`TreatWarningsAsErrors` is on).
 - Akka.NET actors use `ReceiveActor` or `UntypedActor` patterns; hosting via `Akka.Hosting`
 - Internal types exposed to test projects via `InternalsVisibleTo` in `Properties/Friends.cs`
 
+## Commit Rules
+
+- **NEVER `git add` the `.ralph/` directory or anything inside it.** Flight recorder logs are ephemeral and local-only. They must not appear in any commit.
+
 ## Key Architectural Rules
 
 - **Akka.NET is the concurrency model.** Do not introduce raw `Task.Run`, `Thread`, or manual synchronization unless there is no actor-based alternative.

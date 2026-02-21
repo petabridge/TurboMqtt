@@ -389,6 +389,7 @@ for ((i=1; i<=ITERATIONS; i++)); do
 
 8) If verification passes:
    - Commit to the current feature branch with a descriptive message
+   - NEVER 'git add' the .ralph/ directory or any files inside it — flight recorder logs are local-only
    - Update $PLAN_FILE checkboxes in the SAME commit
    - Update TOOLING.md if you used or discovered a new tool/resource
 
