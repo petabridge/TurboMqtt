@@ -317,10 +317,10 @@ No deterministic test verifies the 20-byte properties block with
 ReceiveMaximum included.
 
 Done when:
-- [ ] Deterministic encode-decode test creates a ConnectPacket with ReceiveMaximum > 0 and verifies roundtrip
-- [ ] The encoded properties block includes the ReceiveMaximum property identifier and 2-byte value
-- [ ] Builds with zero warnings
-- [ ] All existing tests pass
+- [x] Deterministic encode-decode test creates a ConnectPacket with ReceiveMaximum > 0 and verifies roundtrip
+- [x] The encoded properties block includes the ReceiveMaximum property identifier and 2-byte value
+- [x] Builds with zero warnings
+- [x] All existing tests pass
 
 ### Task 5.4: Add no-credentials negative auth test
 

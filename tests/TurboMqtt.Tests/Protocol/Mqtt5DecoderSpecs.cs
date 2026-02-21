@@ -558,6 +558,31 @@ public class Mqtt5DecoderSpecs
         }
     }
 
+    // ── CONNECT ────────────────────────────────────────────────────────────
+
+    public class ConnectPackets
+    {
+        [Fact]
+        public void Connect_with_ReceiveMaximum_roundtrips()
+        {
+            // MQTT 5.0 §3.1.2.11.3: ReceiveMaximum value 0 is a Protocol Error;
+            // the encoder omits the property when 0 and includes it when non-zero.
+            // This test verifies the encoder writes and the decoder reads the property.
+            const ushort expectedReceiveMaximum = 500;
+
+            var decoded = Roundtrip<ConnectPacket>(mem =>
+            {
+                var packet = new ConnectPacket(MqttProtocolVersion.V5_0)
+                {
+                    ReceiveMaximum = expectedReceiveMaximum
+                };
+                return Mqtt5Encoder.EncodeConnectPacket(packet, ref mem);
+            });
+
+            decoded.ReceiveMaximum.Should().Be(expectedReceiveMaximum);
+        }
+    }
+
     // ── Multiple packets in a single buffer ────────────────────────────────
 
     public class MultiPacketDecoding
