@@ -167,3 +167,9 @@
 - **Issue:** Tasks 3.11 (MQTT 5.0 TCP) and 3.12 (MQTT 5.0 TLS) only have BenchmarkDotNet dry-run results (monitoring mode, single launch). Full production runs (`launchCount=10, warmupCount=10`) should be executed and documented in the PR description before merging. Dry-run numbers: ~320k Req/sec QoS0/10B TCP, ~250k Req/sec QoS0/10B TLS.
 - **Date parked:** 2026-02-21
 
+### RALPH loop should halt when plan is exhausted and tree is clean
+- **Source:** Adversarial review 20260221-020516 iter-15, finding F-1
+- **Issue:** The RALPH loop continued for 4 wasted iterations (12-15) after the plan was exhausted and all uncommitted changes were committed. Each iteration reads IMPLEMENTATION_PLAN.md, reads BACKLOG_PARKING_LOT.md, writes a redundant flight recorder log, and exits. The loop lacks an early-exit gate.
+- **Decision needed:** Update the RALPH orchestration (`.prose/` infrastructure or `ralph-loop.md`) to add: "If IMPLEMENTATION_PLAN.md is exhausted AND `git status` is clean AND the previous iteration was also plan-exhausted, HALT the loop."
+- **Date parked:** 2026-02-21
+
