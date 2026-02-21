@@ -27,6 +27,11 @@
   <ItemGroup>
     <PackageVersion Include="Microsoft.SourceLink.GitHub" Version="10.0.103" />
   </ItemGroup>
+  <!-- Transitive dependency overrides to resolve known vulnerabilities -->
+  <ItemGroup Label="SecurityOverrides">
+    <PackageVersion Include="System.Net.Http" Version="4.3.4" />
+    <PackageVersion Include="System.Security.Cryptography.X509Certificates" Version="4.3.2" />
+  </ItemGroup>
   <!-- Test Package Versions -->
   <ItemGroup>
     <PackageVersion Include="Akka.Hosting.TestKit" Version="$(AkkaHostingVersion)" />
