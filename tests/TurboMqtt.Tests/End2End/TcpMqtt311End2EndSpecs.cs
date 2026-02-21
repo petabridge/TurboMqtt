@@ -26,7 +26,7 @@ public class TcpMqtt311End2EndSpecs : TransportSpecBase
     {
         var logger = new BusLogging(Sys.EventStream, "FakeMqttTcpServer", typeof(FakeMqttTcpServer),
             Sys.Settings.LogFormatter);
-        _server = new FakeMqttTcpServer(new MqttTcpServerOptions("localhost", 21883), MqttProtocolVersion.V3_1_1,
+        _server = new FakeMqttTcpServer(new MqttTcpServerOptions("localhost", 0), MqttProtocolVersion.V3_1_1,
             logger, TimeSpan.Zero, new DefaultFakeServerHandleFactory());
         _server.Bind();
     }
@@ -39,7 +39,7 @@ public class TcpMqtt311End2EndSpecs : TransportSpecBase
         return client;
     }
 
-    public MqttClientTcpOptions DefaultTcpOptions => new("localhost", 21883);
+    public MqttClientTcpOptions DefaultTcpOptions => new("localhost", _server.BoundPort);
 
     protected override void AfterAll()
     {
@@ -128,14 +128,15 @@ public class TcpMqtt311End2EndSpecs : TransportSpecBase
         _server.Shutdown();
         
         var server = new FakeMqttTcpServer(
-            options: new MqttTcpServerOptions("localhost", 21883), 
+            options: new MqttTcpServerOptions("localhost", 0),
             version: MqttProtocolVersion.V3_1_1,
             log: Log,
             heartbeatDelay: TimeSpan.Zero,
             handleFactory: new ConfigurableFakeServerFactory(OnCreateHandlerCallback));
         server.Bind();
+        var reconnectTcpOptions = new MqttClientTcpOptions("localhost", server.BoundPort);
         
-        await using var client = await ClientFactory.CreateTcpClient(DefaultConnectOptions, DefaultTcpOptions);
+        await using var client = await ClientFactory.CreateTcpClient(DefaultConnectOptions, reconnectTcpOptions);
 
         try
         {
@@ -259,12 +260,18 @@ public class TcpMqtt311End2EndSpecs : TransportSpecBase
     [Fact]
     public async Task ShouldFailToConnectToNonExistentServer()
     {
-        var updatedTcpOptions = new MqttClientTcpOptions("localhost", 21884)
+        // Use a port that is guaranteed not to be listening by binding+closing a socket to get a free port
+        var listener = new System.Net.Sockets.TcpListener(System.Net.IPAddress.Loopback, 0);
+        listener.Start();
+        var freePort = ((System.Net.IPEndPoint)listener.LocalEndpoint).Port;
+        listener.Stop();
+
+        var updatedTcpOptions = new MqttClientTcpOptions("localhost", freePort)
         {
             MaxReconnectAttempts = 0
         };
         await using var client = await ClientFactory.CreateTcpClient(DefaultConnectOptions, updatedTcpOptions);
-        
+
         // we are going to do this, intentionally, without a CTS here - this operation MUST FAIL if we are unable to connect
         var connectResult = await client.ConnectAsync();
         connectResult.IsSuccess.Should().BeFalse();
@@ -275,7 +282,13 @@ public class TcpMqtt311End2EndSpecs : TransportSpecBase
     [Fact]
     public async Task ShouldSuccessFullyConnectWhenBrokerAvailableAfterFailedConnectionAttempt()
     {
-        var updatedTcpOptions = new MqttClientTcpOptions("localhost", 21889)
+        // Get a free port, then release it so we can first fail to connect, then start a server on it
+        var listener = new System.Net.Sockets.TcpListener(System.Net.IPAddress.Loopback, 0);
+        listener.Start();
+        var freePort = ((System.Net.IPEndPoint)listener.LocalEndpoint).Port;
+        listener.Stop();
+
+        var updatedTcpOptions = new MqttClientTcpOptions("localhost", freePort)
         {
             MaxReconnectAttempts = 0
         };
@@ -287,8 +300,8 @@ public class TcpMqtt311End2EndSpecs : TransportSpecBase
 
         client.IsConnected.Should().BeFalse();
 
-        // start up a new server
-        var newServer = new FakeMqttTcpServer(new MqttTcpServerOptions("localhost", 21889), MqttProtocolVersion.V3_1_1,
+        // start up a new server on the same port
+        var newServer = new FakeMqttTcpServer(new MqttTcpServerOptions("localhost", freePort), MqttProtocolVersion.V3_1_1,
             Sys.Log, TimeSpan.Zero, new DefaultFakeServerHandleFactory());
         try
         {
