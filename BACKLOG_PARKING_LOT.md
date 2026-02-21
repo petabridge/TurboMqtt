@@ -154,6 +154,16 @@
 
 ### MqttClient.PublishAsync broker limit validation unit tests
 - **Source:** Adversarial review 20260221-020516 iter-05, finding B-2
-- **Issue:** `MqttClient.PublishAsync` contains non-trivial broker limit validation logic (MaximumPacketSize, MaximumQoS, RetainAvailable, actorOwnsInitialSend coordination) with no direct unit tests. Will be exercised by Task 3.9 E2E tests.
+- **Issue:** `MqttClient.PublishAsync` contains non-trivial broker limit validation logic (MaximumPacketSize, MaximumQoS, RetainAvailable, actorOwnsInitialSend coordination) with no direct unit tests. Partially addressed by Task 3.9 E2E tests (exercise via real broker), but no isolated unit tests.
+- **Date parked:** 2026-02-21
+
+### Add deterministic encoder test for ReceiveMaximum > 0
+- **Source:** Adversarial review 20260221-020516 iter-10, finding F-1
+- **Issue:** All `Mqtt5EncoderSpecs` CONNECT tests use default `ReceiveMaximum=0`, exercising only the omission path (per MQTT 5.0 §3.1.2.11.3). No deterministic test verifies the 20-byte properties block with ReceiveMaximum included. The write path is covered probabilistically by FsCheck roundtrip generators.
+- **Date parked:** 2026-02-21
+
+### Run full production benchmarks before PR merge
+- **Source:** Adversarial review 20260221-020516 iter-10, finding F-5
+- **Issue:** Tasks 3.11 (MQTT 5.0 TCP) and 3.12 (MQTT 5.0 TLS) only have BenchmarkDotNet dry-run results (monitoring mode, single launch). Full production runs (`launchCount=10, warmupCount=10`) should be executed and documented in the PR description before merging. Dry-run numbers: ~320k Req/sec QoS0/10B TCP, ~250k Req/sec QoS0/10B TLS.
 - **Date parked:** 2026-02-21
 
