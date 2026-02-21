@@ -420,10 +420,10 @@ publish broken packages.
 Key file: `.github/workflows/release.yaml`.
 
 Done when:
-- [ ] `dotnet test` step added to `release.yaml` after the build step and before the pack step
-- [ ] Test step runs `dotnet test -c Release tests/TurboMqtt.Tests/` (unit tests only, no containers)
-- [ ] Workflow fails and does not publish if tests fail
-- [ ] Builds with zero warnings
+- [x] `dotnet test` step added to `release.yaml` after the build step and before the pack step
+- [x] Test step runs `dotnet test -c Release tests/TurboMqtt.Tests/` (unit tests only, no containers)
+- [x] Workflow fails and does not publish if tests fail
+- [x] Builds with zero warnings
 
 ### Task 6.2: Run full production benchmarks for MQTT 5.0
 
