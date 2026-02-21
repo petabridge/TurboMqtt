@@ -556,11 +556,11 @@ Done when:
 channel-based consumer APIs, and all MQTT 5.0 additions.
 
 Done when:
-- [ ] Public API surface enumerated with `dotnet public-api` or equivalent
-- [ ] API reviewed for: naming consistency, extend-only compatibility, correct use of `internal` vs `public`, `IAsyncDisposable` consistency
-- [ ] Breaking changes from Tasks 4.6 and 4.7 reviewed for downstream impact
-- [ ] API review findings documented in `docs/release/api-review.md`
-- [ ] Issue #354 closed
+- [x] Public API surface enumerated with `dotnet public-api` or equivalent
+- [x] API reviewed for: naming consistency, extend-only compatibility, correct use of `internal` vs `public`, `IAsyncDisposable` consistency
+- [x] Breaking changes from Tasks 4.6 and 4.7 reviewed for downstream impact
+- [x] API review findings documented in `docs/release/api-review.md`
+- [x] Issue #354 closed
 
 ---
 
