@@ -363,10 +363,10 @@ Done when:
 throw), but no dedicated test exercises this path.
 
 Done when:
-- [ ] Deterministic test encodes a CONNECT packet with empty ClientId and verifies successful decode
-- [ ] Test verifies the decoded ClientId is empty string
-- [ ] Builds with zero warnings
-- [ ] All existing tests pass
+- [x] Deterministic test encodes a CONNECT packet with empty ClientId and verifies successful decode
+- [x] Test verifies the decoded ClientId is empty string
+- [x] Builds with zero warnings
+- [x] All existing tests pass
 
 ### Task 5.7: Establish await using convention for IMqttClient in tests
 

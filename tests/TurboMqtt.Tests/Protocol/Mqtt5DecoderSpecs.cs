@@ -597,6 +597,23 @@ public class Mqtt5DecoderSpecs
 
             decoded.ReceiveMaximum.Should().Be(expectedReceiveMaximum);
         }
+
+        [Fact]
+        public void Connect_with_empty_ClientId_decodes_successfully()
+        {
+            // MQTT 5.0 §3.1.3.1 permits an empty Client ID; the broker assigns one.
+            // Mqtt5Decoder.DecodeConnect overrides the base-class throw so empty is allowed.
+            var decoded = Roundtrip<ConnectPacket>(mem =>
+            {
+                var packet = new ConnectPacket(MqttProtocolVersion.V5_0)
+                {
+                    ClientId = string.Empty
+                };
+                return Mqtt5Encoder.EncodeConnectPacket(packet, ref mem);
+            });
+
+            decoded.ClientId.Should().BeEmpty();
+        }
     }
 
     // ── Multiple packets in a single buffer ────────────────────────────────
