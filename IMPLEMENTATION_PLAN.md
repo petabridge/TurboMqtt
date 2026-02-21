@@ -152,11 +152,11 @@ fixed, but additional edge cases remain.
 Key file: `src/TurboMqtt/Protocol/MqttPacketSizeEstimator.cs`.
 
 Done when:
-- [ ] FsCheck tests run at 1000+ iterations with no "Destination is too short" failures for all MQTT 5.0 packet types
-- [ ] Any newly discovered estimator bugs are fixed with deterministic regression tests
-- [ ] Fixed-seed regression tests added for each discovered edge case
-- [ ] Builds with zero warnings
-- [ ] All existing tests pass
+- [x] FsCheck tests run at 1000+ iterations with no "Destination is too short" failures for all MQTT 5.0 packet types
+- [x] Any newly discovered estimator bugs are fixed with deterministic regression tests
+- [x] Fixed-seed regression tests added for each discovered edge case
+- [x] Builds with zero warnings
+- [x] All existing tests pass
 
 ### Task 4.6: Change MqttLastWill.DelayInterval from NonZeroUInt16 to uint
 
