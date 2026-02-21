@@ -552,7 +552,7 @@ internal sealed class ClientStreamOwner : UntypedActor
     {
         _reconnectCts?.Cancel();
         _reconnectCts?.Dispose();
-        _reconnectCts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+        _reconnectCts = new CancellationTokenSource(_connectOptions!.ReconnectTimeout);
         var reconnectToken = _reconnectCts.Token;
 
         RunTask(async () =>

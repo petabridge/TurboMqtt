@@ -113,11 +113,11 @@ configured value or a separate configurable property.
 Key file: `src/TurboMqtt/Client/ClientStreamOwner.cs`.
 
 Done when:
-- [ ] `BeginReconnect()` uses a configurable timeout instead of the hardcoded 5 seconds
-- [ ] The timeout is sourced from `MqttClientConnectOptions` (new property or existing timeout)
-- [ ] Unit test verifies the reconnect CTS uses the configured timeout value
-- [ ] Builds with zero warnings
-- [ ] All existing tests pass
+- [x] `BeginReconnect()` uses a configurable timeout instead of the hardcoded 5 seconds
+- [x] The timeout is sourced from `MqttClientConnectOptions` (new property or existing timeout)
+- [x] Unit test verifies the reconnect CTS uses the configured timeout value
+- [x] Builds with zero warnings
+- [x] All existing tests pass
 
 ### Task 4.4: Fix flaky HeartbeatFailure test port binding conflict
 

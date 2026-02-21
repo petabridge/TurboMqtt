@@ -111,6 +111,14 @@ public sealed record MqttClientConnectOptions
     public int MaxReconnectAttempts { get; init; } = 3;
 
     /// <summary>
+    /// Maximum amount of time to wait for a single reconnect attempt to complete before giving up.
+    /// </summary>
+    /// <remarks>
+    /// Defaults to 5 seconds.
+    /// </remarks>
+    public TimeSpan ReconnectTimeout { get; init; } = TimeSpan.FromSeconds(5);
+
+    /// <summary>
     /// Optional MQTT 5.0 Enhanced Authentication handler.
     /// When set, the client sends <c>Authentication Method</c> and <c>Authentication Data</c>
     /// with the CONNECT packet and participates in challenge-response authentication.
