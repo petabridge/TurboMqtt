@@ -313,6 +313,9 @@ __pycache__/
 # RALPH flight recorder (ephemeral)
 .ralph/
 
+# OpenProse run state (ephemeral)
+.prose/runs/
+
 # Planning sessions (ephemeral)
 .planning/
 
