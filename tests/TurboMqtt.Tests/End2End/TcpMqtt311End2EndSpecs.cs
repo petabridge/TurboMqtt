@@ -135,12 +135,12 @@ public class TcpMqtt311End2EndSpecs : TransportSpecBase
             handleFactory: new ConfigurableFakeServerFactory(OnCreateHandlerCallback));
         server.Bind();
         
-        var client = await ClientFactory.CreateTcpClient(DefaultConnectOptions, DefaultTcpOptions);
-        
+        await using var client = await ClientFactory.CreateTcpClient(DefaultConnectOptions, DefaultTcpOptions);
+
         try
         {
             using var cts = new CancellationTokenSource(RemainingOrDefault);
-            
+
             // First connection should succeed
             var connectResult = await client.ConnectAsync(cts.Token);
             connectResult.IsSuccess.Should().BeTrue();
@@ -199,7 +199,7 @@ public class TcpMqtt311End2EndSpecs : TransportSpecBase
     [Fact]
     public async Task ShouldAutomaticallyReconnectAndSubscribeAfterServerDisconnect()
     {
-        var client = await ClientFactory.CreateTcpClient(DefaultConnectOptions, DefaultTcpOptions);
+        await using var client = await ClientFactory.CreateTcpClient(DefaultConnectOptions, DefaultTcpOptions);
 
         using var cts = new CancellationTokenSource(RemainingOrDefault);
         var connectResult = await client.ConnectAsync(cts.Token);
@@ -236,7 +236,7 @@ public class TcpMqtt311End2EndSpecs : TransportSpecBase
     {
         // allow 1 reconnection attempt
         var updatedOptions = DefaultConnectOptions with { MaxReconnectAttempts = 1 };
-        var client = await ClientFactory.CreateTcpClient(updatedOptions, DefaultTcpOptions);
+        await using var client = await ClientFactory.CreateTcpClient(updatedOptions, DefaultTcpOptions);
 
         var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
         var connectResult = await client.ConnectAsync(cts.Token);
@@ -263,7 +263,7 @@ public class TcpMqtt311End2EndSpecs : TransportSpecBase
         {
             MaxReconnectAttempts = 0
         };
-        var client = await ClientFactory.CreateTcpClient(DefaultConnectOptions, updatedTcpOptions);
+        await using var client = await ClientFactory.CreateTcpClient(DefaultConnectOptions, updatedTcpOptions);
         
         // we are going to do this, intentionally, without a CTS here - this operation MUST FAIL if we are unable to connect
         var connectResult = await client.ConnectAsync();
@@ -279,7 +279,7 @@ public class TcpMqtt311End2EndSpecs : TransportSpecBase
         {
             MaxReconnectAttempts = 0
         };
-        var client = await ClientFactory.CreateTcpClient(DefaultConnectOptions, updatedTcpOptions);
+        await using var client = await ClientFactory.CreateTcpClient(DefaultConnectOptions, updatedTcpOptions);
 
         // we are going to do this, intentionally, without a CTS here - this operation MUST FAIL if we are unable to connect
         var connectResult = await client.ConnectAsync();
@@ -317,7 +317,7 @@ public class TcpMqtt311End2EndSpecs : TransportSpecBase
     [Fact]
     public async Task ConcurrentDisconnectAndPublishShouldNotDeadlockOrCrash()
     {
-        var client = await ClientFactory.CreateTcpClient(DefaultConnectOptions, DefaultTcpOptions);
+        await using var client = await ClientFactory.CreateTcpClient(DefaultConnectOptions, DefaultTcpOptions);
 
         using var cts = new CancellationTokenSource(RemainingOrDefault);
         var connectResult = await client.ConnectAsync(cts.Token);
@@ -362,7 +362,7 @@ public class TcpMqtt311End2EndSpecs : TransportSpecBase
     [Fact]
     public async Task RapidSequentialReconnectsShouldCompleteWithoutError()
     {
-        var client = await ClientFactory.CreateTcpClient(DefaultConnectOptions, DefaultTcpOptions);
+        await using var client = await ClientFactory.CreateTcpClient(DefaultConnectOptions, DefaultTcpOptions);
 
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
         var connectResult = await client.ConnectAsync(cts.Token);
@@ -408,7 +408,7 @@ public class TcpMqtt311End2EndSpecs : TransportSpecBase
     [Fact]
     public async Task ServerKillDuringQos2ExchangeShouldReconnectAndRetransmit()
     {
-        var client = await ClientFactory.CreateTcpClient(DefaultConnectOptions, DefaultTcpOptions);
+        await using var client = await ClientFactory.CreateTcpClient(DefaultConnectOptions, DefaultTcpOptions);
 
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
         var connectResult = await client.ConnectAsync(cts.Token);
@@ -463,7 +463,7 @@ public class TcpMqtt311End2EndSpecs : TransportSpecBase
     [Fact]
     public async Task DisconnectDuringLargePublishShouldDrainGracefully()
     {
-        var client = await ClientFactory.CreateTcpClient(DefaultConnectOptions, DefaultTcpOptions);
+        await using var client = await ClientFactory.CreateTcpClient(DefaultConnectOptions, DefaultTcpOptions);
 
         using var cts = new CancellationTokenSource(RemainingOrDefault);
         var connectResult = await client.ConnectAsync(cts.Token);

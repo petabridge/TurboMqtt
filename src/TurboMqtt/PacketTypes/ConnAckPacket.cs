@@ -66,7 +66,7 @@ public sealed class ConnAckPacket : MqttPacket
     /// <summary>MQTT 5.0: Human-readable string describing the reason for the response. Property 0x1F.</summary>
     public string? ReasonString { get; set; }
 
-    public IReadOnlyDictionary<string, string>? UserProperties { get; set; }
+    public IReadOnlyList<KeyValuePair<string, string>>? UserProperties { get; set; }
 
     public override string ToString()
     {

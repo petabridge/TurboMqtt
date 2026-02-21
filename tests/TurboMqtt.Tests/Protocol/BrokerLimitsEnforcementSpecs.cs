@@ -185,6 +185,55 @@ public class BrokerLimitsEnforcementSpecs : TestKit
         dequeued.Should().Be(packet2);
     }
 
+    [Fact]
+    public async Task ExactlyOnceRetryActor_failed_pubrec_frees_slot_and_promotes_buffered_publish()
+    {
+        var probe = CreateTestProbe();
+        var channel = Channel.CreateUnbounded<MqttPacket>();
+        var actor = Sys.ActorOf(Props.Create(() =>
+            new ExactlyOncePublishRetryActor(channel.Writer, 3, TimeSpan.FromMinutes(1))));
+
+        // ReceiveMaximum=1: only one in-flight QoS 2 publish at a time
+        actor.Tell(new PublishingProtocol.SetReceiveMaximum(1));
+
+        var packet1 = MakeQos2Packet(1);
+        var packet2 = MakeQos2Packet(2); // will be buffered
+
+        actor.Tell(packet1, probe);
+        actor.Tell(packet2, probe);
+
+        using var cts = new CancellationTokenSource(RemainingOrDefault);
+
+        // packet1 goes to channel immediately
+        var inChannel = await channel.Reader.ReadAsync(cts.Token);
+        inChannel.Should().Be(packet1);
+
+        // packet2 should be buffered (not yet in channel)
+        await Task.Delay(50, cts.Token);
+        channel.Reader.TryRead(out _).Should().BeFalse("packet2 should be buffered while packet1 is in-flight");
+
+        // Broker rejects packet1 with a failing PubRec
+        var failedPubRec = packet1.ToPubRec();
+        failedPubRec.ReasonCode = PubRecReasonCode.QuotaExceeded;
+        actor.Tell(failedPubRec, probe);
+
+        // packet1 sender receives failure
+        await probe.ExpectMsgAsync<PublishingProtocol.PublishFailure>(cancellationToken: cts.Token);
+
+        // Slot is now free — packet2 should be promoted from the buffer and sent to channel
+        var dequeued = await channel.Reader.ReadAsync(cts.Token);
+        dequeued.Should().Be(packet2, "the buffered packet2 should be promoted after packet1's slot is freed");
+
+        // Complete packet2 to verify it can finish successfully
+        actor.Tell(packet2.ToPubRec(), probe);
+
+        var pubRelMsg = await channel.Reader.ReadAsync(cts.Token);
+        pubRelMsg.PacketType.Should().Be(MqttPacketType.PubRel);
+
+        actor.Tell(new PubCompPacket { PacketId = packet2.PacketId }, probe);
+        await probe.ExpectMsgAsync<PublishingProtocol.PublishSuccess>(cancellationToken: cts.Token);
+    }
+
     // =========================================================
     // Helpers
     // =========================================================

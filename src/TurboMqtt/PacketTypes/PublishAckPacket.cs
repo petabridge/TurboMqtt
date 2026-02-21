@@ -67,7 +67,7 @@ public sealed class PubAckPacket : MqttPacketWithId
     /// User Properties, available in MQTT 5.0.
     /// These are key-value pairs that can be sent to provide additional information in the acknowledgment. Property 0x26.
     /// </summary>
-    public IReadOnlyDictionary<string, string>? UserProperties { get; set; }
+    public IReadOnlyList<KeyValuePair<string, string>>? UserProperties { get; set; }
 
     public override string ToString()
     {

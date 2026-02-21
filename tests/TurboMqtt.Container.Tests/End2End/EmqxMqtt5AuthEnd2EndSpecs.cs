@@ -48,7 +48,7 @@ public class EmqxMqtt5AuthEnd2EndSpecs : TestKit
     [Fact]
     public async Task ShouldConnectWithValidCredentials()
     {
-        var client = await _clientFactory.CreateTcpClient(
+        await using var client = await _clientFactory.CreateTcpClient(
             ValidConnectOptions("v5-auth-connect-valid"), TcpOptions);
 
         using var cts = new CancellationTokenSource(RemainingOrDefault);
@@ -59,6 +59,30 @@ public class EmqxMqtt5AuthEnd2EndSpecs : TestKit
 
         await client.DisconnectAsync(cts.Token);
         client.IsConnected.Should().BeFalse();
+    }
+
+    /// <summary>
+    /// Verifies that a MQTT 5.0 client connecting without any credentials (no username,
+    /// no password) is rejected when the broker has anonymous access disabled
+    /// (<c>EMQX_MQTT__ALLOW_ANONYMOUS=false</c>).
+    /// EMQX sends CONNACK with Reason Code 0x87 (Not Authorized) per MQTT 5.0 §3.2.2.2.
+    /// </summary>
+    [Fact]
+    public async Task ShouldRejectConnectionWithNoCredentials()
+    {
+        var noCredentialsOptions = new MqttClientConnectOptions("v5-auth-connect-no-creds", MqttProtocolVersion.V5_0)
+        {
+            KeepAliveSeconds = 60
+            // No UserName, no Password
+        };
+
+        await using var client = await _clientFactory.CreateTcpClient(noCredentialsOptions, TcpOptions);
+
+        using var cts = new CancellationTokenSource(RemainingOrDefault);
+        var connectResult = await client.ConnectAsync(cts.Token);
+
+        connectResult.IsSuccess.Should().BeFalse(
+            "MQTT 5.0 connecting without credentials should be refused when the broker has anonymous access disabled");
     }
 
     /// <summary>
@@ -76,7 +100,7 @@ public class EmqxMqtt5AuthEnd2EndSpecs : TestKit
             KeepAliveSeconds = 60
         };
 
-        var client = await _clientFactory.CreateTcpClient(invalidOptions, TcpOptions);
+        await using var client = await _clientFactory.CreateTcpClient(invalidOptions, TcpOptions);
 
         using var cts = new CancellationTokenSource(RemainingOrDefault);
         var connectResult = await client.ConnectAsync(cts.Token);
@@ -91,7 +115,7 @@ public class EmqxMqtt5AuthEnd2EndSpecs : TestKit
     [Fact]
     public async Task ShouldPublishAndSubscribeWithAuth_QoS0()
     {
-        var client = await _clientFactory.CreateTcpClient(
+        await using var client = await _clientFactory.CreateTcpClient(
             ValidConnectOptions("v5-auth-pubsub-qos0"), TcpOptions);
 
         using var cts = new CancellationTokenSource(RemainingOrDefault);
@@ -130,7 +154,7 @@ public class EmqxMqtt5AuthEnd2EndSpecs : TestKit
     [Fact]
     public async Task ShouldPublishAndSubscribeWithAuth_QoS1()
     {
-        var client = await _clientFactory.CreateTcpClient(
+        await using var client = await _clientFactory.CreateTcpClient(
             ValidConnectOptions("v5-auth-pubsub-qos1"), TcpOptions);
 
         using var cts = new CancellationTokenSource(RemainingOrDefault);

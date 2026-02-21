@@ -38,7 +38,7 @@ public class InMemoryMqtt311End2EndSpecs : TransportSpecBase
 
         async Task RunClientLifeCycle()
         {
-            var client = await ClientFactory.CreateInMemoryClient(DefaultConnectOptions);
+            await using var client = await ClientFactory.CreateInMemoryClient(DefaultConnectOptions);
 
             using var cts = new CancellationTokenSource(RemainingOrDefault);
             var connectResult = await client.ConnectAsync(cts.Token);

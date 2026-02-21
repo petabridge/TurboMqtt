@@ -54,7 +54,7 @@ public class Mqtt5RoundtripPropertyTests
 
     // ── CONNECT ─────────────────────────────────────────────────────────────
 
-    [FsCheck.Xunit.Property]
+    [FsCheck.Xunit.Property(MaxTest = 1000)]
     public Property Mqtt5ConnectPacketRoundtrip()
     {
         return Prop.ForAll(Mqtt5PacketGenerators.Mqtt5ConnectPacketArb(), orig =>
@@ -88,7 +88,7 @@ public class Mqtt5RoundtripPropertyTests
 
     // ── CONNACK ─────────────────────────────────────────────────────────────
 
-    [FsCheck.Xunit.Property]
+    [FsCheck.Xunit.Property(MaxTest = 1000)]
     public Property Mqtt5ConnAckPacketRoundtrip()
     {
         return Prop.ForAll(Mqtt5PacketGenerators.Mqtt5ConnAckPacketArb(), orig =>
@@ -111,7 +111,7 @@ public class Mqtt5RoundtripPropertyTests
 
     // ── PUBLISH ─────────────────────────────────────────────────────────────
 
-    [FsCheck.Xunit.Property]
+    [FsCheck.Xunit.Property(MaxTest = 1000)]
     public Property Mqtt5PublishPacketRoundtrip()
     {
         return Prop.ForAll(Mqtt5PacketGenerators.Mqtt5PublishPacketArb(), orig =>
@@ -147,7 +147,7 @@ public class Mqtt5RoundtripPropertyTests
 
     // ── PUBACK ──────────────────────────────────────────────────────────────
 
-    [FsCheck.Xunit.Property]
+    [FsCheck.Xunit.Property(MaxTest = 1000)]
     public Property Mqtt5PubAckPacketRoundtrip()
     {
         return Prop.ForAll(Mqtt5PacketGenerators.Mqtt5PubAckPacketArb(), orig =>
@@ -181,7 +181,7 @@ public class Mqtt5RoundtripPropertyTests
 
     // ── PUBREC ──────────────────────────────────────────────────────────────
 
-    [FsCheck.Xunit.Property]
+    [FsCheck.Xunit.Property(MaxTest = 1000)]
     public Property Mqtt5PubRecPacketRoundtrip()
     {
         return Prop.ForAll(Mqtt5PacketGenerators.Mqtt5PubRecPacketArb(), orig =>
@@ -215,7 +215,7 @@ public class Mqtt5RoundtripPropertyTests
 
     // ── PUBREL ──────────────────────────────────────────────────────────────
 
-    [FsCheck.Xunit.Property]
+    [FsCheck.Xunit.Property(MaxTest = 1000)]
     public Property Mqtt5PubRelPacketRoundtrip()
     {
         return Prop.ForAll(Mqtt5PacketGenerators.Mqtt5PubRelPacketArb(), orig =>
@@ -249,7 +249,7 @@ public class Mqtt5RoundtripPropertyTests
 
     // ── PUBCOMP ─────────────────────────────────────────────────────────────
 
-    [FsCheck.Xunit.Property]
+    [FsCheck.Xunit.Property(MaxTest = 1000)]
     public Property Mqtt5PubCompPacketRoundtrip()
     {
         return Prop.ForAll(Mqtt5PacketGenerators.Mqtt5PubCompPacketArb(), orig =>
@@ -283,7 +283,7 @@ public class Mqtt5RoundtripPropertyTests
 
     // ── SUBSCRIBE ───────────────────────────────────────────────────────────
 
-    [FsCheck.Xunit.Property]
+    [FsCheck.Xunit.Property(MaxTest = 1000)]
     public Property Mqtt5SubscribePacketRoundtrip()
     {
         return Prop.ForAll(Mqtt5PacketGenerators.Mqtt5SubscribePacketArb(), orig =>
@@ -299,7 +299,7 @@ public class Mqtt5RoundtripPropertyTests
 
     // ── SUBACK ──────────────────────────────────────────────────────────────
 
-    [FsCheck.Xunit.Property]
+    [FsCheck.Xunit.Property(MaxTest = 1000)]
     public Property Mqtt5SubAckPacketRoundtrip()
     {
         return Prop.ForAll(Mqtt5PacketGenerators.Mqtt5SubAckPacketArb(), orig =>
@@ -314,7 +314,7 @@ public class Mqtt5RoundtripPropertyTests
 
     // ── UNSUBSCRIBE ─────────────────────────────────────────────────────────
 
-    [FsCheck.Xunit.Property]
+    [FsCheck.Xunit.Property(MaxTest = 1000)]
     public Property Mqtt5UnsubscribePacketRoundtrip()
     {
         return Prop.ForAll(Mqtt5PacketGenerators.Mqtt5UnsubscribePacketArb(), orig =>
@@ -329,7 +329,7 @@ public class Mqtt5RoundtripPropertyTests
 
     // ── UNSUBACK ────────────────────────────────────────────────────────────
 
-    [FsCheck.Xunit.Property]
+    [FsCheck.Xunit.Property(MaxTest = 1000)]
     public Property Mqtt5UnsubAckPacketRoundtrip()
     {
         return Prop.ForAll(Mqtt5PacketGenerators.Mqtt5UnsubAckPacketArb(), orig =>
@@ -344,7 +344,7 @@ public class Mqtt5RoundtripPropertyTests
 
     // ── PINGREQ / PINGRESP ───────────────────────────────────────────────────
 
-    [FsCheck.Xunit.Property]
+    [FsCheck.Xunit.Property(MaxTest = 1000)]
     public Property Mqtt5PingReqPacketRoundtrip()
     {
         return Prop.ForAll(Mqtt5PacketGenerators.Mqtt5PingReqPacketArb(), orig =>
@@ -357,7 +357,7 @@ public class Mqtt5RoundtripPropertyTests
         });
     }
 
-    [FsCheck.Xunit.Property]
+    [FsCheck.Xunit.Property(MaxTest = 1000)]
     public Property Mqtt5PingRespPacketRoundtrip()
     {
         return Prop.ForAll(Mqtt5PacketGenerators.Mqtt5PingRespPacketArb(), orig =>
@@ -372,7 +372,7 @@ public class Mqtt5RoundtripPropertyTests
 
     // ── DISCONNECT ───────────────────────────────────────────────────────────
 
-    [FsCheck.Xunit.Property]
+    [FsCheck.Xunit.Property(MaxTest = 1000)]
     public Property Mqtt5DisconnectPacketRoundtrip()
     {
         return Prop.ForAll(Mqtt5PacketGenerators.Mqtt5DisconnectPacketArb(), orig =>
@@ -399,7 +399,7 @@ public class Mqtt5RoundtripPropertyTests
 
     // ── AUTH ────────────────────────────────────────────────────────────────
 
-    [FsCheck.Xunit.Property]
+    [FsCheck.Xunit.Property(MaxTest = 1000)]
     public Property Mqtt5AuthPacketRoundtrip()
     {
         return Prop.ForAll(Mqtt5PacketGenerators.Mqtt5AuthPacketArb(), orig =>
@@ -433,7 +433,7 @@ public class Mqtt5RoundtripPropertyTests
     /// Combined roundtrip property test using all 15 MQTT 5.0 packet types.
     /// Encodes a random packet, decodes it, and asserts the packet type is preserved.
     /// </summary>
-    [FsCheck.Xunit.Property]
+    [FsCheck.Xunit.Property(MaxTest = 1000)]
     public Property AllMqtt5PacketTypesRoundtrip()
     {
         return Prop.ForAll(Mqtt5PacketGenerators.Mqtt5PacketArb(), packet =>

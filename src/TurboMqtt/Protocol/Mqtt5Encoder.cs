@@ -557,7 +557,7 @@ internal static class Mqtt5Encoder
     private static int ComputeWillPropertiesSize(MqttLastWill will)
     {
         var size = 0;
-        if (will.DelayInterval.Value != 0) size += 1 + 4;
+        if (will.DelayInterval != 0) size += 1 + 4;
         if (will.PayloadFormatIndicator != PayloadFormatIndicator.Unspecified) size += 1 + 1;
         if (will.MessageExpiryInterval != 0) size += 1 + 4;
         if (!string.IsNullOrEmpty(will.ContentType)) size += 1 + 2 + Encoding.UTF8.GetByteCount(will.ContentType);
@@ -649,7 +649,7 @@ internal static class Mqtt5Encoder
         return size;
     }
 
-    private static int ComputeAckPropertiesSize(string? reasonString, IReadOnlyDictionary<string, string>? userProps)
+    private static int ComputeAckPropertiesSize(string? reasonString, IReadOnlyList<KeyValuePair<string, string>>? userProps)
     {
         var size = 0;
         if (!string.IsNullOrEmpty(reasonString))
@@ -679,7 +679,7 @@ internal static class Mqtt5Encoder
         return size;
     }
 
-    private static int ComputeUserPropertiesSize(IReadOnlyDictionary<string, string> userProperties)
+    private static int ComputeUserPropertiesSize(IReadOnlyList<KeyValuePair<string, string>> userProperties)
     {
         var size = 0;
         foreach (var (key, value) in userProperties)
@@ -716,8 +716,8 @@ internal static class Mqtt5Encoder
     private static int WriteWillProperties(ref Span<byte> span, MqttLastWill will)
     {
         var bytesWritten = 0;
-        if (will.DelayInterval.Value != 0)
-            bytesWritten += Mqtt5PropertyWriter.WriteFourByteInt(ref span, Mqtt5PropertyIdentifiers.WillDelayInterval, will.DelayInterval.Value);
+        if (will.DelayInterval != 0)
+            bytesWritten += Mqtt5PropertyWriter.WriteFourByteInt(ref span, Mqtt5PropertyIdentifiers.WillDelayInterval, will.DelayInterval);
         if (will.PayloadFormatIndicator != PayloadFormatIndicator.Unspecified)
             bytesWritten += Mqtt5PropertyWriter.WriteByte(ref span, Mqtt5PropertyIdentifiers.PayloadFormatIndicator, (byte)will.PayloadFormatIndicator);
         if (will.MessageExpiryInterval != 0)
@@ -799,7 +799,7 @@ internal static class Mqtt5Encoder
     }
 
     private static int WriteAckProperties(ref Span<byte> span, string? reasonString,
-        IReadOnlyDictionary<string, string>? userProps)
+        IReadOnlyList<KeyValuePair<string, string>>? userProps)
     {
         var bytesWritten = 0;
         if (!string.IsNullOrEmpty(reasonString))
@@ -829,7 +829,7 @@ internal static class Mqtt5Encoder
         return bytesWritten;
     }
 
-    private static int WriteUserProperties(ref Span<byte> span, IReadOnlyDictionary<string, string> userProperties)
+    private static int WriteUserProperties(ref Span<byte> span, IReadOnlyList<KeyValuePair<string, string>> userProperties)
     {
         var bytesWritten = 0;
         foreach (var (key, value) in userProperties)

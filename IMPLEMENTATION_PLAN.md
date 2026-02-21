@@ -72,11 +72,11 @@ quota slot. The QoS 1 actor handles this correctly on all paths.
 Key file: `src/TurboMqtt/Protocol/Pub/ExactlyOncePublishRetryActor.cs` lines 100-108.
 
 Done when:
-- [ ] `DequeueBuffered()` is called after `_pendingPackets.Remove` in the PubRec failure handler (line 103 area)
-- [ ] Akka.Hosting.TestKit test exercises: send N+1 publishes where N = ReceiveMaximum, have the broker reply with a failing PubRec for one, verify the buffered publish is promoted and eventually completes
-- [ ] Existing `ExactlyOncePublishRetryActor` tests still pass
-- [ ] Builds with zero warnings
-- [ ] All existing tests pass
+- [x] `DequeueBuffered()` is called after `_pendingPackets.Remove` in the PubRec failure handler (line 103 area)
+- [x] Akka.Hosting.TestKit test exercises: send N+1 publishes where N = ReceiveMaximum, have the broker reply with a failing PubRec for one, verify the buffered publish is promoted and eventually completes
+- [x] Existing `ExactlyOncePublishRetryActor` tests still pass
+- [x] Builds with zero warnings
+- [x] All existing tests pass
 
 ### Task 4.2: Fix double DISCONNECT injection in Draining-to-Closing transition
 
@@ -92,12 +92,12 @@ Two DISCONNECT packets enter the reads channel on the graceful drain path.
 Key file: `src/TurboMqtt/IO/Tcp/TcpTransportActor.cs`.
 
 Done when:
-- [ ] Only one DISCONNECT packet is injected into `_readsFromTransport` on the Draining -> Closing path (guard added to `BecomeClosing` or injection removed from `Draining.OutboundFlushed` handler)
-- [ ] The Connected -> Closing path (no draining) still injects exactly one DISCONNECT
-- [ ] The Aborted path still injects exactly one DISCONNECT
-- [ ] Akka.Hosting.TestKit test verifies the graceful drain path produces exactly one DISCONNECT in the reads channel
-- [ ] Builds with zero warnings
-- [ ] All existing tests pass
+- [x] Only one DISCONNECT packet is injected into `_readsFromTransport` on the Draining -> Closing path (guard added to `BecomeClosing` or injection removed from `Draining.OutboundFlushed` handler)
+- [x] The Connected -> Closing path (no draining) still injects exactly one DISCONNECT
+- [x] The Aborted path still injects exactly one DISCONNECT
+- [x] Akka.Hosting.TestKit test verifies the graceful drain path produces exactly one DISCONNECT in the reads channel
+- [x] Builds with zero warnings
+- [x] All existing tests pass
 
 ### Task 4.3: Propagate ConnectTimeout to reconnect CTS
 
@@ -113,11 +113,11 @@ configured value or a separate configurable property.
 Key file: `src/TurboMqtt/Client/ClientStreamOwner.cs`.
 
 Done when:
-- [ ] `BeginReconnect()` uses a configurable timeout instead of the hardcoded 5 seconds
-- [ ] The timeout is sourced from `MqttClientConnectOptions` (new property or existing timeout)
-- [ ] Unit test verifies the reconnect CTS uses the configured timeout value
-- [ ] Builds with zero warnings
-- [ ] All existing tests pass
+- [x] `BeginReconnect()` uses a configurable timeout instead of the hardcoded 5 seconds
+- [x] The timeout is sourced from `MqttClientConnectOptions` (new property or existing timeout)
+- [x] Unit test verifies the reconnect CTS uses the configured timeout value
+- [x] Builds with zero warnings
+- [x] All existing tests pass
 
 ### Task 4.4: Fix flaky HeartbeatFailure test port binding conflict
 
@@ -132,11 +132,11 @@ fails with `SocketException: Address already in use`.
 Key file: `tests/TurboMqtt.Tests/End2End/TcpMqtt311HeartbeatFailureEnd2EndSpecs.cs`.
 
 Done when:
-- [ ] `FakeMqttTcpServer` uses an ephemeral port (bind to port 0, read back assigned port)
-- [ ] `TcpMqtt311HeartbeatFailureEnd2EndSpecs` uses the dynamically assigned port
-- [ ] Test passes reliably on at least 10 consecutive local runs
-- [ ] Builds with zero warnings
-- [ ] All existing tests pass
+- [x] `FakeMqttTcpServer` uses an ephemeral port (bind to port 0, read back assigned port)
+- [x] `TcpMqtt311HeartbeatFailureEnd2EndSpecs` uses the dynamically assigned port
+- [x] Test passes reliably on at least 10 consecutive local runs
+- [x] Builds with zero warnings
+- [x] All existing tests pass
 
 ### Task 4.5: Investigate and fix MqttPacketSizeEstimator underestimation edge cases
 
@@ -152,11 +152,11 @@ fixed, but additional edge cases remain.
 Key file: `src/TurboMqtt/Protocol/MqttPacketSizeEstimator.cs`.
 
 Done when:
-- [ ] FsCheck tests run at 1000+ iterations with no "Destination is too short" failures for all MQTT 5.0 packet types
-- [ ] Any newly discovered estimator bugs are fixed with deterministic regression tests
-- [ ] Fixed-seed regression tests added for each discovered edge case
-- [ ] Builds with zero warnings
-- [ ] All existing tests pass
+- [x] FsCheck tests run at 1000+ iterations with no "Destination is too short" failures for all MQTT 5.0 packet types
+- [x] Any newly discovered estimator bugs are fixed with deterministic regression tests
+- [x] Fixed-seed regression tests added for each discovered edge case
+- [x] Builds with zero warnings
+- [x] All existing tests pass
 
 ### Task 4.6: Change MqttLastWill.DelayInterval from NonZeroUInt16 to uint
 
@@ -177,15 +177,15 @@ Key files:
 - `src/TurboMqtt/Protocol/MqttPacketSizeEstimator.cs` (`.Value` access)
 
 Done when:
-- [ ] `MqttLastWill.DelayInterval` type changed from `NonZeroUInt16` to `uint`
-- [ ] `LastWillAndTestament.DelayInterval` type changed from `NonZeroUInt16` to `uint`
-- [ ] Decoder reads full four-byte integer without truncation
-- [ ] Encoder writes full four-byte integer
-- [ ] Size estimator correctly accounts for the 4-byte field
-- [ ] Value of 0 is accepted (no `NonZeroUInt16` constraint)
-- [ ] FsCheck property test covers roundtrip with values > 65535
-- [ ] Builds with zero warnings
-- [ ] All existing tests pass
+- [x] `MqttLastWill.DelayInterval` type changed from `NonZeroUInt16` to `uint`
+- [x] `LastWillAndTestament.DelayInterval` type changed from `NonZeroUInt16` to `uint`
+- [x] Decoder reads full four-byte integer without truncation
+- [x] Encoder writes full four-byte integer
+- [x] Size estimator correctly accounts for the 4-byte field
+- [x] Value of 0 is accepted (no `NonZeroUInt16` constraint)
+- [x] FsCheck property test covers roundtrip with values > 65535
+- [x] Builds with zero warnings
+- [x] All existing tests pass
 
 ### Task 4.7: Change UserProperties from IReadOnlyDictionary to support duplicate keys
 
@@ -207,14 +207,14 @@ Affected types (all in `src/TurboMqtt/PacketTypes/`): `ConnectPacket`,
 Also affects encoder, decoder, and size estimator code that iterates these collections.
 
 Done when:
-- [ ] All `UserProperties` and `WillProperties` changed from `IReadOnlyDictionary<string, string>?` to `IReadOnlyList<KeyValuePair<string, string>>?` (or equivalent)
-- [ ] Encoder iterates the list-based type
-- [ ] Decoder populates the list-based type
-- [ ] `ComputeUserPropertiesSize` in `MqttPacketSizeEstimator` iterates the list-based type
-- [ ] FsCheck generators updated to produce duplicate keys
-- [ ] Roundtrip test verifies duplicate keys are preserved
-- [ ] Builds with zero warnings
-- [ ] All existing tests pass
+- [x] All `UserProperties` and `WillProperties` changed from `IReadOnlyDictionary<string, string>?` to `IReadOnlyList<KeyValuePair<string, string>>?` (or equivalent)
+- [x] Encoder iterates the list-based type
+- [x] Decoder populates the list-based type
+- [x] `ComputeUserPropertiesSize` in `MqttPacketSizeEstimator` iterates the list-based type
+- [x] FsCheck generators updated to produce duplicate keys
+- [x] Roundtrip test verifies duplicate keys are preserved
+- [x] Builds with zero warnings
+- [x] All existing tests pass
 
 ### Task 4.8: Implement shared ReceiveMaximum quota across QoS 1 and QoS 2 actors
 
@@ -233,12 +233,12 @@ Key files:
 - `src/TurboMqtt/Client/IMqttClient.cs` (`MqttClient.ApplyBrokerLimits`)
 
 Done when:
-- [ ] A shared quota mechanism limits total in-flight QoS 1 + QoS 2 publishes to ReceiveMaximum
-- [ ] When one QoS level frees a slot, the other can use it
-- [ ] Integration test publishes interleaved QoS 1 and QoS 2 messages against a broker with ReceiveMaximum=5, verifying total in-flight never exceeds 5
-- [ ] Existing QoS 1 and QoS 2 tests still pass
-- [ ] Builds with zero warnings
-- [ ] All existing tests pass
+- [x] A shared quota mechanism limits total in-flight QoS 1 + QoS 2 publishes to ReceiveMaximum
+- [x] When one QoS level frees a slot, the other can use it
+- [x] Integration test publishes interleaved QoS 1 and QoS 2 messages against a broker with ReceiveMaximum=5, verifying total in-flight never exceeds 5
+- [x] Existing QoS 1 and QoS 2 tests still pass
+- [x] Builds with zero warnings
+- [x] All existing tests pass
 
 ---
 
@@ -262,12 +262,12 @@ DoDisconnect during reconnect) more reliably and faster.
 Key file: `src/TurboMqtt/Client/ClientStreamOwner.cs`, `Reconnecting` method.
 
 Done when:
-- [ ] TestKit test covers: ReconnectSuccess -> returns to Running
-- [ ] TestKit test covers: ReconnectFailed with remaining attempts -> retries
-- [ ] TestKit test covers: ReconnectFailed with no remaining attempts -> PoisonPill
-- [ ] TestKit test covers: DoDisconnect while reconnecting -> immediate shutdown
-- [ ] Builds with zero warnings
-- [ ] All existing tests pass
+- [x] TestKit test covers: ReconnectSuccess -> returns to Running
+- [x] TestKit test covers: ReconnectFailed with remaining attempts -> retries
+- [x] TestKit test covers: ReconnectFailed with no remaining attempts -> PoisonPill
+- [x] TestKit test covers: DoDisconnect while reconnecting -> immediate shutdown
+- [x] Builds with zero warnings
+- [x] All existing tests pass
 
 ### Task 5.2: Add unit tests for MqttClient.PublishAsync broker limit validation
 
@@ -282,12 +282,29 @@ are only partially covered by E2E tests.
 Key file: `src/TurboMqtt/Client/IMqttClient.cs`, `MqttClient.PublishAsync` lines 437-451.
 
 Done when:
-- [ ] Test: publish with `RetainRequested=true` when `_brokerRetainAvailable=false` returns failure
-- [ ] Test: publish with QoS 2 when `_brokerMaximumQoS=QoS1` returns failure
-- [ ] Test: publish with payload exceeding `_brokerMaximumPacketSize` returns failure
-- [ ] Test: publish within all limits succeeds
-- [ ] Builds with zero warnings
-- [ ] All existing tests pass
+- [x] Test: publish with `RetainRequested=true` when `_brokerRetainAvailable=false` returns failure
+- [x] Test: publish with QoS 2 when `_brokerMaximumQoS=QoS1` returns failure
+- [x] Test: publish with payload exceeding `_brokerMaximumPacketSize` returns failure
+- [x] Test: publish within all limits succeeds
+- [x] Builds with zero warnings
+- [x] All existing tests pass
+
+### Task 5.2.1: Stabilize flaky DoDisconnect_WhileReconnecting_ShutsDownImmediately test
+
+**Source:** Adversarial review after iter-10, finding F-6 (run 20260221-053113)
+**Surface area:** cross-cutting
+**Verification:** L2
+
+`ClientStreamOwnerReconnectingSpecs.DoDisconnect_WhileReconnecting_ShutsDownImmediately` fails
+intermittently when run as part of the full parallel test suite but passes consistently
+in isolation. The `AwaitAssertAsync` polling at 20ms intervals (Phase 3) races with test
+parallelism scheduling.
+
+Done when:
+- [x] Test passes reliably in 10 consecutive full-suite runs (`dotnet test tests/TurboMqtt.Tests/ -c Release`)
+- [x] Fix uses a deterministic signal (e.g., EventFilter on transport FSM log) rather than polling, OR increases timeout with documented justification
+- [x] Builds with zero warnings
+- [x] All existing tests pass
 
 ### Task 5.3: Add deterministic encoder test for ReceiveMaximum > 0
 
@@ -300,10 +317,10 @@ No deterministic test verifies the 20-byte properties block with
 ReceiveMaximum included.
 
 Done when:
-- [ ] Deterministic encode-decode test creates a ConnectPacket with ReceiveMaximum > 0 and verifies roundtrip
-- [ ] The encoded properties block includes the ReceiveMaximum property identifier and 2-byte value
-- [ ] Builds with zero warnings
-- [ ] All existing tests pass
+- [x] Deterministic encode-decode test creates a ConnectPacket with ReceiveMaximum > 0 and verifies roundtrip
+- [x] The encoded properties block includes the ReceiveMaximum property identifier and 2-byte value
+- [x] Builds with zero warnings
+- [x] All existing tests pass
 
 ### Task 5.4: Add no-credentials negative auth test
 
@@ -316,10 +333,10 @@ no-credentials-at-all against an auth-enabled EMQX broker
 (`EMQX_MQTT__ALLOW_ANONYMOUS=false`).
 
 Done when:
-- [ ] Container test `ShouldRejectConnectionWithNoCredentials` connects to EMQX without username/password and asserts connect failure
-- [ ] Test runs in `TurboMqtt.Container.Tests` project
-- [ ] Builds with zero warnings
-- [ ] All existing tests pass
+- [x] Container test `ShouldRejectConnectionWithNoCredentials` connects to EMQX without username/password and asserts connect failure
+- [x] Test runs in `TurboMqtt.Container.Tests` project
+- [x] Builds with zero warnings
+- [x] All existing tests pass
 
 ### Task 5.5: Add dedicated regression test for 1-char MQTT topic name
 
@@ -331,10 +348,10 @@ The decoder bug fix (minBytes 2 to 1 for PUBLISH topic name) is covered
 probabilistically by FsCheck but lacks a self-documenting deterministic test.
 
 Done when:
-- [ ] Deterministic test `Decoder_Publish_SingleCharTopic_DecodesSuccessfully` encodes and decodes a PUBLISH with a 1-character topic
-- [ ] Test covers both MQTT 3.1.1 and MQTT 5.0 decoders
-- [ ] Builds with zero warnings
-- [ ] All existing tests pass
+- [x] Deterministic test `Decoder_Publish_SingleCharTopic_DecodesSuccessfully` encodes and decodes a PUBLISH with a 1-character topic
+- [x] Test covers both MQTT 3.1.1 and MQTT 5.0 decoders
+- [x] Builds with zero warnings
+- [x] All existing tests pass
 
 ### Task 5.6: Add empty ClientId test for MQTT 5.0 CONNECT
 
@@ -346,10 +363,10 @@ Done when:
 throw), but no dedicated test exercises this path.
 
 Done when:
-- [ ] Deterministic test encodes a CONNECT packet with empty ClientId and verifies successful decode
-- [ ] Test verifies the decoded ClientId is empty string
-- [ ] Builds with zero warnings
-- [ ] All existing tests pass
+- [x] Deterministic test encodes a CONNECT packet with empty ClientId and verifies successful decode
+- [x] Test verifies the decoded ClientId is empty string
+- [x] Builds with zero warnings
+- [x] All existing tests pass
 
 ### Task 5.7: Establish await using convention for IMqttClient in tests
 
@@ -362,10 +379,10 @@ Test methods create `IMqttClient` instances without `await using`. Since
 shutdown, which is nondeterministic.
 
 Done when:
-- [ ] All test methods that create `IMqttClient` use `await using` pattern
-- [ ] No test method stores a client in a field without a corresponding dispose in teardown
-- [ ] Builds with zero warnings
-- [ ] All existing tests pass
+- [x] All test methods that create `IMqttClient` use `await using` pattern
+- [x] No test method stores a client in a field without a corresponding dispose in teardown
+- [x] Builds with zero warnings
+- [x] All existing tests pass
 
 ### Task 5.8: Close RetainHandling bit-mask tracking issue
 
@@ -378,9 +395,9 @@ fixed in commit 8f94444. This task verifies the fix is tested and closes the
 issue.
 
 Done when:
-- [ ] Verify that existing tests cover RetainHandling decode with all three values (0, 1, 2)
-- [ ] If not covered, add a deterministic test
-- [ ] Close issue #364 on GitHub
+- [x] Verify that existing tests cover RetainHandling decode with all three values (0, 1, 2)
+- [x] If not covered, add a deterministic test
+- [x] Close issue #364 on GitHub
 
 ---
 
@@ -403,10 +420,10 @@ publish broken packages.
 Key file: `.github/workflows/release.yaml`.
 
 Done when:
-- [ ] `dotnet test` step added to `release.yaml` after the build step and before the pack step
-- [ ] Test step runs `dotnet test -c Release tests/TurboMqtt.Tests/` (unit tests only, no containers)
-- [ ] Workflow fails and does not publish if tests fail
-- [ ] Builds with zero warnings
+- [x] `dotnet test` step added to `release.yaml` after the build step and before the pack step
+- [x] Test step runs `dotnet test -c Release tests/TurboMqtt.Tests/` (unit tests only, no containers)
+- [x] Workflow fails and does not publish if tests fail
+- [x] Builds with zero warnings
 
 ### Task 6.2: Run full production benchmarks for MQTT 5.0
 
@@ -419,11 +436,11 @@ Full production runs (launchCount=10, warmupCount=10) should be executed and res
 documented before the 1.0 release.
 
 Done when:
-- [ ] Full BenchmarkDotNet run completed for MQTT 5.0 TCP (QoS 0/1/2, 10B and 1KB payloads)
-- [ ] Full BenchmarkDotNet run completed for MQTT 5.0 TLS (QoS 0/1/2, 10B and 1KB payloads)
-- [ ] Results documented in `docs/performance/mqtt5-benchmarks.md`
-- [ ] No throughput regressions vs MQTT 3.1.1 pipeline
-- [ ] Builds with zero warnings
+- [x] Full BenchmarkDotNet run completed for MQTT 5.0 TCP (QoS 0/1/2, 10B and 1KB payloads)
+- [x] Full BenchmarkDotNet run completed for MQTT 5.0 TLS (QoS 0/1/2, 10B and 1KB payloads)
+- [x] Results documented in `docs/performance/mqtt5-benchmarks.md`
+- [x] No throughput regressions vs MQTT 3.1.1 pipeline
+- [x] Builds with zero warnings
 
 ### Task 6.3: Define v1.0 release criteria and quality bar
 
@@ -438,9 +455,9 @@ Questions that must be answered:
 - What performance benchmarks must pass?
 
 Done when:
-- [ ] Release criteria documented in `docs/release/v1.0-criteria.md`
-- [ ] Criteria covers: protocol scope, API stability promise, perf bar, test pass rate
-- [ ] Issue #353 closed
+- [x] Release criteria documented in `docs/release/v1.0-criteria.md`
+- [x] Criteria covers: protocol scope, API stability promise, perf bar, test pass rate
+- [x] Issue #353 closed
 
 ### Task 6.4: API stability review before 1.0 release
 

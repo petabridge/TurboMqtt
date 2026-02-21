@@ -83,10 +83,10 @@ public class ConnAckPacketSpecs
             {
                 SessionPresent = true,
                 ReasonCode = ConnAckReasonCode.Success,
-                UserProperties = new Dictionary<string, string>
+                UserProperties = new List<KeyValuePair<string, string>>
                 {
-                    { "key1", "value1" },
-                    { "key2", "value2" }
+                    new("key1", "value1"),
+                    new("key2", "value2")
                 }
             };
             // MQTT 5.0 CONNACK: SP(1) + RC(1) + propVBI(1) + 2 user props (15 each) = 33 bytes

@@ -38,9 +38,9 @@ public sealed record LastWillAndTestament
     public ReadOnlyMemory<byte>? WillCorrelationData { get; init; } // MQTT 5.0 only
     public string? ContentType { get; init; } // MQTT 5.0 only
     public PayloadFormatIndicator PayloadFormatIndicator { get; init; } // MQTT 5.0 only
-    public NonZeroUInt16 DelayInterval { get; init; } // MQTT 5.0 only
+    public uint DelayInterval { get; init; } // MQTT 5.0 only
     public uint MessageExpiryInterval { get; init; } // MQTT 5.0 only
-    public IReadOnlyDictionary<string, string>? WillProperties { get; init; } // MQTT 5.0 custom properties
+    public IReadOnlyList<KeyValuePair<string, string>>? WillProperties { get; init; } // MQTT 5.0 custom properties
 }
 
 /// <summary>
@@ -111,6 +111,14 @@ public sealed record MqttClientConnectOptions
     public int MaxReconnectAttempts { get; init; } = 3;
 
     /// <summary>
+    /// Maximum amount of time to wait for a single reconnect attempt to complete before giving up.
+    /// </summary>
+    /// <remarks>
+    /// Defaults to 5 seconds.
+    /// </remarks>
+    public TimeSpan ReconnectTimeout { get; init; } = TimeSpan.FromSeconds(5);
+
+    /// <summary>
     /// Optional MQTT 5.0 Enhanced Authentication handler.
     /// When set, the client sends <c>Authentication Method</c> and <c>Authentication Data</c>
     /// with the CONNECT packet and participates in challenge-response authentication.
@@ -168,5 +176,5 @@ public sealed record MqttClientConnectOptions
     /// <remarks>
     /// Only used when <see cref="ProtocolVersion"/> is <see cref="MqttProtocolVersion.V5_0"/>.
     /// </remarks>
-    public IReadOnlyDictionary<string, string>? UserProperties { get; init; }
+    public IReadOnlyList<KeyValuePair<string, string>>? UserProperties { get; init; }
 }

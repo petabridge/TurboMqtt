@@ -1,4 +1,4 @@
-﻿// -----------------------------------------------------------------------
+// -----------------------------------------------------------------------
 // <copyright file="ExactlyOncePublishRetryActor.cs" company="Petabridge, LLC">
 //      Copyright (C) 2024 - 2024 Petabridge, LLC <https://petabridge.com>
 // </copyright>
@@ -19,7 +19,7 @@ namespace TurboMqtt.Protocol.Pub;
 internal sealed class ExactlyOncePublishRetryActor : UntypedActor, IWithTimers
 {
     private const string PublishTimerKey = "publish-timer";
-    
+
     /// <summary>
     /// State of a pending publish operation - indicates that we're waiting for a <see cref="PubRecPacket"/>
     /// or a <see cref="PubCompPacket"/> from the server.
@@ -29,22 +29,26 @@ internal sealed class ExactlyOncePublishRetryActor : UntypedActor, IWithTimers
         Deadline Deadline,
         IActorRef Sender,
         bool PubRecReceived,
-        int RemainingRetries);
+        int RemainingRetries,
+        bool QuotaClaimed);
 
     private readonly int _maxRetries;
     private readonly TimeSpan _publishTimeout;
     private readonly ChannelWriter<MqttPacket> _outboundPackets;
     private readonly Dictionary<NonZeroUInt16, PendingPublish> _pendingPackets = new();
     private readonly Queue<(PublishPacket Packet, IActorRef Sender)> _bufferedPublishes = new();
-    private ushort _receiveMaximum; // 0 = unlimited
+    private ushort _receiveMaximum; // 0 = unlimited (legacy per-actor mode)
+    private readonly SharedReceiveMaximumQuota? _sharedQuota; // null = legacy mode
+    private IActorRef? _siblingActor; // QoS 1 sibling for cross-QoS buffer drain
     private readonly ILoggingAdapter _log = Context.GetLogger();
 
     public ExactlyOncePublishRetryActor(ChannelWriter<MqttPacket> outboundPackets, int maxRetries = DefaultMaxRetries,
-        TimeSpan? publishTimeout = null)
+        TimeSpan? publishTimeout = null, SharedReceiveMaximumQuota? sharedQuota = null)
     {
         _outboundPackets = outboundPackets;
         _maxRetries = maxRetries;
         _publishTimeout = publishTimeout ?? DefaultPublishTimeout;
+        _sharedQuota = sharedQuota;
     }
 
     protected override void PreStart()
@@ -56,10 +60,33 @@ internal sealed class ExactlyOncePublishRetryActor : UntypedActor, IWithTimers
     {
         switch (message)
         {
+            case SetSiblingPublisher setSibling:
+            {
+                _siblingActor = setSibling.Sibling;
+                _log.Debug("Registered QoS 1 sibling actor [{0}]", _siblingActor);
+                return;
+            }
+
+            case TryDequeueBuffered:
+            {
+                // Sibling freed a quota slot; try to promote buffered publishes.
+                DequeueBuffered();
+                return;
+            }
+
             case PublishingProtocol.SetReceiveMaximum setMax:
             {
-                _receiveMaximum = setMax.Value;
-                _log.Debug("ReceiveMaximum set to [{0}]", _receiveMaximum);
+                if (_sharedQuota != null)
+                {
+                    // Shared quota mode: set the limit on the shared object.
+                    _sharedQuota.SetMaximum(setMax.Value);
+                }
+                else
+                {
+                    // Legacy per-actor mode.
+                    _receiveMaximum = setMax.Value;
+                }
+                _log.Debug("ReceiveMaximum set to [{0}]", setMax.Value);
                 return;
             }
 
@@ -72,28 +99,46 @@ internal sealed class ExactlyOncePublishRetryActor : UntypedActor, IWithTimers
                     return;
                 }
 
-                // When ReceiveMaximum is set and we're at the limit, buffer the publish
-                if (_receiveMaximum > 0 && _pendingPackets.Count >= _receiveMaximum)
+                if (_sharedQuota != null)
                 {
-                    _log.Debug("ReceiveMaximum [{0}] reached; buffering publish [{1}]", _receiveMaximum, packet.PacketId);
-                    _bufferedPublishes.Enqueue((packet, Sender));
-                    return;
+                    // Shared quota mode: attempt to claim a slot.
+                    if (!_sharedQuota.TryClaim())
+                    {
+                        _log.Debug("Shared ReceiveMaximum reached; buffering QoS 2 publish [{0}]", packet.PacketId);
+                        _bufferedPublishes.Enqueue((packet, Sender));
+                        return;
+                    }
+
+                    if (_sharedQuota.IsLimited)
+                        _outboundPackets.TryWrite(packet);
+
+                    _pendingPackets[packet.PacketId] = new PendingPublish(packet, Deadline.FromNow(_publishTimeout),
+                        Sender, false, _maxRetries, QuotaClaimed: _sharedQuota.IsLimited);
                 }
+                else
+                {
+                    // Legacy per-actor mode.
+                    if (_receiveMaximum > 0 && _pendingPackets.Count >= _receiveMaximum)
+                    {
+                        _log.Debug("ReceiveMaximum [{0}] reached; buffering publish [{1}]", _receiveMaximum,
+                            packet.PacketId);
+                        _bufferedPublishes.Enqueue((packet, Sender));
+                        return;
+                    }
 
-                // When ReceiveMaximum is active the actor owns the initial channel write;
-                // otherwise MqttClient writes to the channel directly (legacy path).
-                if (_receiveMaximum > 0)
-                    _outboundPackets.TryWrite(packet);
+                    if (_receiveMaximum > 0)
+                        _outboundPackets.TryWrite(packet);
 
-                _pendingPackets[packet.PacketId] = new PendingPublish(packet, Deadline.FromNow(_publishTimeout),
-                    Sender, false, _maxRetries);
+                    _pendingPackets[packet.PacketId] = new PendingPublish(packet, Deadline.FromNow(_publishTimeout),
+                        Sender, false, _maxRetries, QuotaClaimed: false);
+                }
                 return;
             }
 
             case PubRecPacket rec:
             {
                 _log.Debug("Received PubRec with id [{0}], reason [{1}] from broker", rec.PacketId, rec.ReasonCode);
-                
+
                 if (_pendingPackets.TryGetValue(rec.PacketId, out var pending))
                 {
                     // check the reason code (which will be null for MQTT 3.1.1)
@@ -101,12 +146,14 @@ internal sealed class ExactlyOncePublishRetryActor : UntypedActor, IWithTimers
                     {
                         // remove the pending packet
                         _pendingPackets.Remove(rec.PacketId, out _);
+                        if (pending.QuotaClaimed) _sharedQuota?.Release();
                         _log.Warning("Received PubRec with reason code [{0}] for packet ID [{1}]", rec.ReasonCode,
                             rec.PacketId);
                         pending.Sender.Tell(new PublishingProtocol.PublishFailure("PubRec failed"));
+                        DequeueBuffered();
                         return;
                     }
-                    
+
                     // need to send a PubRel packet
                     var pubRel = pending.Packet.ToPubRel();
                     pubRel.Duplicate = pending.PubRecReceived; // mark this as a duplicate if we've already received a PubRec
@@ -138,6 +185,7 @@ internal sealed class ExactlyOncePublishRetryActor : UntypedActor, IWithTimers
 
                 if (_pendingPackets.Remove(comp.PacketId, out var pending))
                 {
+                    if (pending.QuotaClaimed) _sharedQuota?.Release();
                     _log.Debug("Successfully published packet with ID [{0}] and QoS=2", comp.PacketId);
                     pending.Sender.Tell(PublishingProtocol.PublishSuccess.Instance);
                     // PubComp frees the receive-maximum slot for QoS 2 (per MQTT 5 spec §4.9)
@@ -155,6 +203,7 @@ internal sealed class ExactlyOncePublishRetryActor : UntypedActor, IWithTimers
             {
                 if (_pendingPackets.Remove(cancel.PacketId, out var pending))
                 {
+                    if (pending.QuotaClaimed) _sharedQuota?.Release();
                     pending.Sender.Tell(new PublishingProtocol.PublishFailure("Cancelled"));
                     DequeueBuffered();
                 }
@@ -212,6 +261,7 @@ internal sealed class ExactlyOncePublishRetryActor : UntypedActor, IWithTimers
                         // we've run out of retries
                         _log.Warning("Pub packet with ID [{0}] timed out, no more retries left", packetId);
                         _pendingPackets.Remove(packetId, out _);
+                        if (pending.QuotaClaimed) _sharedQuota?.Release();
                         pending.Sender.Tell(new PublishingProtocol.PublishFailure("Timeout"));
                         DequeueBuffered();
                     }
@@ -224,16 +274,40 @@ internal sealed class ExactlyOncePublishRetryActor : UntypedActor, IWithTimers
 
     /// <summary>
     /// When a slot is freed (PubComp or cancel), dequeue buffered publishes up to the receive maximum.
+    /// When operating in shared-quota mode and the local buffer is fully drained, notifies the
+    /// sibling QoS 1 actor so it can promote its own buffered messages.
     /// </summary>
     private void DequeueBuffered()
     {
-        while (_receiveMaximum > 0 && _bufferedPublishes.Count > 0 && _pendingPackets.Count < _receiveMaximum)
+        if (_sharedQuota?.IsLimited == true)
         {
-            var (bufferedPacket, bufferedSender) = _bufferedPublishes.Dequeue();
-            var deadline = Deadline.FromNow(_publishTimeout);
-            _pendingPackets[bufferedPacket.PacketId] = new PendingPublish(bufferedPacket, deadline, bufferedSender, false, _maxRetries);
-            _outboundPackets.TryWrite(bufferedPacket);
-            _log.Debug("Dequeued buffered publish [{0}] after slot freed", bufferedPacket.PacketId);
+            // Shared quota mode: claim slots from the shared object for each buffered publish.
+            while (_bufferedPublishes.Count > 0 && _sharedQuota.TryClaim())
+            {
+                var (bufferedPacket, bufferedSender) = _bufferedPublishes.Dequeue();
+                var deadline = Deadline.FromNow(_publishTimeout);
+                _pendingPackets[bufferedPacket.PacketId] = new PendingPublish(bufferedPacket, deadline, bufferedSender,
+                    false, _maxRetries, QuotaClaimed: true);
+                _outboundPackets.TryWrite(bufferedPacket);
+                _log.Debug("Dequeued buffered QoS 2 publish [{0}] after slot freed", bufferedPacket.PacketId);
+            }
+
+            // If our buffer is empty, there may be a free slot available for the sibling (QoS 1) actor.
+            if (_bufferedPublishes.Count == 0 && _siblingActor != null)
+                _siblingActor.Tell(TryDequeueBuffered.Instance);
+        }
+        else
+        {
+            // Legacy per-actor mode.
+            while (_receiveMaximum > 0 && _bufferedPublishes.Count > 0 && _pendingPackets.Count < _receiveMaximum)
+            {
+                var (bufferedPacket, bufferedSender) = _bufferedPublishes.Dequeue();
+                var deadline = Deadline.FromNow(_publishTimeout);
+                _pendingPackets[bufferedPacket.PacketId] = new PendingPublish(bufferedPacket, deadline, bufferedSender,
+                    false, _maxRetries, QuotaClaimed: false);
+                _outboundPackets.TryWrite(bufferedPacket);
+                _log.Debug("Dequeued buffered publish [{0}] after slot freed", bufferedPacket.PacketId);
+            }
         }
     }
 

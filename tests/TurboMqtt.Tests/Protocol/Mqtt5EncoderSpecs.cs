@@ -313,7 +313,7 @@ public class Mqtt5EncoderSpecs
             {
                 var packet = new PublishPacket(QualityOfService.AtMostOnce, false, false, "t")
                 {
-                    UserProperties = new Dictionary<string, string> { { "k", "v" } }
+                    UserProperties = new List<KeyValuePair<string, string>> { new("k", "v") }
                 };
                 return Mqtt5Encoder.EncodePublishPacket(packet, ref mem);
             });
@@ -814,6 +814,35 @@ public class Mqtt5EncoderSpecs
             });
 
             bytes[9].Should().Be(0x02); // CleanSession = bit 1 = 0x02
+        }
+
+        [Fact]
+        public void Connect_with_ReceiveMaximum_includes_property_in_properties_block()
+        {
+            // ReceiveMaximum = 500 (0x01F4); MQTT 5.0 §3.1.2.11.3 states value 0 is a
+            // Protocol Error so the encoder only writes the property when non-zero.
+            var (bytes, written) = RunEncode(mem =>
+            {
+                var packet = new ConnectPacket(MqttProtocolVersion.V5_0)
+                {
+                    ReceiveMaximum = 500
+                };
+                return Mqtt5Encoder.EncodeConnectPacket(packet, ref mem);
+            });
+
+            // Without ReceiveMaximum: total = 41, props = 17 (0x11)
+            // With    ReceiveMaximum: total = 44, props = 20 (0x14) — adds 3 bytes (id+ushort)
+            // Layout: fixed(1) + remaining-VBI(1) + var-header(10) + props-VBI(1) + props(20) + clientId(2+9) = 44
+            written.Should().Be(44);
+            bytes[1].Should().Be(0x2A);  // remaining length = 42
+            bytes[12].Should().Be(0x14); // properties length = 20
+
+            // Properties block (starts at byte 13):
+            //   SEI  (5 bytes): bytes[13..17]
+            //   RM   (3 bytes): bytes[18..20]
+            bytes[18].Should().Be(0x21); // ReceiveMaximum property identifier
+            bytes[19].Should().Be(0x01); // high byte of 500 (0x01F4)
+            bytes[20].Should().Be(0xF4); // low byte of 500
         }
     }
 

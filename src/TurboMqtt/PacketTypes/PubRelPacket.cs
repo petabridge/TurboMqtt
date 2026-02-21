@@ -34,7 +34,7 @@ public sealed class PubRelPacket : MqttPacketWithId
     /// User Properties, available in MQTT 5.0.
     /// This is a key-value pair that can be sent multiple times to convey additional information that is not covered by other means.
     /// </summary>
-    public IReadOnlyDictionary<string, string>? UserProperties { get; set; } // MQTT 5.0 only
+    public IReadOnlyList<KeyValuePair<string, string>>? UserProperties { get; set; } // MQTT 5.0 only
 
     public override string ToString()
     {

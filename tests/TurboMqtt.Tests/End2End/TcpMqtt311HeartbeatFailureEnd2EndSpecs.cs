@@ -23,13 +23,12 @@ public class TcpMqtt311HeartbeatFailureEnd2EndSpecs : TestKit
         var logger = new BusLogging(Sys.EventStream, "FakeMqttTcpServer", typeof(FakeMqttTcpServer),
             Sys.Settings.LogFormatter);
         
-        _server = new FakeMqttTcpServer(new MqttTcpServerOptions("localhost", Port), MqttProtocolVersion.V3_1_1, logger, 
+        _server = new FakeMqttTcpServer(new MqttTcpServerOptions("localhost", 0), MqttProtocolVersion.V3_1_1, logger,
             TimeSpan.FromMinutes(1), new DefaultFakeServerHandleFactory());
         _server.Bind();
     }
 
     private const string DefaultTopic = "topic";
-    private const int Port = 21887;
     private readonly FakeMqttTcpServer _server;
     
     public MqttClientFactory ClientFactory { get; }
@@ -50,7 +49,7 @@ public class TcpMqtt311HeartbeatFailureEnd2EndSpecs : TestKit
         return client;
     }
     
-    public MqttClientTcpOptions DefaultTcpOptions => new("localhost", Port);
+    public MqttClientTcpOptions DefaultTcpOptions => new("localhost", _server.BoundPort);
 
     protected override void AfterAll()
     {
@@ -62,7 +61,7 @@ public class TcpMqtt311HeartbeatFailureEnd2EndSpecs : TestKit
     [Fact]
     public async Task ShouldAutomaticallyReconnectandSubscribeAfterHeartbeatFailure()
     {
-        var client = await ClientFactory.CreateTcpClient(DefaultConnectOptions, DefaultTcpOptions);
+        await using var client = await ClientFactory.CreateTcpClient(DefaultConnectOptions, DefaultTcpOptions);
 
         // need a longer timeout for this test
         var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
