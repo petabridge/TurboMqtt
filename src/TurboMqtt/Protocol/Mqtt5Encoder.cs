@@ -649,7 +649,7 @@ internal static class Mqtt5Encoder
         return size;
     }
 
-    private static int ComputeAckPropertiesSize(string? reasonString, IReadOnlyDictionary<string, string>? userProps)
+    private static int ComputeAckPropertiesSize(string? reasonString, IReadOnlyList<KeyValuePair<string, string>>? userProps)
     {
         var size = 0;
         if (!string.IsNullOrEmpty(reasonString))
@@ -679,7 +679,7 @@ internal static class Mqtt5Encoder
         return size;
     }
 
-    private static int ComputeUserPropertiesSize(IReadOnlyDictionary<string, string> userProperties)
+    private static int ComputeUserPropertiesSize(IReadOnlyList<KeyValuePair<string, string>> userProperties)
     {
         var size = 0;
         foreach (var (key, value) in userProperties)
@@ -799,7 +799,7 @@ internal static class Mqtt5Encoder
     }
 
     private static int WriteAckProperties(ref Span<byte> span, string? reasonString,
-        IReadOnlyDictionary<string, string>? userProps)
+        IReadOnlyList<KeyValuePair<string, string>>? userProps)
     {
         var bytesWritten = 0;
         if (!string.IsNullOrEmpty(reasonString))
@@ -829,7 +829,7 @@ internal static class Mqtt5Encoder
         return bytesWritten;
     }
 
-    private static int WriteUserProperties(ref Span<byte> span, IReadOnlyDictionary<string, string> userProperties)
+    private static int WriteUserProperties(ref Span<byte> span, IReadOnlyList<KeyValuePair<string, string>> userProperties)
     {
         var bytesWritten = 0;
         foreach (var (key, value) in userProperties)

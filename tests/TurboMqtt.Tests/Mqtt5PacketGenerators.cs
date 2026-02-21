@@ -62,26 +62,23 @@ public class Mqtt5PacketGenerators
             Arb.Generate<bool>().Select(v => (bool?)v));
 
     /// <summary>
-    /// Generates either <c>null</c> (no user properties) or a non-empty dictionary
-    /// with 1–3 unique key-value string pairs valid for MQTT 5.0 User Properties.
+    /// Generates either <c>null</c> (no user properties) or a non-empty list
+    /// of 1–4 key-value pairs valid for MQTT 5.0 User Properties.
+    /// Duplicate keys are allowed per MQTT 5.0 spec §3.1.2.11.8.
     /// </summary>
-    private static Gen<IReadOnlyDictionary<string, string>?> UserPropertiesGen()
+    private static Gen<IReadOnlyList<KeyValuePair<string, string>>?> UserPropertiesGen()
     {
         var pairGen =
             from key in ValidMqtt5StringNonEmpty
             from value in ValidMqtt5String
-            select (key, value);
+            select new KeyValuePair<string, string>(key, value);
 
         var withProps =
-            from count in Gen.Choose(1, 3)
+            from count in Gen.Choose(1, 4)
             from pairs in Gen.ListOf(count, pairGen)
-            let dict = pairs
-                .GroupBy(p => p.key)
-                .ToDictionary(g => g.Key, g => g.First().value)
-            where dict.Count > 0
-            select (IReadOnlyDictionary<string, string>?)dict;
+            select (IReadOnlyList<KeyValuePair<string, string>>?)pairs.ToList();
 
-        return Gen.OneOf(Gen.Constant((IReadOnlyDictionary<string, string>?)null), withProps);
+        return Gen.OneOf(Gen.Constant((IReadOnlyList<KeyValuePair<string, string>>?)null), withProps);
     }
 
     // ── CONNECT ─────────────────────────────────────────────────────────────

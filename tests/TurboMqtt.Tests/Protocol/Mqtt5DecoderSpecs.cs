@@ -178,11 +178,11 @@ public class Mqtt5DecoderSpecs
             var packet = new ConnAckPacket
             {
                 ReasonCode = ConnAckReasonCode.Success,
-                UserProperties = new Dictionary<string, string> { ["x-region"] = "us-east-1" }
+                UserProperties = new List<KeyValuePair<string, string>> { new("x-region", "us-east-1") }
             };
             var decoded = Roundtrip<ConnAckPacket>(m => Mqtt5Encoder.EncodeConnAckPacket(packet, ref m));
             decoded.UserProperties.Should().NotBeNull();
-            decoded.UserProperties!["x-region"].Should().Be("us-east-1");
+            decoded.UserProperties!.First(p => p.Key == "x-region").Value.Should().Be("us-east-1");
         }
     }
 
@@ -220,7 +220,7 @@ public class Mqtt5DecoderSpecs
                 ResponseTopic = "sensor/temp/response",
                 CorrelationData = new byte[] { 0x01, 0x02 },
                 ContentType = "application/json",
-                UserProperties = new Dictionary<string, string> { ["src"] = "sensor-1" }
+                UserProperties = new List<KeyValuePair<string, string>> { new("src", "sensor-1") }
             };
             var decoded = Roundtrip<PublishPacket>(m => Mqtt5Encoder.EncodePublishPacket(packet, ref m));
             decoded.TopicName.Should().Be("sensor/temp");
@@ -232,7 +232,7 @@ public class Mqtt5DecoderSpecs
             decoded.ResponseTopic.Should().Be("sensor/temp/response");
             decoded.CorrelationData!.Value.ToArray().Should().BeEquivalentTo(new byte[] { 0x01, 0x02 });
             decoded.ContentType.Should().Be("application/json");
-            decoded.UserProperties!["src"].Should().Be("sensor-1");
+            decoded.UserProperties!.First(p => p.Key == "src").Value.Should().Be("sensor-1");
         }
 
         [Fact]
@@ -275,13 +275,13 @@ public class Mqtt5DecoderSpecs
                 PacketId = 123,
                 ReasonCode = MqttPubAckReasonCode.NotAuthorized,
                 ReasonString = "No permission",
-                UserProperties = new Dictionary<string, string> { ["detail"] = "acl-deny" }
+                UserProperties = new List<KeyValuePair<string, string>> { new("detail", "acl-deny") }
             };
             var decoded = Roundtrip<PubAckPacket>(m => Mqtt5Encoder.EncodePubAckPacket(packet, ref m));
             decoded.PacketId.Value.Should().Be(123);
             decoded.ReasonCode.Should().Be(MqttPubAckReasonCode.NotAuthorized);
             decoded.ReasonString.Should().Be("No permission");
-            decoded.UserProperties!["detail"].Should().Be("acl-deny");
+            decoded.UserProperties!.First(p => p.Key == "detail").Value.Should().Be("acl-deny");
         }
     }
 
@@ -453,7 +453,7 @@ public class Mqtt5DecoderSpecs
                     MqttSubscribeReasonCode.GrantedQoS0,
                     MqttSubscribeReasonCode.NotAuthorized
                 },
-                UserProperties = new Dictionary<string, string> { ["x-info"] = "test" }
+                UserProperties = new List<KeyValuePair<string, string>> { new("x-info", "test") }
             };
             var decoded = Roundtrip<SubAckPacket>(m => Mqtt5Encoder.EncodeSubAckPacket(packet, ref m));
             decoded.PacketId.Value.Should().Be(3);
@@ -463,7 +463,7 @@ public class Mqtt5DecoderSpecs
                 MqttSubscribeReasonCode.GrantedQoS0,
                 MqttSubscribeReasonCode.NotAuthorized
             });
-            decoded.UserProperties!["x-info"].Should().Be("test");
+            decoded.UserProperties!.First(p => p.Key == "x-info").Value.Should().Be("test");
         }
     }
 
@@ -491,11 +491,11 @@ public class Mqtt5DecoderSpecs
             {
                 PacketId = 9,
                 Topics = new[] { "topic/a", "topic/b" },
-                UserProperties = new Dictionary<string, string> { ["reason"] = "cleanup" }
+                UserProperties = new List<KeyValuePair<string, string>> { new("reason", "cleanup") }
             };
             var decoded = Roundtrip<UnsubscribePacket>(m => Mqtt5Encoder.EncodeUnsubscribePacket(packet, ref m));
             decoded.Topics.Should().BeEquivalentTo(new[] { "topic/a", "topic/b" });
-            decoded.UserProperties!["reason"].Should().Be("cleanup");
+            decoded.UserProperties!.First(p => p.Key == "reason").Value.Should().Be("cleanup");
         }
     }
 
@@ -549,12 +549,12 @@ public class Mqtt5DecoderSpecs
         {
             var packet = new AuthPacket("PLAIN", AuthReasonCode.ReAuthenticate)
             {
-                UserProperties = new Dictionary<string, string> { ["session"] = "abc123" }
+                UserProperties = new List<KeyValuePair<string, string>> { new("session", "abc123") }
             };
             var decoded = Roundtrip<AuthPacket>(m => Mqtt5Encoder.EncodeAuthPacket(packet, ref m));
             decoded.ReasonCode.Should().Be(AuthReasonCode.ReAuthenticate);
             decoded.AuthenticationMethod.Should().Be("PLAIN");
-            decoded.UserProperties!["session"].Should().Be("abc123");
+            decoded.UserProperties!.First(p => p.Key == "session").Value.Should().Be("abc123");
         }
     }
 

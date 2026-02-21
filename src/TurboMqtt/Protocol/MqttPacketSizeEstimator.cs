@@ -198,7 +198,7 @@ internal static class MqttPacketSizeEstimator
 
     // ── MQTT 5.0 estimator helpers ───────────────────────────────────────────
 
-    private static int ComputeUserPropertiesSize(IReadOnlyDictionary<string, string> userProperties)
+    private static int ComputeUserPropertiesSize(IReadOnlyList<KeyValuePair<string, string>> userProperties)
     {
         var userPropertiesSize = 0;
         foreach (var (key, value) in userProperties)

@@ -38,7 +38,7 @@ public sealed class AuthPacket(string authenticationMethod, AuthReasonCode reaso
     /// User Properties, available in MQTT 5.0.
     /// This is a key-value pair that can be sent multiple times to convey additional information that is not covered by other means.
     /// </summary>
-    public IReadOnlyDictionary<string, string>? UserProperties { get; set; }
+    public IReadOnlyList<KeyValuePair<string, string>>? UserProperties { get; set; }
 
     /// <summary>
     /// Reason String providing additional information about the authentication status.

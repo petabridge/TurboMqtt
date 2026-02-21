@@ -342,7 +342,7 @@ public class Mqtt5Decoder : Mqtt311Decoder
         var props = ConsumePropertiesSection(ref bufferForMsg, ref remainingSize);
         if (props.Length > 0)
         {
-            Dictionary<string, string>? userProps = null;
+            List<KeyValuePair<string, string>>? userProps = null;
             var propsSpan = props;
             while (propsSpan.Length > 0)
             {
@@ -352,8 +352,8 @@ public class Mqtt5Decoder : Mqtt311Decoder
                 {
                     case Mqtt5PropertyIdentifiers.UserProperty:
                         var (k, v) = Mqtt5PropertyReader.ReadStringPair(ref propsSpan);
-                        userProps ??= new Dictionary<string, string>();
-                        userProps[k] = v;
+                        userProps ??= new List<KeyValuePair<string, string>>();
+                        userProps.Add(new KeyValuePair<string, string>(k, v));
                         break;
                     default:
                         Mqtt5PropertyReader.ThrowUnknownPropertyIdentifier(id);
@@ -391,7 +391,7 @@ public class Mqtt5Decoder : Mqtt311Decoder
         var props = ConsumePropertiesSection(ref bufferForMsg, ref packetSize);
         if (props.Length > 0)
         {
-            Dictionary<string, string>? userProps = null;
+            List<KeyValuePair<string, string>>? userProps = null;
             var propsSpan = props;
             while (propsSpan.Length > 0)
             {
@@ -404,8 +404,8 @@ public class Mqtt5Decoder : Mqtt311Decoder
                         break;
                     case Mqtt5PropertyIdentifiers.UserProperty:
                         var (k, v) = Mqtt5PropertyReader.ReadStringPair(ref propsSpan);
-                        userProps ??= new Dictionary<string, string>();
-                        userProps[k] = v;
+                        userProps ??= new List<KeyValuePair<string, string>>();
+                        userProps.Add(new KeyValuePair<string, string>(k, v));
                         break;
                     default:
                         Mqtt5PropertyReader.ThrowUnknownPropertyIdentifier(id);
@@ -468,7 +468,7 @@ public class Mqtt5Decoder : Mqtt311Decoder
         var authMethod = string.Empty;
         var authData = ReadOnlyMemory<byte>.Empty;
         string? reasonString = null;
-        Dictionary<string, string>? userProps = null;
+        List<KeyValuePair<string, string>>? userProps = null;
 
         var propsSpan = props;
         while (propsSpan.Length > 0)
@@ -488,8 +488,8 @@ public class Mqtt5Decoder : Mqtt311Decoder
                     break;
                 case Mqtt5PropertyIdentifiers.UserProperty:
                     var (k, v) = Mqtt5PropertyReader.ReadStringPair(ref propsSpan);
-                    userProps ??= new Dictionary<string, string>();
-                    userProps[k] = v;
+                    userProps ??= new List<KeyValuePair<string, string>>();
+                    userProps.Add(new KeyValuePair<string, string>(k, v));
                     break;
                 default:
                     Mqtt5PropertyReader.ThrowUnknownPropertyIdentifier(id);
@@ -509,7 +509,7 @@ public class Mqtt5Decoder : Mqtt311Decoder
 
     private static void ReadConnectProperties(ReadOnlySpan<byte> props, ConnectPacket packet)
     {
-        Dictionary<string, string>? userProps = null;
+        List<KeyValuePair<string, string>>? userProps = null;
         while (props.Length > 0)
         {
             var id = props[0];
@@ -536,8 +536,8 @@ public class Mqtt5Decoder : Mqtt311Decoder
                     break;
                 case Mqtt5PropertyIdentifiers.UserProperty:
                     var (k, v) = Mqtt5PropertyReader.ReadStringPair(ref props);
-                    userProps ??= new Dictionary<string, string>();
-                    userProps[k] = v;
+                    userProps ??= new List<KeyValuePair<string, string>>();
+                    userProps.Add(new KeyValuePair<string, string>(k, v));
                     break;
                 case Mqtt5PropertyIdentifiers.AuthenticationMethod:
                     packet.AuthenticationMethod = Mqtt5PropertyReader.ReadUtf8String(ref props);
@@ -556,7 +556,7 @@ public class Mqtt5Decoder : Mqtt311Decoder
 
     private static void ReadWillProperties(ReadOnlySpan<byte> props, MqttLastWill will)
     {
-        Dictionary<string, string>? willProperties = null;
+        List<KeyValuePair<string, string>>? willProperties = null;
         while (props.Length > 0)
         {
             var id = props[0];
@@ -583,8 +583,8 @@ public class Mqtt5Decoder : Mqtt311Decoder
                     break;
                 case Mqtt5PropertyIdentifiers.UserProperty:
                     var (k, v) = Mqtt5PropertyReader.ReadStringPair(ref props);
-                    willProperties ??= new Dictionary<string, string>();
-                    willProperties[k] = v;
+                    willProperties ??= new List<KeyValuePair<string, string>>();
+                    willProperties.Add(new KeyValuePair<string, string>(k, v));
                     break;
                 default:
                     Mqtt5PropertyReader.ThrowUnknownPropertyIdentifier(id);
@@ -597,7 +597,7 @@ public class Mqtt5Decoder : Mqtt311Decoder
 
     private static void ReadConnAckProperties(ReadOnlySpan<byte> props, ConnAckPacket packet)
     {
-        Dictionary<string, string>? userProps = null;
+        List<KeyValuePair<string, string>>? userProps = null;
         while (props.Length > 0)
         {
             var id = props[0];
@@ -630,8 +630,8 @@ public class Mqtt5Decoder : Mqtt311Decoder
                     break;
                 case Mqtt5PropertyIdentifiers.UserProperty:
                     var (k, v) = Mqtt5PropertyReader.ReadStringPair(ref props);
-                    userProps ??= new Dictionary<string, string>();
-                    userProps[k] = v;
+                    userProps ??= new List<KeyValuePair<string, string>>();
+                    userProps.Add(new KeyValuePair<string, string>(k, v));
                     break;
                 case Mqtt5PropertyIdentifiers.WildcardSubscriptionAvailable:
                     packet.WildcardSubscriptionAvailable = Mqtt5PropertyReader.ReadByte(ref props) != 0;
@@ -668,7 +668,7 @@ public class Mqtt5Decoder : Mqtt311Decoder
 
     private static void ReadPublishProperties(ReadOnlySpan<byte> props, PublishPacket packet)
     {
-        Dictionary<string, string>? userProps = null;
+        List<KeyValuePair<string, string>>? userProps = null;
         List<uint>? subscriptionIdentifiers = null;
         while (props.Length > 0)
         {
@@ -693,8 +693,8 @@ public class Mqtt5Decoder : Mqtt311Decoder
                     break;
                 case Mqtt5PropertyIdentifiers.UserProperty:
                     var (k, v) = Mqtt5PropertyReader.ReadStringPair(ref props);
-                    userProps ??= new Dictionary<string, string>();
-                    userProps[k] = v;
+                    userProps ??= new List<KeyValuePair<string, string>>();
+                    userProps.Add(new KeyValuePair<string, string>(k, v));
                     break;
                 case Mqtt5PropertyIdentifiers.SubscriptionIdentifier:
                     if (!Mqtt5PropertyReader.TryReadVariableByteInt(ref props, out var sid))
@@ -722,10 +722,10 @@ public class Mqtt5Decoder : Mqtt311Decoder
     /// Reads ReasonString and UserProperty from an ACK packet properties section
     /// (applies to PUBACK, PUBREC, PUBREL, PUBCOMP).
     /// </summary>
-    private static void ReadAckProperties(ReadOnlySpan<byte> props, out string? reasonString, out IReadOnlyDictionary<string, string>? userProps)
+    private static void ReadAckProperties(ReadOnlySpan<byte> props, out string? reasonString, out IReadOnlyList<KeyValuePair<string, string>>? userProps)
     {
         reasonString = null;
-        Dictionary<string, string>? dict = null;
+        List<KeyValuePair<string, string>>? dict = null;
         while (props.Length > 0)
         {
             var id = props[0];
@@ -737,8 +737,8 @@ public class Mqtt5Decoder : Mqtt311Decoder
                     break;
                 case Mqtt5PropertyIdentifiers.UserProperty:
                     var (k, v) = Mqtt5PropertyReader.ReadStringPair(ref props);
-                    dict ??= new Dictionary<string, string>();
-                    dict[k] = v;
+                    dict ??= new List<KeyValuePair<string, string>>();
+                    dict.Add(new KeyValuePair<string, string>(k, v));
                     break;
                 default:
                     Mqtt5PropertyReader.ThrowUnknownPropertyIdentifier(id);
@@ -750,7 +750,7 @@ public class Mqtt5Decoder : Mqtt311Decoder
 
     private static void ReadSubscribeProperties(ReadOnlySpan<byte> props, SubscribePacket packet)
     {
-        Dictionary<string, string>? userProps = null;
+        List<KeyValuePair<string, string>>? userProps = null;
         while (props.Length > 0)
         {
             var id = props[0];
@@ -766,8 +766,8 @@ public class Mqtt5Decoder : Mqtt311Decoder
                     break;
                 case Mqtt5PropertyIdentifiers.UserProperty:
                     var (k, v) = Mqtt5PropertyReader.ReadStringPair(ref props);
-                    userProps ??= new Dictionary<string, string>();
-                    userProps[k] = v;
+                    userProps ??= new List<KeyValuePair<string, string>>();
+                    userProps.Add(new KeyValuePair<string, string>(k, v));
                     break;
                 default:
                     Mqtt5PropertyReader.ThrowUnknownPropertyIdentifier(id);
@@ -780,7 +780,7 @@ public class Mqtt5Decoder : Mqtt311Decoder
 
     private static void ReadSubAckProperties(ReadOnlySpan<byte> props, SubAckPacket packet)
     {
-        Dictionary<string, string>? userProps = null;
+        List<KeyValuePair<string, string>>? userProps = null;
         while (props.Length > 0)
         {
             var id = props[0];
@@ -792,8 +792,8 @@ public class Mqtt5Decoder : Mqtt311Decoder
                     break;
                 case Mqtt5PropertyIdentifiers.UserProperty:
                     var (k, v) = Mqtt5PropertyReader.ReadStringPair(ref props);
-                    userProps ??= new Dictionary<string, string>();
-                    userProps[k] = v;
+                    userProps ??= new List<KeyValuePair<string, string>>();
+                    userProps.Add(new KeyValuePair<string, string>(k, v));
                     break;
                 default:
                     Mqtt5PropertyReader.ThrowUnknownPropertyIdentifier(id);
@@ -806,7 +806,7 @@ public class Mqtt5Decoder : Mqtt311Decoder
 
     private static void ReadDisconnectProperties(ReadOnlySpan<byte> props, DisconnectPacket packet)
     {
-        Dictionary<string, string>? userProps = null;
+        List<KeyValuePair<string, string>>? userProps = null;
         while (props.Length > 0)
         {
             var id = props[0];
@@ -824,8 +824,8 @@ public class Mqtt5Decoder : Mqtt311Decoder
                     break;
                 case Mqtt5PropertyIdentifiers.UserProperty:
                     var (k, v) = Mqtt5PropertyReader.ReadStringPair(ref props);
-                    userProps ??= new Dictionary<string, string>();
-                    userProps[k] = v;
+                    userProps ??= new List<KeyValuePair<string, string>>();
+                    userProps.Add(new KeyValuePair<string, string>(k, v));
                     break;
                 default:
                     Mqtt5PropertyReader.ThrowUnknownPropertyIdentifier(id);

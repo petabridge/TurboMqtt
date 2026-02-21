@@ -313,7 +313,7 @@ public class Mqtt5EncoderSpecs
             {
                 var packet = new PublishPacket(QualityOfService.AtMostOnce, false, false, "t")
                 {
-                    UserProperties = new Dictionary<string, string> { { "k", "v" } }
+                    UserProperties = new List<KeyValuePair<string, string>> { new("k", "v") }
                 };
                 return Mqtt5Encoder.EncodePublishPacket(packet, ref mem);
             });

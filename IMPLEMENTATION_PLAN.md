@@ -207,14 +207,14 @@ Affected types (all in `src/TurboMqtt/PacketTypes/`): `ConnectPacket`,
 Also affects encoder, decoder, and size estimator code that iterates these collections.
 
 Done when:
-- [ ] All `UserProperties` and `WillProperties` changed from `IReadOnlyDictionary<string, string>?` to `IReadOnlyList<KeyValuePair<string, string>>?` (or equivalent)
-- [ ] Encoder iterates the list-based type
-- [ ] Decoder populates the list-based type
-- [ ] `ComputeUserPropertiesSize` in `MqttPacketSizeEstimator` iterates the list-based type
-- [ ] FsCheck generators updated to produce duplicate keys
-- [ ] Roundtrip test verifies duplicate keys are preserved
-- [ ] Builds with zero warnings
-- [ ] All existing tests pass
+- [x] All `UserProperties` and `WillProperties` changed from `IReadOnlyDictionary<string, string>?` to `IReadOnlyList<KeyValuePair<string, string>>?` (or equivalent)
+- [x] Encoder iterates the list-based type
+- [x] Decoder populates the list-based type
+- [x] `ComputeUserPropertiesSize` in `MqttPacketSizeEstimator` iterates the list-based type
+- [x] FsCheck generators updated to produce duplicate keys
+- [x] Roundtrip test verifies duplicate keys are preserved
+- [x] Builds with zero warnings
+- [x] All existing tests pass
 
 ### Task 4.8: Implement shared ReceiveMaximum quota across QoS 1 and QoS 2 actors
 

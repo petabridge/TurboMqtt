@@ -97,10 +97,10 @@ public class ConnectPacketMqtt5Specs
         {
             var packet = new ConnectPacket(MqttProtocolVersion.V5_0)
             {
-                UserProperties = new Dictionary<string, string>
+                UserProperties = new List<KeyValuePair<string, string>>
                 {
-                    { "key1", "value1" },
-                    { "key2", "value2" }
+                    new("key1", "value1"),
+                    new("key2", "value2")
                 }
             };
             packet.ClientId = "clientId";
@@ -121,10 +121,10 @@ public class ConnectPacketMqtt5Specs
                     PayloadFormatIndicator = PayloadFormatIndicator.Utf8Encoded,
                     ContentType = "text/plain",
                 },
-                UserProperties = new Dictionary<string, string>
+                UserProperties = new List<KeyValuePair<string, string>>
                 {
-                    { "key1", "value1" },
-                    { "key2", "value2" }
+                    new("key1", "value1"),
+                    new("key2", "value2")
                 },
                 Flags = new ConnectFlags
                 {
@@ -227,6 +227,76 @@ public class ConnectPacketMqtt5Specs
             var d = (ConnectPacket)decoded[0];
             d.Will!.DelayInterval.Should().Be(delayInterval,
                 "maximum uint WillDelayInterval must roundtrip correctly");
+        }
+    }
+
+    /// <summary>
+    /// Regression tests for Task 4.7: UserProperties must use IReadOnlyList&lt;KeyValuePair&gt;
+    /// so duplicate keys are preserved (MQTT 5.0 §3.1.2.11.8).
+    /// </summary>
+    public class DuplicateUserPropertiesRegressionSpecs
+    {
+        private static (bool success, ConnectPacket decoded) EncodeAndDecode(ConnectPacket packet)
+        {
+            var decoder = new Mqtt5Decoder();
+            var estimatedSize = MqttPacketSizeEstimator.EstimateMqtt5PacketSize(packet);
+            var buffer = new Memory<byte>(new byte[estimatedSize.TotalSize]);
+            Mqtt5Encoder.EncodePacket(packet, ref buffer, estimatedSize);
+            var ro = new ReadOnlyMemory<byte>(buffer.ToArray());
+            var success = decoder.TryDecode(ro, out var decodedList);
+            return (success, (ConnectPacket)decodedList[0]);
+        }
+
+        [Fact]
+        public void Duplicate_keys_in_UserProperties_are_preserved_after_roundtrip()
+        {
+            // MQTT 5.0 §3.1.2.11.8: "The same name is allowed to appear more than once."
+            var packet = new ConnectPacket(MqttProtocolVersion.V5_0)
+            {
+                UserProperties = new List<KeyValuePair<string, string>>
+                {
+                    new("dup-key", "first"),
+                    new("dup-key", "second"),
+                    new("unique", "value")
+                }
+            };
+
+            var (success, decoded) = EncodeAndDecode(packet);
+
+            success.Should().BeTrue("CONNECT encode/decode should succeed");
+            decoded.UserProperties.Should().NotBeNull();
+            decoded.UserProperties!.Should().HaveCount(3,
+                "all three entries including the duplicate key must be preserved");
+            decoded.UserProperties.Where(p => p.Key == "dup-key").Select(p => p.Value)
+                .Should().BeEquivalentTo(new[] { "first", "second" },
+                    "both duplicate-key entries must roundtrip without being merged or dropped");
+        }
+
+        [Fact]
+        public void Duplicate_keys_in_WillProperties_are_preserved_after_roundtrip()
+        {
+            var packet = new ConnectPacket(MqttProtocolVersion.V5_0)
+            {
+                Flags = new ConnectFlags { WillFlag = true },
+                Will = new MqttLastWill("will/topic", new byte[] { 0x01 })
+                {
+                    WillProperties = new List<KeyValuePair<string, string>>
+                    {
+                        new("x-key", "alpha"),
+                        new("x-key", "beta")
+                    }
+                }
+            };
+
+            var (success, decoded) = EncodeAndDecode(packet);
+
+            success.Should().BeTrue();
+            decoded.Will.Should().NotBeNull();
+            decoded.Will!.WillProperties.Should().NotBeNull();
+            decoded.Will.WillProperties!.Should().HaveCount(2,
+                "both Will User Property entries with the same key must survive roundtrip");
+            decoded.Will.WillProperties.Where(p => p.Key == "x-key").Select(p => p.Value)
+                .Should().BeEquivalentTo(new[] { "alpha", "beta" });
         }
     }
 }

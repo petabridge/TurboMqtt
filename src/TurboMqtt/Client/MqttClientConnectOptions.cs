@@ -40,7 +40,7 @@ public sealed record LastWillAndTestament
     public PayloadFormatIndicator PayloadFormatIndicator { get; init; } // MQTT 5.0 only
     public uint DelayInterval { get; init; } // MQTT 5.0 only
     public uint MessageExpiryInterval { get; init; } // MQTT 5.0 only
-    public IReadOnlyDictionary<string, string>? WillProperties { get; init; } // MQTT 5.0 custom properties
+    public IReadOnlyList<KeyValuePair<string, string>>? WillProperties { get; init; } // MQTT 5.0 custom properties
 }
 
 /// <summary>
@@ -176,5 +176,5 @@ public sealed record MqttClientConnectOptions
     /// <remarks>
     /// Only used when <see cref="ProtocolVersion"/> is <see cref="MqttProtocolVersion.V5_0"/>.
     /// </remarks>
-    public IReadOnlyDictionary<string, string>? UserProperties { get; init; }
+    public IReadOnlyList<KeyValuePair<string, string>>? UserProperties { get; init; }
 }
