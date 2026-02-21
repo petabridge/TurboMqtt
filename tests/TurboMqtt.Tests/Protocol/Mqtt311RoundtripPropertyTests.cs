@@ -40,11 +40,9 @@ public class Mqtt311RoundtripPropertyTests
             var p = (ConnectPacket)orig;
             var d = (ConnectPacket)decoded[0];
 
-            // Exclude Will.Message (ReadOnlyMemory<byte>) and ConnectFlags (redundant property).
-            // Will.Message is compared separately below.
+            // Exclude Will.Message (ReadOnlyMemory<byte>), compared separately below.
             d.Should().BeEquivalentTo(p, options => options
-                .Excluding(x => x.Will!.Message)
-                .Excluding(x => x.ConnectFlags));
+                .Excluding(x => x.Will!.Message));
 
             if (p.Will != null)
                 d.Will!.Message.ToArray().Should().BeEquivalentTo(p.Will.Message.ToArray(),

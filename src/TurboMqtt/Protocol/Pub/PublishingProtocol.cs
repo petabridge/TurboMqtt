@@ -74,7 +74,7 @@ public static class PublishingProtocol{
     /// Configures the receive maximum for the retry actor after receiving a CONNACK with ReceiveMaximum set.
     /// When set, the actor buffers QoS 1/2 publishes beyond this limit and releases them as ACKs arrive.
     /// </summary>
-    public sealed class SetReceiveMaximum
+    internal sealed class SetReceiveMaximum
     {
         public SetReceiveMaximum(ushort value) { Value = value; }
         public ushort Value { get; }

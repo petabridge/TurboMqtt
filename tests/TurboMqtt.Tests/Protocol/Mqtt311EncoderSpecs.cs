@@ -4,6 +4,7 @@
 // </copyright>
 // -----------------------------------------------------------------------
 
+using TurboMqtt.PacketTypes;
 using TurboMqtt.Protocol;
 
 namespace TurboMqtt.Tests.Protocol;
@@ -52,5 +53,20 @@ public class Mqtt311EncoderSpecs
             var decoded = Mqtt311Decoder.DecodeUnsignedShort(ref readonlyMem, ref remainingLength);
             Assert.Equal(value, decoded);
         }
+    }
+}
+
+public class Mqtt311EncoderOptimizedSpecs
+{
+    [Fact]
+    public void EncodePacket_UndersizedBuffer_ThrowsArgumentException()
+    {
+        // DisconnectPacket has TotalSize = 2 (1 fixed header byte + 1 remaining-length byte)
+        var packet = new DisconnectPacket();
+        var estimatedSize = PacketSize.NoContent; // TotalSize == 2
+        var undersizedBuffer = new byte[1];
+
+        Assert.Throws<ArgumentException>(() =>
+            Mqtt311EncoderOptimized.EncodePacket(packet, undersizedBuffer.AsSpan(), estimatedSize));
     }
 }

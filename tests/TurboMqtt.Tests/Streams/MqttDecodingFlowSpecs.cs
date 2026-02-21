@@ -21,7 +21,7 @@ public class MqttDecodingFlowSpecs : TestKit
     {
         var connectPacket = new ConnectPacket(MqttProtocolVersion.V3_1_1)
         {
-            ClientId = "test", ConnectFlags = new ConnectFlags { CleanSession = true }, ProtocolName = "MQTT"
+            ClientId = "test", Flags = new ConnectFlags { CleanSession = true }, ProtocolName = "MQTT"
         };
         
         var encodingFlow = MqttEncodingFlows.Mqtt311Encoding(MemoryPool<byte>.Shared, 1024, 1024);
@@ -42,7 +42,7 @@ public class MqttDecodingFlowSpecs : TestKit
     {
         var connectPacket = new ConnectPacket(MqttProtocolVersion.V3_1_1)
         {
-            ClientId = "test", ConnectFlags = new ConnectFlags { CleanSession = true }, ProtocolName = "MQTT"
+            ClientId = "test", Flags = new ConnectFlags { CleanSession = true }, ProtocolName = "MQTT"
         };
         var connAckPacket = new ConnAckPacket()
         {

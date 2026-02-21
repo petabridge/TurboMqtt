@@ -71,7 +71,6 @@ public sealed class ConnectPacket(MqttProtocolVersion protocolVersion) : MqttPac
     public string? AuthenticationMethod { get; set; } // MQTT 5.0 only
     public ReadOnlyMemory<byte>? AuthenticationData { get; set; } // MQTT 5.0 only
     public IReadOnlyList<KeyValuePair<string, string>>? UserProperties { get; set; } // MQTT 5.0 custom properties
-    public ConnectFlags ConnectFlags { get; set; }
 
     public override string ToString()
     {
@@ -140,6 +139,10 @@ public struct ConnectFlags
     
     public static ConnectFlags Decode(byte flags)
     {
+        // MQTT-3.1.2-3: Reserved bit 0 must be 0
+        if ((flags & 0x01) != 0)
+            throw new ArgumentOutOfRangeException(nameof(flags), "[MQTT-3.1.2-3] Reserved bit 0 of CONNECT flags must be 0.");
+
         var result = new ConnectFlags
         {
             UsernameFlag = (flags & 0x80) == 0x80,
@@ -150,7 +153,13 @@ public struct ConnectFlags
         };
 
         if (result.WillFlag)
-            result.WillQoS = (QualityOfService)((flags & 0x18) >> 3);
+        {
+            var willQos = (flags & 0x18) >> 3;
+            // MQTT-3.1.2-14: WillQoS must be 0, 1, or 2 when WillFlag is set
+            if (willQos > 2)
+                throw new ArgumentOutOfRangeException(nameof(flags), "[MQTT-3.1.2-14] WillQoS must be 0, 1, or 2 when WillFlag is set.");
+            result.WillQoS = (QualityOfService)willQos;
+        }
         else if ((flags & 0x38) != 0) // reserved bit for Will 3,4,5
         {
             throw new ArgumentOutOfRangeException(nameof(flags), "[MQTT-3.1.2-11]");

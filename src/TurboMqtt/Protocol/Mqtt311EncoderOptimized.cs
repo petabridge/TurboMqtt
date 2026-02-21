@@ -39,6 +39,9 @@ public static class Mqtt311EncoderOptimized
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static int EncodePacket(MqttPacket packet, Span<byte> buffer, PacketSize estimatedSize)
     {
+        if (buffer.Length < estimatedSize.TotalSize)
+            throw new ArgumentException("Buffer is too small for the estimated packet size.");
+
         return packet.PacketType switch
         {
             MqttPacketType.Publish => EncodePublishPacketOptimized((PublishPacket)packet, buffer, estimatedSize),

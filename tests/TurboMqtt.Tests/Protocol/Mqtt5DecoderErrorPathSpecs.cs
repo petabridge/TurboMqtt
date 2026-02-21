@@ -371,7 +371,79 @@ public class Mqtt5DecoderErrorPathSpecs
         packets.Should().BeEmpty();
     }
 
-    // ── 7. DISCONNECT compact form ────────────────────────────────────────────
+    // ── 7. Fixed header reserved bits validation [MQTT-2.2.2] ────────────────
+
+    /// <summary>
+    /// MQTT-2.2.2: SUBSCRIBE must have lower nibble = 0x2 (first byte 0x82).
+    /// A SUBSCRIBE packet with first byte 0x80 (lower nibble 0x0) must be rejected
+    /// by the MQTT 5.0 decoder (which inherits the same decode loop).
+    /// </summary>
+    [Fact]
+    public void Decoder_Subscribe_WrongReservedBits_ThrowsMqttDecoderException()
+    {
+        var decoder = new Mqtt5Decoder();
+
+        // SUBSCRIBE with lower nibble 0x0 instead of required 0x2:
+        //   Fixed header: 0x80 (type=8=SUBSCRIBE, reserved=0x0 — wrong, must be 0x2)
+        //   Remaining   : 0x06 (6 bytes)
+        //   Packet ID   : { 0x00, 0x01 }
+        //   Topic "a"   : { 0x00, 0x01, 0x61 }
+        //   Options     : 0x00
+        var bytes = new byte[] { 0x80, 0x06, 0x00, 0x01, 0x00, 0x01, 0x61, 0x00 };
+        var buffer = new ReadOnlyMemory<byte>(bytes);
+
+        var act = () => decoder.TryDecode(buffer, out _);
+
+        act.Should().Throw<MqttDecoderException>(
+            "SUBSCRIBE fixed header lower nibble must be 0x2 per MQTT-2.2.2");
+    }
+
+    /// <summary>
+    /// MQTT-2.2.2: UNSUBSCRIBE must have lower nibble = 0x2 (first byte 0xA2).
+    /// A UNSUBSCRIBE packet with first byte 0xA0 (lower nibble 0x0) must be rejected.
+    /// </summary>
+    [Fact]
+    public void Decoder_Unsubscribe_WrongReservedBits_ThrowsMqttDecoderException()
+    {
+        var decoder = new Mqtt5Decoder();
+
+        // UNSUBSCRIBE with lower nibble 0x0 instead of required 0x2:
+        //   Fixed header: 0xA0 (type=10=UNSUBSCRIBE, reserved=0x0 — wrong, must be 0x2)
+        //   Remaining   : 0x05 (5 bytes)
+        //   Packet ID   : { 0x00, 0x01 }
+        //   Topic "a"   : { 0x00, 0x01, 0x61 }
+        var bytes = new byte[] { 0xA0, 0x05, 0x00, 0x01, 0x00, 0x01, 0x61 };
+        var buffer = new ReadOnlyMemory<byte>(bytes);
+
+        var act = () => decoder.TryDecode(buffer, out _);
+
+        act.Should().Throw<MqttDecoderException>(
+            "UNSUBSCRIBE fixed header lower nibble must be 0x2 per MQTT-2.2.2");
+    }
+
+    /// <summary>
+    /// MQTT-2.2.2: PUBREL must have lower nibble = 0x2 (first byte 0x62).
+    /// A PUBREL packet with first byte 0x60 (lower nibble 0x0) must be rejected.
+    /// </summary>
+    [Fact]
+    public void Decoder_PubRel_WrongReservedBits_ThrowsMqttDecoderException()
+    {
+        var decoder = new Mqtt5Decoder();
+
+        // PUBREL with lower nibble 0x0 instead of required 0x2:
+        //   Fixed header: 0x60 (type=6=PUBREL, reserved=0x0 — wrong, must be 0x2)
+        //   Remaining   : 0x02 (2 bytes)
+        //   Packet ID   : { 0x00, 0x01 }
+        var bytes = new byte[] { 0x60, 0x02, 0x00, 0x01 };
+        var buffer = new ReadOnlyMemory<byte>(bytes);
+
+        var act = () => decoder.TryDecode(buffer, out _);
+
+        act.Should().Throw<MqttDecoderException>(
+            "PUBREL fixed header lower nibble must be 0x2 per MQTT-2.2.2");
+    }
+
+    // ── 8. DISCONNECT compact form ────────────────────────────────────────────
 
     /// <summary>
     /// The MQTT 5.0 compact DISCONNECT form (Remaining Length = 0) must decode

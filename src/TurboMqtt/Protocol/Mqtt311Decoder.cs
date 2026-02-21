@@ -58,7 +58,8 @@ public class Mqtt311Decoder
             var currentPacket = workingBuffer.Span;
 
             // extract MqttPacketType
-            packetType = (MqttPacketType)(currentPacket[0] >> 4);
+            var firstByte = currentPacket[0];
+            packetType = (MqttPacketType)(firstByte >> 4);
             currentPacket = currentPacket.Slice(1);
 
             // extract packet size (the packet span will automatically advance past the size header)
@@ -126,6 +127,9 @@ public class Mqtt311Decoder
                     }
                     case MqttPacketType.PubRel:
                     {
+                        if ((firstByte & 0x0F) != 0x02)
+                            throw new ArgumentException(
+                                $"Fixed header reserved bits for PUBREL must be 0x2 [MQTT-2.2.2]; received lower nibble 0x{firstByte & 0x0F:X}.");
                         packetsBuilder.Add(DecodePubRel(ref bufferForMsg, packetSize, headerLength));
                         break;
                     }
@@ -157,11 +161,17 @@ public class Mqtt311Decoder
                     }
                     case MqttPacketType.Subscribe:
                     {
+                        if ((firstByte & 0x0F) != 0x02)
+                            throw new ArgumentException(
+                                $"Fixed header reserved bits for SUBSCRIBE must be 0x2 [MQTT-2.2.2]; received lower nibble 0x{firstByte & 0x0F:X}.");
                         packetsBuilder.Add(DecodeSubscribe(ref bufferForMsg, packetSize, headerLength));
                         break;
                     }
                     case MqttPacketType.Unsubscribe:
                     {
+                        if ((firstByte & 0x0F) != 0x02)
+                            throw new ArgumentException(
+                                $"Fixed header reserved bits for UNSUBSCRIBE must be 0x2 [MQTT-2.2.2]; received lower nibble 0x{firstByte & 0x0F:X}.");
                         packetsBuilder.Add(DecodeUnsubscribe(ref bufferForMsg, packetSize, headerLength));
                         break;
                     }

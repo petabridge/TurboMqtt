@@ -55,6 +55,27 @@ public class ConnectFlagsSpecs
         }
     }
 
+    public class when_decoding_invalid_connect_flags
+    {
+        [Fact]
+        public void it_should_throw_when_reserved_bit_0_is_set()
+        {
+            // Bit 0 is the reserved bit - must be 0 per MQTT-3.1.2-3
+            byte flagsWithReservedBit = 0x01;
+            var ex = Assert.Throws<ArgumentOutOfRangeException>(() => ConnectFlags.Decode(flagsWithReservedBit));
+            ex.Message.Should().Contain("MQTT-3.1.2-3");
+        }
+
+        [Fact]
+        public void it_should_throw_when_will_flag_set_and_will_qos_is_3()
+        {
+            // WillFlag=1 (bit 2 = 0x04), WillQoS=3 (bits 3-4 = 0x18) → invalid per MQTT-3.1.2-14
+            byte flagsWithInvalidWillQos = 0x04 | 0x18; // WillFlag + WillQoS=3
+            var ex = Assert.Throws<ArgumentOutOfRangeException>(() => ConnectFlags.Decode(flagsWithInvalidWillQos));
+            ex.Message.Should().Contain("MQTT-3.1.2-14");
+        }
+    }
+
     // create test cases for serializing and deserializing ConnectFlags
     public class when_serializing_and_deserializing_connect_flags
     {

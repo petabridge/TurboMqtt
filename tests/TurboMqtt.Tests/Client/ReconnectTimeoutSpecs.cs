@@ -141,8 +141,12 @@ public sealed class ReconnectTimeoutSpecs : TestKit
             connectResult.IsSuccess.Should().BeTrue("initial connection should succeed");
 
             // Phase 2: kick the client — the server closes the connection, triggering reconnect
-            var kicked = server.TryKickClient("reconnect-timeout-test");
-            kicked.Should().BeTrue("server must know the client ID");
+            // Give the server a moment to register the client ID (ContinueWith callback may not have completed yet)
+            await AwaitAssertAsync(
+                () => server.TryKickClient("reconnect-timeout-test").Should().BeTrue("server must know the client ID"),
+                duration: TimeSpan.FromSeconds(1),
+                interval: TimeSpan.FromMilliseconds(10),
+                cancellationToken: cts.Token);
 
             // Phase 3: reconnect stalls (StallingServerHandle never sends CONNACK).
             //           The 500 ms CTS fires → ReconnectFailed → actor shuts down.

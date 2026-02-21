@@ -66,11 +66,9 @@ public class Mqtt5RoundtripPropertyTests
             var p = (ConnectPacket)orig;
             var d = (ConnectPacket)decoded[0];
 
-            // Compare all fields except memory-typed ones (compared below) and
-            // ConnectFlags (duplicate of Flags).
+            // Compare all fields except memory-typed ones (compared below).
             d.Should().BeEquivalentTo(p, options => options
                 .Excluding(x => x.Will!.Message)
-                .Excluding(x => x.ConnectFlags)
                 .Excluding(x => x.AuthenticationData));
 
             // Will payload: compare byte content
