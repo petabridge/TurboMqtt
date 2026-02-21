@@ -631,7 +631,7 @@ internal static class MqttPacketSizeEstimator
     {
         // Mirror Mqtt5Encoder.ComputeWillPropertiesSize
         var size = 0;
-        if (will.DelayInterval.Value != 0) size += 1 + 4;
+        if (will.DelayInterval != 0) size += 1 + 4;
         if (will.PayloadFormatIndicator != PayloadFormatIndicator.Unspecified) size += 1 + 1;
         if (will.MessageExpiryInterval != 0) size += 1 + 4;
         if (!string.IsNullOrEmpty(will.ContentType))

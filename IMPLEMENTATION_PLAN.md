@@ -177,15 +177,15 @@ Key files:
 - `src/TurboMqtt/Protocol/MqttPacketSizeEstimator.cs` (`.Value` access)
 
 Done when:
-- [ ] `MqttLastWill.DelayInterval` type changed from `NonZeroUInt16` to `uint`
-- [ ] `LastWillAndTestament.DelayInterval` type changed from `NonZeroUInt16` to `uint`
-- [ ] Decoder reads full four-byte integer without truncation
-- [ ] Encoder writes full four-byte integer
-- [ ] Size estimator correctly accounts for the 4-byte field
-- [ ] Value of 0 is accepted (no `NonZeroUInt16` constraint)
-- [ ] FsCheck property test covers roundtrip with values > 65535
-- [ ] Builds with zero warnings
-- [ ] All existing tests pass
+- [x] `MqttLastWill.DelayInterval` type changed from `NonZeroUInt16` to `uint`
+- [x] `LastWillAndTestament.DelayInterval` type changed from `NonZeroUInt16` to `uint`
+- [x] Decoder reads full four-byte integer without truncation
+- [x] Encoder writes full four-byte integer
+- [x] Size estimator correctly accounts for the 4-byte field
+- [x] Value of 0 is accepted (no `NonZeroUInt16` constraint)
+- [x] FsCheck property test covers roundtrip with values > 65535
+- [x] Builds with zero warnings
+- [x] All existing tests pass
 
 ### Task 4.7: Change UserProperties from IReadOnlyDictionary to support duplicate keys
 

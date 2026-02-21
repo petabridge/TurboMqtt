@@ -557,7 +557,7 @@ internal static class Mqtt5Encoder
     private static int ComputeWillPropertiesSize(MqttLastWill will)
     {
         var size = 0;
-        if (will.DelayInterval.Value != 0) size += 1 + 4;
+        if (will.DelayInterval != 0) size += 1 + 4;
         if (will.PayloadFormatIndicator != PayloadFormatIndicator.Unspecified) size += 1 + 1;
         if (will.MessageExpiryInterval != 0) size += 1 + 4;
         if (!string.IsNullOrEmpty(will.ContentType)) size += 1 + 2 + Encoding.UTF8.GetByteCount(will.ContentType);
@@ -716,8 +716,8 @@ internal static class Mqtt5Encoder
     private static int WriteWillProperties(ref Span<byte> span, MqttLastWill will)
     {
         var bytesWritten = 0;
-        if (will.DelayInterval.Value != 0)
-            bytesWritten += Mqtt5PropertyWriter.WriteFourByteInt(ref span, Mqtt5PropertyIdentifiers.WillDelayInterval, will.DelayInterval.Value);
+        if (will.DelayInterval != 0)
+            bytesWritten += Mqtt5PropertyWriter.WriteFourByteInt(ref span, Mqtt5PropertyIdentifiers.WillDelayInterval, will.DelayInterval);
         if (will.PayloadFormatIndicator != PayloadFormatIndicator.Unspecified)
             bytesWritten += Mqtt5PropertyWriter.WriteByte(ref span, Mqtt5PropertyIdentifiers.PayloadFormatIndicator, (byte)will.PayloadFormatIndicator);
         if (will.MessageExpiryInterval != 0)

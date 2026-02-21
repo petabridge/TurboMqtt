@@ -564,7 +564,7 @@ public class Mqtt5Decoder : Mqtt311Decoder
             switch (id)
             {
                 case Mqtt5PropertyIdentifiers.WillDelayInterval:
-                    will.DelayInterval = new NonZeroUInt16((ushort)Mqtt5PropertyReader.ReadFourByteInt(ref props));
+                    will.DelayInterval = Mqtt5PropertyReader.ReadFourByteInt(ref props);
                     break;
                 case Mqtt5PropertyIdentifiers.PayloadFormatIndicator:
                     will.PayloadFormatIndicator = (PayloadFormatIndicator)Mqtt5PropertyReader.ReadByte(ref props);

@@ -129,6 +129,7 @@ public class Mqtt5PacketGenerators
             from willPayload in hasWill ? willPayloadGen : Gen.Constant(ReadOnlyMemory<byte>.Empty)
             from willQos in hasWill ? Arb.Generate<QualityOfService>() : Gen.Constant(QualityOfService.AtMostOnce)
             from willRetain in hasWill ? Arb.Generate<bool>() : Gen.Constant(false)
+            from willDelayInterval in hasWill ? Arb.Generate<uint>() : Gen.Constant(0u)
             from hasUsername in Arb.Generate<bool>()
             from username in hasUsername ? validCredential : Gen.Constant(string.Empty)
             from hasPassword in hasUsername ? Arb.Generate<bool>() : Gen.Constant(false)
@@ -146,7 +147,7 @@ public class Mqtt5PacketGenerators
                 AuthenticationData = authData,
                 UserProperties = userProps,
                 KeepAliveSeconds = keepAlive,
-                Will = hasWill ? new MqttLastWill(willTopic, willPayload) : null,
+                Will = hasWill ? new MqttLastWill(willTopic, willPayload) { DelayInterval = willDelayInterval } : null,
                 UserName = hasUsername ? username : null,
                 Password = hasPassword ? password : null,
                 Flags = new ConnectFlags

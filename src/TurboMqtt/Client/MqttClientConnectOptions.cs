@@ -38,7 +38,7 @@ public sealed record LastWillAndTestament
     public ReadOnlyMemory<byte>? WillCorrelationData { get; init; } // MQTT 5.0 only
     public string? ContentType { get; init; } // MQTT 5.0 only
     public PayloadFormatIndicator PayloadFormatIndicator { get; init; } // MQTT 5.0 only
-    public NonZeroUInt16 DelayInterval { get; init; } // MQTT 5.0 only
+    public uint DelayInterval { get; init; } // MQTT 5.0 only
     public uint MessageExpiryInterval { get; init; } // MQTT 5.0 only
     public IReadOnlyDictionary<string, string>? WillProperties { get; init; } // MQTT 5.0 custom properties
 }

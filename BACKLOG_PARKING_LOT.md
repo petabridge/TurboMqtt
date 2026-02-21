@@ -9,4 +9,8 @@
 
 ## Items Awaiting Decision
 
-*None. All items migrated to GitHub Issues (#353–#372) on 2026-02-21.*
+### Hardcoded port 21883 in TcpMqtt311End2EndSpecs
+
+**Source:** Adversarial review after iter-05, finding F-3 (run 20260221-053113)
+**Description:** `TcpMqtt311End2EndSpecs` still hardcodes port 21883 in multiple places. Same class of bug as Task 4.4 (flaky HeartbeatFailure test with hardcoded port 21887, fixed in commit 391cace). Should switch to ephemeral port (port 0) + `server.BoundPort` for consistency.
+**Decision needed:** File a GitHub issue and schedule as a low-priority fix, or batch with other test infrastructure improvements.
