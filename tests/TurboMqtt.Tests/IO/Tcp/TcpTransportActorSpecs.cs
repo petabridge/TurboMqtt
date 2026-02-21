@@ -317,6 +317,44 @@ public class TcpTransportActorSpecs : TestKit
     #region Drain During Publish Tests
 
     [Fact]
+    public async Task Should_inject_exactly_one_DISCONNECT_on_graceful_drain_path()
+    {
+        var (actor, provider) = CreateActor();
+
+        Watch(actor);
+
+        var transport = await actor.Ask<IMqttTransport>(TcpTransportActor.CreateTcpTransport.Instance, TimeSpan.FromSeconds(3));
+
+        _ = Task.Run(async () =>
+        {
+            await Task.Delay(50);
+            provider.CompleteConnect();
+        });
+
+        var result = await actor.Ask<TcpTransportActor.ConnectResult>(
+            new TcpTransportActor.DoConnect(CancellationToken.None), TimeSpan.FromSeconds(5));
+        result.Status.Should().Be(ConnectionStatus.Connected);
+
+        // Trigger graceful drain → Draining → Closing path
+        actor.Tell(new TcpTransportActor.DoClose(CancellationToken.None));
+
+        // Wait for actor to fully terminate
+        await ExpectTerminatedAsync(actor, TimeSpan.FromSeconds(10));
+
+        // Drain the reads channel and count items.
+        // The FakeStream produces no inbound data, so the only items are injected DISCONNECT packets.
+        var itemCount = 0;
+        while (transport.Reader.TryRead(out var item))
+        {
+            itemCount++;
+            item.buffer.Dispose();
+        }
+
+        // Exactly one DISCONNECT packet must be injected — not two.
+        itemCount.Should().Be(1, "the Draining→Closing path must inject exactly one DISCONNECT packet");
+    }
+
+    [Fact]
     public async Task Should_flush_outbound_before_close_during_drain()
     {
         var (actor, provider) = CreateActor();

@@ -533,8 +533,7 @@ internal sealed class TcpTransportActor : UntypedActor
         {
             case OutboundFlushed:
             {
-                // Outbound has flushed — now inject the DISCONNECT signal for Akka.Streams
-                _readsFromTransport.Writer.TryWrite(DisconnectToBinary.NormalDisconnectPacket.ToBinary(MqttProtocolVersion.V3_1_1));
+                // Outbound has flushed — BecomeClosing() injects the DISCONNECT signal for Akka.Streams
                 BecomeClosing();
                 break;
             }

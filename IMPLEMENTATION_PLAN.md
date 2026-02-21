@@ -92,12 +92,12 @@ Two DISCONNECT packets enter the reads channel on the graceful drain path.
 Key file: `src/TurboMqtt/IO/Tcp/TcpTransportActor.cs`.
 
 Done when:
-- [ ] Only one DISCONNECT packet is injected into `_readsFromTransport` on the Draining -> Closing path (guard added to `BecomeClosing` or injection removed from `Draining.OutboundFlushed` handler)
-- [ ] The Connected -> Closing path (no draining) still injects exactly one DISCONNECT
-- [ ] The Aborted path still injects exactly one DISCONNECT
-- [ ] Akka.Hosting.TestKit test verifies the graceful drain path produces exactly one DISCONNECT in the reads channel
-- [ ] Builds with zero warnings
-- [ ] All existing tests pass
+- [x] Only one DISCONNECT packet is injected into `_readsFromTransport` on the Draining -> Closing path (guard added to `BecomeClosing` or injection removed from `Draining.OutboundFlushed` handler)
+- [x] The Connected -> Closing path (no draining) still injects exactly one DISCONNECT
+- [x] The Aborted path still injects exactly one DISCONNECT
+- [x] Akka.Hosting.TestKit test verifies the graceful drain path produces exactly one DISCONNECT in the reads channel
+- [x] Builds with zero warnings
+- [x] All existing tests pass
 
 ### Task 4.3: Propagate ConnectTimeout to reconnect CTS
 
