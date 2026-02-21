@@ -250,6 +250,22 @@ public class Mqtt5DecoderSpecs
             decoded.PacketId.Value.Should().Be(99);
             decoded.SubscriptionIdentifiers.Should().BeEquivalentTo(new[] { 1u, 42u });
         }
+
+        /// <summary>
+        /// Regression: decoder must accept 1-char topic names (MQTT 5.0 §4.7.3).
+        /// </summary>
+        [Fact]
+        public void Decoder_Publish_SingleCharTopic_DecodesSuccessfully()
+        {
+            var packet = new PublishPacket(QualityOfService.AtMostOnce, false, false, "a")
+            {
+                Payload = new byte[] { 0x01 }
+            };
+            var decoded = Roundtrip<PublishPacket>(m => Mqtt5Encoder.EncodePublishPacket(packet, ref m));
+            decoded.TopicName.Should().Be("a");
+            decoded.QualityOfService.Should().Be(QualityOfService.AtMostOnce);
+            decoded.Payload.ToArray().Should().BeEquivalentTo(new byte[] { 0x01 });
+        }
     }
 
     // ── PUBACK ─────────────────────────────────────────────────────────────

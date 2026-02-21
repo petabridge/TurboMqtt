@@ -214,6 +214,25 @@ public class Mqtt311DecoderSpecs
         /// fragmented byte streams. Uses <see cref="PacketGenerators.PacketArb"/> to cover
         /// all 14 packet types.
         /// </summary>
+        /// <summary>
+        /// Regression: decoder previously required minBytes=2 for topic name, rejecting
+        /// 1-char topic names. MQTT 3.1.1 §4.7.3 requires at least 1 character.
+        /// </summary>
+        [Fact]
+        public void Decoder_Publish_SingleCharTopic_DecodesSuccessfully()
+        {
+            var packet = new PublishPacket(QualityOfService.AtMostOnce, false, false, "a")
+            {
+                Payload = new byte[] { 0x01 }
+            };
+
+            var decoder = new Mqtt311Decoder();
+            var decoded = PacketEncodingTestHelper.EncodeAndDecodeMqtt311Packet<PublishPacket>(packet, decoder);
+
+            decoded.TopicName.Should().Be("a");
+            decoded.QualityOfService.Should().Be(QualityOfService.AtMostOnce);
+        }
+
         [FsCheck.Xunit.Property(Arbitrary = new[] { typeof(PacketGenerators) }, MaxTest = 1000)]
         public Property TestPacketReassembly(MqttPacket packet)
         {

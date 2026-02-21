@@ -348,10 +348,10 @@ The decoder bug fix (minBytes 2 to 1 for PUBLISH topic name) is covered
 probabilistically by FsCheck but lacks a self-documenting deterministic test.
 
 Done when:
-- [ ] Deterministic test `Decoder_Publish_SingleCharTopic_DecodesSuccessfully` encodes and decodes a PUBLISH with a 1-character topic
-- [ ] Test covers both MQTT 3.1.1 and MQTT 5.0 decoders
-- [ ] Builds with zero warnings
-- [ ] All existing tests pass
+- [x] Deterministic test `Decoder_Publish_SingleCharTopic_DecodesSuccessfully` encodes and decodes a PUBLISH with a 1-character topic
+- [x] Test covers both MQTT 3.1.1 and MQTT 5.0 decoders
+- [x] Builds with zero warnings
+- [x] All existing tests pass
 
 ### Task 5.6: Add empty ClientId test for MQTT 5.0 CONNECT
 
