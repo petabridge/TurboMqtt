@@ -49,6 +49,14 @@ public class EmqxAuthFixture : IAsyncLifetime
         // EMQX 5.5.1 bootstrap file format (per-line): {ApiKey}:{ApiSecret}:{Role}
         _apiBootstrapHostPath = Path.GetTempFileName();
         File.WriteAllText(_apiBootstrapHostPath, $"{ApiKey}:{ApiSecret}:administrator\n");
+        // The EMQX process inside Docker runs as a different UID than the host user that
+        // created the temp file. Path.GetTempFileName() creates files with 600 permissions
+        // (owner read/write only), which prevents the container process from reading it.
+        // Set to 644 so the bind-mounted file is world-readable inside the container.
+        if (OperatingSystem.IsLinux() || OperatingSystem.IsMacOS())
+            File.SetUnixFileMode(_apiBootstrapHostPath,
+                UnixFileMode.UserRead | UnixFileMode.UserWrite |
+                UnixFileMode.GroupRead | UnixFileMode.OtherRead);
 
         Container = new EmqxBuilder()
             .WithEnvironment("EMQX_SESSION__UPGRADE_QOS", "true")
