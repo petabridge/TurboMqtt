@@ -48,7 +48,16 @@ public enum PublishingStatus
 /// INTERNAL API - messaging protocol used to communicate with outbound reliable delivery actors.
 /// </summary>
 public static class PublishingProtocol{
-    
+    /// <summary>
+    /// Configures the receive maximum for the retry actor after receiving a CONNACK with ReceiveMaximum set.
+    /// When set, the actor buffers QoS 1/2 publishes beyond this limit and releases them as ACKs arrive.
+    /// </summary>
+    public sealed class SetReceiveMaximum
+    {
+        public SetReceiveMaximum(ushort value) { Value = value; }
+        public ushort Value { get; }
+    }
+
     /// <summary>
     /// Message was successfully published and fully received.
     /// </summary>

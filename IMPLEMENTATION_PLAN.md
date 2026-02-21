@@ -573,14 +573,14 @@ When the client receives CONNACK with V5 properties, store the broker's limits a
 enforce them. See PRD §11 for Receive Maximum flow control details.
 
 Done when:
-- [ ] Broker's `ReceiveMaximum` limits in-flight QoS 1/2 publishes (throttle `AtLeastOncePublishRetryActor` and `ExactlyOncePublishRetryActor`)
-- [ ] Broker's `MaximumPacketSize` validated before sending outbound packets
-- [ ] Broker's `MaximumQoS` prevents publishing at higher QoS than supported
-- [ ] Broker's `RetainAvailable` prevents setting retain flag if unsupported
-- [ ] Broker's `ServerKeepAlive` overrides client-requested keep alive in `HeartBeatActor`
-- [ ] Broker's `AssignedClientIdentifier` overwrites client ID when provided
-- [ ] Unit tests: retry actor queues publishes beyond Receive Maximum, resumes on ACK
-- [ ] Integration test: with Receive Maximum = 2, 5 publishes are sent 2 at a time
+- [x] Broker's `ReceiveMaximum` limits in-flight QoS 1/2 publishes (throttle `AtLeastOncePublishRetryActor` and `ExactlyOncePublishRetryActor`)
+- [x] Broker's `MaximumPacketSize` validated before sending outbound packets
+- [x] Broker's `MaximumQoS` prevents publishing at higher QoS than supported
+- [x] Broker's `RetainAvailable` prevents setting retain flag if unsupported
+- [x] Broker's `ServerKeepAlive` overrides client-requested keep alive in `HeartBeatActor`
+- [x] Broker's `AssignedClientIdentifier` overwrites client ID when provided
+- [x] Unit tests: retry actor queues publishes beyond Receive Maximum, resumes on ACK
+- [x] Integration test: with Receive Maximum = 2, 5 publishes are sent 2 at a time
 
 ### Task 3.7: Implement MQTT 5.0 Auth packet flow
 
