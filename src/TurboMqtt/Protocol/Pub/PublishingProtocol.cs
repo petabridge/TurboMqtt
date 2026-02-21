@@ -8,6 +8,28 @@ using Akka.Actor;
 
 namespace TurboMqtt.Protocol.Pub;
 
+/// <summary>
+/// Sent by <see cref="TurboMqtt.Client.ClientStreamOwner"/> to cross-register the sibling
+/// publish actor so that buffered messages can be promoted across QoS levels when a shared
+/// <see cref="SharedReceiveMaximumQuota"/> slot is freed.
+/// </summary>
+internal sealed class SetSiblingPublisher
+{
+    public SetSiblingPublisher(IActorRef sibling) => Sibling = sibling;
+    public IActorRef Sibling { get; }
+}
+
+/// <summary>
+/// Sent from one publish retry actor to its sibling to trigger a buffer-drain attempt when
+/// a <see cref="SharedReceiveMaximumQuota"/> slot has been freed but the sender's own
+/// buffer is empty.
+/// </summary>
+internal sealed class TryDequeueBuffered
+{
+    public static readonly TryDequeueBuffered Instance = new();
+    private TryDequeueBuffered() { }
+}
+
 public interface IPublishResult : INoSerializationVerificationNeeded
 {
     public PublishingStatus Status { get; }

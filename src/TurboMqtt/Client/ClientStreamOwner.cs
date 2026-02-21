@@ -180,18 +180,28 @@ internal sealed class ClientStreamOwner : UntypedActor
                         Channel.CreateUnbounded<MqttMessage>(new UnboundedChannelOptions()
                             { SingleWriter = true, SingleReader = true });
 
+                    // Shared ReceiveMaximum quota enforced across both QoS actors (MQTT 5.0 §4.9).
+                    // Maximum is set to 0 (unlimited) until the broker advertises a limit in CONNACK.
+                    var sharedQuota = new SharedReceiveMaximumQuota();
+
                     // start the actors
                     _exactlyOnceActor =
                         Context.ActorOf(
                             Props.Create(() => new ExactlyOncePublishRetryActor(outboundPackets,
-                                clientConnectOptions.MaxPublishRetries, clientConnectOptions.PublishRetryInterval)),
+                                clientConnectOptions.MaxPublishRetries, clientConnectOptions.PublishRetryInterval,
+                                sharedQuota)),
                             "qos-2");
                     Context.Watch(_exactlyOnceActor);
 
                     _atLeastOnceActor = Context.ActorOf(Props.Create(() => new AtLeastOncePublishRetryActor(
                         outboundPackets,
-                        clientConnectOptions.MaxPublishRetries, clientConnectOptions.PublishRetryInterval)), "qos-1");
+                        clientConnectOptions.MaxPublishRetries, clientConnectOptions.PublishRetryInterval,
+                        sharedQuota)), "qos-1");
                     Context.Watch(_atLeastOnceActor);
+
+                    // Cross-register siblings so each can promote the other's buffer when a slot frees up.
+                    _exactlyOnceActor.Tell(new SetSiblingPublisher(_atLeastOnceActor));
+                    _atLeastOnceActor.Tell(new SetSiblingPublisher(_exactlyOnceActor));
 
                     _clientAckActor =
                         Context.ActorOf(

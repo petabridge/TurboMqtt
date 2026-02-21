@@ -233,12 +233,12 @@ Key files:
 - `src/TurboMqtt/Client/IMqttClient.cs` (`MqttClient.ApplyBrokerLimits`)
 
 Done when:
-- [ ] A shared quota mechanism limits total in-flight QoS 1 + QoS 2 publishes to ReceiveMaximum
-- [ ] When one QoS level frees a slot, the other can use it
-- [ ] Integration test publishes interleaved QoS 1 and QoS 2 messages against a broker with ReceiveMaximum=5, verifying total in-flight never exceeds 5
-- [ ] Existing QoS 1 and QoS 2 tests still pass
-- [ ] Builds with zero warnings
-- [ ] All existing tests pass
+- [x] A shared quota mechanism limits total in-flight QoS 1 + QoS 2 publishes to ReceiveMaximum
+- [x] When one QoS level frees a slot, the other can use it
+- [x] Integration test publishes interleaved QoS 1 and QoS 2 messages against a broker with ReceiveMaximum=5, verifying total in-flight never exceeds 5
+- [x] Existing QoS 1 and QoS 2 tests still pass
+- [x] Builds with zero warnings
+- [x] All existing tests pass
 
 ---
 
