@@ -195,7 +195,7 @@ public class PacketGenerators
                 select (MqttPacket)new SubscribePacket
                 {
                     PacketId = (NonZeroUInt16)(ushort)packetId,
-                    SubscriptionIdentifier = new NonZeroUInt16(1), // not encoded in MQTT 3.1.1
+                    SubscriptionIdentifier = 1u, // not encoded in MQTT 3.1.1
                     Topics = topics
                 }).ToArbitrary();
     }

@@ -16,12 +16,13 @@ public sealed class SubscribePacket : MqttPacketWithId
     public override QualityOfService QualityOfService => QualityOfService.AtLeastOnce;
 
     /// <summary>
-    /// The unique identity of this subscription for this client.
+    /// The unique identity of this subscription for this client. MQTT 5.0 only.
     /// </summary>
     /// <remarks>
-    /// Must be a value greater than 0.
+    /// Valid range: 1 to 268435455. When null, no Subscription Identifier is sent.
+    /// This is a Variable Byte Integer in the MQTT 5.0 spec (§3.8.2.1.2).
     /// </remarks>
-    public NonZeroUInt16 SubscriptionIdentifier { get; set; }
+    public uint? SubscriptionIdentifier { get; set; }
 
     /// <summary>
     /// The set of topics we're subscribing to.
@@ -132,7 +133,7 @@ internal static class SubscriptionOptionsHelpers
             QoS = (QualityOfService)(subscriptionOptions & 0b11),
             NoLocal = (subscriptionOptions & (1 << 2)) != 0,
             RetainAsPublished = (subscriptionOptions & (1 << 3)) != 0,
-            RetainHandling = (RetainHandlingOption)((subscriptionOptions & 0b11000) >> 3)
+            RetainHandling = (RetainHandlingOption)((subscriptionOptions >> 4) & 0b11)
         };
 
         return result;

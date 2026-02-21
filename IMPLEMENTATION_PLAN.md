@@ -8,6 +8,23 @@
 
 ---
 
+## Open GitHub Issues — Filed During RALPH Run 20260220-202420
+
+Issues filed by Task 2.5 (MQTT 3.1.1 code review). These are tracked in GitHub
+and do not need to be resolved before merging this branch.
+
+| Issue | Title | Area |
+|-------|-------|------|
+| [#344](https://github.com/petabridge/TurboMqtt/issues/344) | `ConnectFlags.Decode` — reserved bit 0 not validated [MQTT-3.1.2-3] | Protocol compliance |
+| [#345](https://github.com/petabridge/TurboMqtt/issues/345) | `ConnectFlags.Decode` — WillQoS not validated ≤ 2 [MQTT-3.1.2-14] | Protocol compliance |
+| [#346](https://github.com/petabridge/TurboMqtt/issues/346) | Decoder — fixed header reserved bits not validated for SUBSCRIBE/UNSUBSCRIBE/PUBREL [MQTT-2.2.2] | Protocol compliance |
+| [#347](https://github.com/petabridge/TurboMqtt/issues/347) | Bit mask off-by-one in subscription options decoding | Bug |
+| [#348](https://github.com/petabridge/TurboMqtt/issues/348) | `ConnectPacket` — duplicate `Flags` and `ConnectFlags` properties | Code quality |
+| [#349](https://github.com/petabridge/TurboMqtt/issues/349) | MQTT 5.0 size estimators — `=` instead of `+=` for `ComputeUserPropertiesSize` | Bug |
+| [#350](https://github.com/petabridge/TurboMqtt/issues/350) | `Mqtt311EncoderOptimized` — no input buffer size validation | Safety |
+
+---
+
 ## Phase 1: Infrastructure and Modernization
 
 > Goal: Unblock releases by migrating CI/CD to GitHub Actions, upgrade to .NET 10,
@@ -193,11 +210,11 @@ encode a packet with `Mqtt311Encoder`, decode it with `Mqtt311Decoder`, and asse
 structural equality. Currently only `TestPacketReassembly` exists as a property test.
 
 Done when:
-- [ ] A property test class exists that tests roundtrip encode/decode for each of the 14 packet types individually
-- [ ] Each property test asserts that decoded packet fields match the original generated packet
-- [ ] A combined property test encodes a random packet from `PacketArb()`, decodes it, and asserts equality
-- [ ] All property tests pass with default FsCheck iteration count (100)
-- [ ] `TestPacketReassembly` property test updated to use the full `PacketArb()` (all 14 types)
+- [x] A property test class exists that tests roundtrip encode/decode for each of the 14 packet types individually
+- [x] Each property test asserts that decoded packet fields match the original generated packet
+- [x] A combined property test encodes a random packet from `PacketArb()`, decodes it, and asserts equality
+- [x] All property tests pass with default FsCheck iteration count (100)
+- [x] `TestPacketReassembly` property test updated to use the full `PacketArb()` (all 14 types) *(added `Arbitrary = new[] { typeof(PacketGenerators) }` attribute + per-type Classify labels; also fixed PUBLISH decoder bug: minBytes was 2, must be 1 per MQTT §4.7.3)*
 
 ### Task 2.4: Add error path and boundary condition tests
 
@@ -208,15 +225,15 @@ Done when:
 Test defensive behavior of the encoder and decoder against invalid or adversarial input.
 
 Done when:
-- [ ] Test: decoder rejects packets with invalid packet type byte (0x00, 0xFF)
-- [ ] Test: decoder handles truncated packets (fewer bytes than remaining length indicates)
-- [ ] Test: decoder handles packets where remaining length exceeds maximum (256 MB MQTT limit)
-- [ ] Test: decoder handles remaining length encoded with more than 4 bytes
-- [ ] Test: encoder/decoder roundtrip with maximum-size payload (close to 256 MB or a practical test limit)
-- [ ] Test: decoder handles PUBLISH with QoS 3 (invalid, reserved value)
-- [ ] Test: decoder handles CONNECT with invalid protocol name or version byte
-- [ ] Test: partial frame delivery across multiple buffers (extend `TestPacketReassembly` to all types)
-- [ ] All tests pass on both Linux and Windows
+- [x] Test: decoder rejects packets with invalid packet type byte (0x00, 0xFF)
+- [x] Test: decoder handles truncated packets (fewer bytes than remaining length indicates)
+- [x] Test: decoder handles packets where remaining length exceeds maximum (256 MB MQTT limit)
+- [x] Test: decoder handles remaining length encoded with more than 4 bytes
+- [x] Test: encoder/decoder roundtrip with maximum-size payload (close to 256 MB or a practical test limit)
+- [x] Test: decoder handles PUBLISH with QoS 3 (invalid, reserved value)
+- [x] Test: decoder handles CONNECT with invalid protocol name or version byte
+- [x] Test: partial frame delivery across multiple buffers (extend `TestPacketReassembly` to all types)
+- [x] All tests pass on both Linux and Windows
 
 ### Task 2.5: Code review MQTT 3.1.1 encoder/decoder and file issues
 
@@ -229,11 +246,11 @@ Perform a line-by-line review of `Mqtt311Encoder.cs`, `Mqtt311EncoderOptimized.c
 Compare against the OASIS MQTT 3.1.1 specification.
 
 Done when:
-- [ ] Review covers: fixed header encoding, remaining length encoding/decoding, all packet type encode/decode paths, size estimation accuracy
-- [ ] Any specification violations filed as GitHub issues with label `bug` and referenced section of MQTT 3.1.1 spec
-- [ ] Any potential buffer overflows, off-by-one errors, or unsafe memory patterns filed as GitHub issues
-- [ ] Any discrepancies between `Mqtt311Encoder` and `Mqtt311EncoderOptimized` filed as issues
-- [ ] Summary of findings documented in the PR description or a comment on issue #66
+- [x] Review covers: fixed header encoding, remaining length encoding/decoding, all packet type encode/decode paths, size estimation accuracy
+- [x] Any specification violations filed as GitHub issues with label `bug` and referenced section of MQTT 3.1.1 spec *(#344 §3.1.2.1, #345 §3.1.2.6, #346 §2.2.2)*
+- [x] Any potential buffer overflows, off-by-one errors, or unsafe memory patterns filed as GitHub issues *(#347 bit mask off-by-one, #350 missing buffer guard)*
+- [x] Any discrepancies between `Mqtt311Encoder` and `Mqtt311EncoderOptimized` filed as issues *(#350 missing buffer size validation in optimized encoder)*
+- [x] Summary of findings documented in the PR description or a comment on issue #66 *(https://github.com/petabridge/TurboMqtt/issues/66#issuecomment-3937110252)*
 
 ### Task 2.6: Fix flaky ShouldConnectAndDisconnect test
 
@@ -245,11 +262,11 @@ The container test `ShouldConnectAndDisconnect` is flaky. Diagnose the root caus
 (likely timing/race condition in actor lifecycle or TCP connection teardown) and fix it.
 
 Done when:
-- [ ] Root cause identified and documented in issue #99 comment
-- [ ] Fix applied (may involve timeout adjustments, actor lifecycle ordering, or test harness changes)
-- [ ] `dotnet test tests/TurboMqtt.Container.Tests/ -c Release` passes the test 10 consecutive times locally
-- [ ] No `[Skip]` attribute or equivalent workaround -- the test runs normally
-- [ ] Issue #99 can be closed
+- [x] Root cause identified and documented in issue #99 comment *(https://github.com/petabridge/TurboMqtt/issues/99#issuecomment-3937124391)*
+- [x] Fix applied (may involve timeout adjustments, actor lifecycle ordering, or test harness changes) *(PrepareDisconnect message + _userDisconnectRequested guard in ClientStreamOwner; commit 7fd069f, PR #343)*
+- [x] `dotnet test tests/TurboMqtt.Container.Tests/ -c Release` passes the test 10 consecutive times locally *(verified: 10/10 runs pass, 2 tests per run - TCP and TLS variants)*
+- [x] No `[Skip]` attribute or equivalent workaround -- the test runs normally
+- [x] Issue #99 can be closed *(closed 2026-02-20)*
 
 ### Task 2.7: TLS support
 
@@ -271,11 +288,11 @@ The current EMQX container tests use anonymous connections. Add tests that exerc
 MQTT username/password authentication against the broker.
 
 Done when:
-- [ ] EMQX fixture configured with at least one username/password credential
-- [ ] Container test: successful connect with valid username/password
-- [ ] Container test: connect rejected with invalid username/password (expect ConnAck with appropriate return code)
-- [ ] Container test: publish and subscribe work over authenticated connection at QoS 0 and QoS 1
-- [ ] All new tests pass with `dotnet test tests/TurboMqtt.Container.Tests/ -c Release`
+- [x] EMQX fixture configured with at least one username/password credential
+- [x] Container test: successful connect with valid username/password
+- [x] Container test: connect rejected with invalid username/password (expect ConnAck with appropriate return code)
+- [x] Container test: publish and subscribe work over authenticated connection at QoS 0 and QoS 1
+- [x] All new tests pass with `dotnet test tests/TurboMqtt.Container.Tests/ -c Release`
 
 ---
 
@@ -391,6 +408,24 @@ Done when:
 
 ---
 
+## Review Fixes
+
+### FIX: Correct EmqxAuthFixture XML docstring
+
+**Source:** Adversarial review 20260220-202420 iter-05, finding F-2
+**Surface area:** documentation
+**Verification:** L0
+
+The XML summary comment on `EmqxAuthFixture` has two factual errors from the debugging journey:
+1. Says `EMQX_MANAGEMENT__API_KEY__BOOTSTRAP_FILE` — should be `EMQX_API_KEY__BOOTSTRAP_FILE`
+2. Says file format `{AppID}:{ApiKey}:{ApiSecret}` — should be `{ApiKey}:{ApiSecret}:{Role}`
+
+Done when:
+- [x] XML summary at `EmqxAuthFixture.cs` lines 22-28 corrected to match the actual env var name (`EMQX_API_KEY__BOOTSTRAP_FILE`) and file format (`{ApiKey}:{ApiSecret}:{Role}`)
+- [x] Builds with zero warnings
+
+---
+
 ## Phase 3: MQTT 5.0 Implementation
 
 > Goal: Implement a functional MQTT 5.0 encoder and decoder, integrate them into
@@ -415,15 +450,15 @@ The size estimator (`MqttPacketSizeEstimator.EstimateMqtt5PacketSize()`) already
 handles all property types — the writer/reader must be consistent with it.
 
 Done when:
-- [ ] `Mqtt5PropertyIdentifiers.cs` exists with constants for all 28 property identifiers
-- [ ] `Mqtt5PropertyWriter.cs` exists with static methods: `WriteByte`, `WriteTwoByteInt`, `WriteFourByteInt`, `WriteVariableByteInt`, `WriteUtf8String`, `WriteStringPair`, `WriteBinaryData` — all using `ref Span<byte>`
-- [ ] `Mqtt5PropertyReader.cs` exists with matching static read methods using `ref ReadOnlySpan<byte>`
-- [ ] Unit test: each property type roundtrips (write then read)
-- [ ] Unit test: Variable Byte Integer boundary values (0, 127, 128, 16383, 16384, 2097151, 2097152, 268435455)
-- [ ] Unit test: UTF-8 String handles empty, ASCII, and multi-byte characters
-- [ ] Unit test: unknown property identifier in reader returns error (not crash)
-- [ ] FsCheck property: random property values roundtrip through write/read
-- [ ] Builds with zero warnings
+- [x] `Mqtt5PropertyIdentifiers.cs` exists with constants for all 28 property identifiers *(27 per OASIS spec Table 2-4; PRD count off by one due to 0x09 listed in both UTF-8 String and Binary Data rows)*
+- [x] `Mqtt5PropertyWriter.cs` exists with static methods: `WriteByte`, `WriteTwoByteInt`, `WriteFourByteInt`, `WriteVariableByteInt`, `WriteUtf8String`, `WriteStringPair`, `WriteBinaryData` — all using `ref Span<byte>`
+- [x] `Mqtt5PropertyReader.cs` exists with matching static read methods using `ref ReadOnlySpan<byte>`
+- [x] Unit test: each property type roundtrips (write then read)
+- [x] Unit test: Variable Byte Integer boundary values (0, 127, 128, 16383, 16384, 2097151, 2097152, 268435455)
+- [x] Unit test: UTF-8 String handles empty, ASCII, and multi-byte characters
+- [x] Unit test: unknown property identifier in reader returns error (not crash)
+- [x] FsCheck property: random property values roundtrip through write/read
+- [x] Builds with zero warnings
 
 ### Task 3.1: Add missing MQTT 5.0 fields to ConnAckPacket
 
@@ -435,13 +470,13 @@ Done when:
 These must be added before the decoder can populate them.
 
 Done when:
-- [ ] `ConnAckPacket.cs` has: `SessionExpiryInterval`, `AssignedClientIdentifier`, `ServerKeepAlive`, `AuthenticationMethod`, `AuthenticationData`, `ResponseInformation`, `ServerReference`, `TopicAliasMaximum`, `MaximumQoS`, `RetainAvailable`, `WildcardSubscriptionAvailable`, `SubscriptionIdentifiersAvailable`, `SharedSubscriptionAvailable`
-- [ ] `ConnAckReasonCode` enum has all MQTT 5.0 reason codes (OASIS Table 3-1)
-- [ ] `SubscribePacket` has `SubscriptionIdentifier` (uint?) property added
-- [ ] `PubAckPacket` has `UserProperties` field added (currently missing)
-- [ ] `PubAckPacket.ReasonString` changed from computed to stored property
-- [ ] `MqttPacketSizeEstimator.EstimateConnAckPacketSizeMqtt5()` updated to account for new properties
-- [ ] Builds with zero warnings
+- [x] `ConnAckPacket.cs` has: `SessionExpiryInterval`, `AssignedClientIdentifier`, `ServerKeepAlive`, `AuthenticationMethod`, `AuthenticationData`, `ResponseInformation`, `ServerReference`, `TopicAliasMaximum`, `MaximumQoS`, `RetainAvailable`, `WildcardSubscriptionAvailable`, `SubscriptionIdentifiersAvailable`, `SharedSubscriptionAvailable`
+- [x] `ConnAckReasonCode` enum has all MQTT 5.0 reason codes (OASIS Table 3-1) *(already complete — 22 reason codes present)*
+- [x] `SubscribePacket` has `SubscriptionIdentifier` (uint?) property added *(changed from NonZeroUInt16 to uint? to match VBI spec range and optionality)*
+- [x] `PubAckPacket` has `UserProperties` field added (currently missing)
+- [x] `PubAckPacket.ReasonString` changed from computed to stored property
+- [x] `MqttPacketSizeEstimator.EstimateConnAckPacketSizeMqtt5()` updated to account for new properties
+- [x] Builds with zero warnings
 
 ### Task 3.2: Implement Mqtt5Encoder
 
@@ -455,15 +490,15 @@ packet types using the property writer from Task 3.0. Follow the same static-met
 fields, write Property Length (VBI) + property key-value pairs before the Payload.
 
 Done when:
-- [ ] `Mqtt5Encoder.cs` exists with `EncodePacket` matching `Mqtt311Encoder.EncodePacket` signature
-- [ ] All 15 packet types handled (Connect, ConnAck, Publish, PubAck, PubRec, PubRel, PubComp, Subscribe, SubAck, Unsubscribe, UnsubAck, PingReq, PingResp, Disconnect, Auth)
-- [ ] CONNECT encoding includes: Protocol Level 5, Connect Properties, Will Properties
-- [ ] PUBLISH encoding includes all V5 properties (Topic Alias, Message Expiry, User Properties, etc.)
-- [ ] ACK packets use compact form when Reason Code is Success and no properties
-- [ ] SUBSCRIBE encoding includes V5 Subscription Options byte (No Local, Retain As Published, Retain Handling)
-- [ ] Auth packet encoding handles `AuthenticationMethod`, `AuthenticationData`, `ReasonString`, `UserProperties`
-- [ ] Builds with zero warnings
-- [ ] Unit tests verify encoding of each packet type against hand-computed expected bytes
+- [x] `Mqtt5Encoder.cs` exists with `EncodePacket` matching `Mqtt311Encoder.EncodePacket` signature
+- [x] All 15 packet types handled (Connect, ConnAck, Publish, PubAck, PubRec, PubRel, PubComp, Subscribe, SubAck, Unsubscribe, UnsubAck, PingReq, PingResp, Disconnect, Auth)
+- [x] CONNECT encoding includes: Protocol Level 5, Connect Properties, Will Properties
+- [x] PUBLISH encoding includes all V5 properties (Topic Alias, Message Expiry, User Properties, etc.)
+- [x] ACK packets use compact form when Reason Code is Success and no properties
+- [x] SUBSCRIBE encoding includes V5 Subscription Options byte (No Local, Retain As Published, Retain Handling)
+- [x] Auth packet encoding handles `AuthenticationMethod`, `AuthenticationData`, `ReasonString`, `UserProperties`
+- [x] Builds with zero warnings
+- [x] Unit tests verify encoding of each packet type against hand-computed expected bytes
 
 ### Task 3.3: Implement Mqtt5Decoder
 
@@ -476,15 +511,15 @@ packet types using the property reader from Task 3.0. Follow `Mqtt311Decoder` pa
 stateful class with `_remainder` for partial frame handling.
 
 Done when:
-- [ ] `Mqtt5Decoder.cs` exists with `TryDecode` matching `Mqtt311Decoder` patterns
-- [ ] All 15 packet types decoded
-- [ ] CONNACK decoding populates all 13+ V5 properties (from Task 3.1)
-- [ ] PUBLISH decoding populates V5 properties (Topic Alias, User Properties, etc.)
-- [ ] ACK packet decoding handles compact form (no Reason Code byte) and full form
-- [ ] Auth packet decoding populates all fields
-- [ ] Server-initiated DISCONNECT decoding handles all V5 reason codes
-- [ ] Builds with zero warnings
-- [ ] Unit tests decode known byte sequences into correct packet fields
+- [x] `Mqtt5Decoder.cs` exists with `TryDecode` matching `Mqtt311Decoder` patterns
+- [x] All 15 packet types decoded
+- [x] CONNACK decoding populates all 13+ V5 properties (from Task 3.1)
+- [x] PUBLISH decoding populates V5 properties (Topic Alias, User Properties, etc.)
+- [x] ACK packet decoding handles compact form (no Reason Code byte) and full form
+- [x] Auth packet decoding populates all fields
+- [x] Server-initiated DISCONNECT decoding handles all V5 reason codes
+- [x] Builds with zero warnings
+- [x] Unit tests decode known byte sequences into correct packet fields
 
 ### Task 3.4: Add FsCheck generators and roundtrip property tests for MQTT 5.0
 

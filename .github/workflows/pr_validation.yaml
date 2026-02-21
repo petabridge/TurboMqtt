@@ -20,7 +20,7 @@ permissions:
 
 jobs:
   test:
-    timeout-minutes: 20 # Increase this timeout value as needed
+    timeout-minutes: 30 # Container E2E tests (2x EMQX) take ~15-20 min on Ubuntu
     # Permissions this GitHub Action needs for other things in GitHub
     name: Test-${{matrix.os}}
     runs-on: ${{matrix.os}}

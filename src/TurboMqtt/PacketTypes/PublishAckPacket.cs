@@ -59,10 +59,15 @@ public sealed class PubAckPacket : MqttPacketWithId
     public MqttPubAckReasonCode ReasonCode { get; set; }
 
     /// <summary>
-    /// User Properties, available in MQTT 5.0.
-    /// These are key-value pairs that can be sent to provide additional information in the acknowledgment.
+    /// Human-readable string describing the reason for the response. Available in MQTT 5.0. Property 0x1F.
     /// </summary>
-    public string ReasonString => MqttPubAckHelpers.ReasonCodeToString(ReasonCode);
+    public string? ReasonString { get; set; }
+
+    /// <summary>
+    /// User Properties, available in MQTT 5.0.
+    /// These are key-value pairs that can be sent to provide additional information in the acknowledgment. Property 0x26.
+    /// </summary>
+    public IReadOnlyDictionary<string, string>? UserProperties { get; set; }
 
     public override string ToString()
     {

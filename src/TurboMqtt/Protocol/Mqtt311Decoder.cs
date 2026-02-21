@@ -173,8 +173,9 @@ public class Mqtt311Decoder
                     case MqttPacketType.Disconnect:
                         packetsBuilder.Add(DecodeDisconnect(ref bufferForMsg, packetSize, headerLength));
                         break;
-                    case MqttPacketType.Auth: // MQTT 5.0 only - should throw an exception if we see this
-                        throw new NotSupportedException("MQTT 5.0 packets are not supported.");
+                    case MqttPacketType.Auth: // MQTT 5.0 only
+                        packetsBuilder.Add(DecodeAuth(ref bufferForMsg, packetSize, headerLength));
+                        break;
                     default:
                         throw new ArgumentOutOfRangeException(nameof(additionalData),
                             $"Unknown packet type: {packetType}");
@@ -347,7 +348,8 @@ public class Mqtt311Decoder
         var retain = (buffSpan[0] & 0x01) == 0x01;
         buffer = buffer.Slice(headerLength); // advance past the fixed + size header
 
-        var topicName = DecodeString(ref buffer, ref remainingLength, 2, int.MaxValue);
+        // MQTT 3.1.1 §4.7.3: topic names must be at least 1 character long
+        var topicName = DecodeString(ref buffer, ref remainingLength, 1, int.MaxValue);
         // TODO: validate topic name
         var packet = new PublishPacket(qualityOfService, duplicate, retain, topicName);
         if (qualityOfService > QualityOfService.AtMostOnce)
@@ -466,6 +468,13 @@ public class Mqtt311Decoder
     {
         return DisconnectPacket.Instance;
     }
+
+    /// <summary>
+    /// Decodes an AUTH packet (MQTT 5.0 only). Overridden in <see cref="Mqtt5Decoder"/>.
+    /// In MQTT 3.1.1 the AUTH packet type is undefined; receiving one is a protocol error.
+    /// </summary>
+    protected virtual MqttPacket DecodeAuth(ref ReadOnlyMemory<byte> bufferForMsg, int packetSize, int headerLength)
+        => throw new NotSupportedException("AUTH packets are only supported in MQTT 5.0.");
 
     internal static bool TryGetPacketLength(ref ReadOnlySpan<byte> span, out int bodyLength)
     {
