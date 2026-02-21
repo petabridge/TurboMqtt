@@ -23,7 +23,7 @@ public class Mqtt311ConnectCodecBenchmarks
         Password = "benchmark-password",
         ProtocolName = "MQTT",
         KeepAliveSeconds = 2,
-        ConnectFlags = new ConnectFlags
+        Flags = new ConnectFlags
         {
             CleanSession = true,
             WillFlag = false,

@@ -24,7 +24,7 @@ public class Mqtt311PacketSizeEstimatorBenchmark
             UserName = "user1",
             Password = "password1",
             KeepAliveSeconds = 5,
-            ConnectFlags = new ConnectFlags()
+            Flags = new ConnectFlags()
             {
                 CleanSession = true,
                 PasswordFlag = true,

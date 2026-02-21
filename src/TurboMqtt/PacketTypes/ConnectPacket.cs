@@ -71,7 +71,6 @@ public sealed class ConnectPacket(MqttProtocolVersion protocolVersion) : MqttPac
     public string? AuthenticationMethod { get; set; } // MQTT 5.0 only
     public ReadOnlyMemory<byte>? AuthenticationData { get; set; } // MQTT 5.0 only
     public IReadOnlyList<KeyValuePair<string, string>>? UserProperties { get; set; } // MQTT 5.0 custom properties
-    public ConnectFlags ConnectFlags { get; set; }
 
     public override string ToString()
     {

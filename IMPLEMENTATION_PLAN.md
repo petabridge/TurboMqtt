@@ -475,12 +475,12 @@ Key files:
 - `src/TurboMqtt/Client/IMqttClient.cs` (sets `ConnectFlags`)
 
 Done when:
-- [ ] `ConnectPacket.ConnectFlags` property removed
-- [ ] All references updated to use `Flags`
-- [ ] The `.Excluding(x => x.ConnectFlags)` exclusion in roundtrip tests removed
-- [ ] Roundtrip property tests pass with the unified `Flags` property
-- [ ] Builds with zero warnings
-- [ ] All existing tests pass
+- [x] `ConnectPacket.ConnectFlags` property removed
+- [x] All references updated to use `Flags`
+- [x] The `.Excluding(x => x.ConnectFlags)` exclusion in roundtrip tests removed
+- [x] Roundtrip property tests pass with the unified `Flags` property
+- [x] Builds with zero warnings
+- [x] All existing tests pass
 
 ### Task 6.6: Add ConnectFlags reserved bit and WillQoS validation
 

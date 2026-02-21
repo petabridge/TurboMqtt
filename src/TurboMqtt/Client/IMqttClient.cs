@@ -245,7 +245,7 @@ public sealed class MqttClient : IInternalMqttClient
             KeepAliveSeconds = _options.KeepAliveSeconds,
             UserName = _options.UserName,
             Password = _options.Password,
-            ConnectFlags = connectFlags,
+            Flags = connectFlags,
             MaximumPacketSize = _options.MaximumPacketSize,
             ReceiveMaximum = _options.ReceiveMaximum,
         };
