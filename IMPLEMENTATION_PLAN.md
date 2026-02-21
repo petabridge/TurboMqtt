@@ -262,12 +262,12 @@ DoDisconnect during reconnect) more reliably and faster.
 Key file: `src/TurboMqtt/Client/ClientStreamOwner.cs`, `Reconnecting` method.
 
 Done when:
-- [ ] TestKit test covers: ReconnectSuccess -> returns to Running
-- [ ] TestKit test covers: ReconnectFailed with remaining attempts -> retries
-- [ ] TestKit test covers: ReconnectFailed with no remaining attempts -> PoisonPill
-- [ ] TestKit test covers: DoDisconnect while reconnecting -> immediate shutdown
-- [ ] Builds with zero warnings
-- [ ] All existing tests pass
+- [x] TestKit test covers: ReconnectSuccess -> returns to Running
+- [x] TestKit test covers: ReconnectFailed with remaining attempts -> retries
+- [x] TestKit test covers: ReconnectFailed with no remaining attempts -> PoisonPill
+- [x] TestKit test covers: DoDisconnect while reconnecting -> immediate shutdown
+- [x] Builds with zero warnings
+- [x] All existing tests pass
 
 ### Task 5.2: Add unit tests for MqttClient.PublishAsync broker limit validation
 
