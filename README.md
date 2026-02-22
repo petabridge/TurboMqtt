@@ -24,14 +24,13 @@ Simple interface that works at very high rates of speed with minimal resource ut
 
 ## Documentation
 
-1. [QuickStart](https://github.com/petabridge/TurboMqtt/tree/dev?tab=readme-ov-file#quickstart)
-2. [Connection Lifecycle](https://github.com/petabridge/TurboMqtt/blob/dev/docs/ConnectionLifecycle.md) — Client states, reconnection behavior, graceful shutdown
-3. [Quality of Service (QoS)](https://github.com/petabridge/TurboMqtt/blob/dev/docs/QoS.md) — When to use QoS 0, 1, or 2; backpressure and flow control
-4. [Performance](https://github.com/petabridge/TurboMqtt/blob/dev/docs/Performance.md) — Benchmarks, throughput metrics, hardware comparisons
-5. [OpenTelemetry Support](https://github.com/petabridge/TurboMqtt/blob/dev/docs/Telemetry.md)
-6. [MQTT 3.1.1 Roadmap](https://github.com/petabridge/TurboMqtt/issues/66)
-7. [MQTT 5.0 Roadmap](https://github.com/petabridge/TurboMqtt/issues/67)
-8. [MQTT over Quic Roadmap](https://github.com/petabridge/TurboMqtt/issues/68)
+| Document | Description |
+|----------|-------------|
+| [QuickStart](#quickstart) | Install, connect, publish, and subscribe in minutes |
+| [Connection Lifecycle](docs/connection-lifecycle.md) | Client states, reconnection behavior, `DisconnectAsync` vs `DisposeAsync` |
+| [Quality of Service (QoS)](docs/qos.md) | When to use QoS 0, 1, or 2; backpressure and flow control |
+| [Performance](docs/performance.md) | Benchmarks, throughput metrics, benchmark reproduction |
+| [OpenTelemetry](docs/telemetry.md) | Metrics, tracing, and how to wire up OTLP exporters |
 
 ## QuickStart
 
@@ -167,7 +166,7 @@ The `IPublishResult.IsSuccess` property will return `true` when:
 
 **TurboMqtt will automatically retry delivery of messages in the event of overdue ACKs from the broker**.
 
-See [docs/QoS.md](docs/QoS.md) for detailed QoS behavior and when to use each level.
+See [docs/qos.md](docs/qos.md) for detailed QoS behavior and when to use each level.
 
 ### Receiving Messages
 
@@ -184,7 +183,7 @@ if (!subscribeResult.IsSuccess)
 _logger.LogInformation("Subscribed to topic {0}", config.Topic);
 
 var received = 0;
-ChannelRead<MqttMessage> receivedMessages = client.ReceivedMessages;
+ChannelReader<MqttMessage> receivedMessages = client.ReceivedMessages;
 while (await receivedMessages.WaitToReadAsync(stoppingToken))
 {
     while (receivedMessages.TryRead(out MqttMessage m))
@@ -202,6 +201,6 @@ TurboMqtt is available under the Apache 2.0 license.
 
 ## Support
 
-To get support with TurboMqtt, either fill out the help form on Sdkbin or [file an issue on the TurboMqtt repository](https://github.com/petabridge/TurboMqtt/issues).
+To get support with TurboMqtt, [file an issue on the TurboMqtt repository](https://github.com/petabridge/TurboMqtt/issues).
 
 TurboMqtt developed and maintained by [Petabridge](https://petabridge.com/), the company behind Akka.NET.

@@ -115,7 +115,7 @@ Measures raw message throughput without the acknowledgment overhead of higher Qo
 
 ### Performance Expectations
 
-See [docs/Performance.md](../docs/Performance.md) for:
+See [docs/Performance.md](../docs/performance.md) for:
 - Baseline numbers on different hardware
 - Comparison between QoS levels
 - Impact of protocol versions (MQTT 3.1.1 vs 5.0)
@@ -131,7 +131,7 @@ TurboMqtt benchmarks use `FakeMqttTcpServer` (in-process) rather than a real bro
 2. **Consistency** — Network latency and broker overhead are eliminated
 3. **Simplicity** — `git clone && dotnet run -c Release` just works
 
-**Trade-off:** In-process results show TurboMqtt's peak potential, not real-world performance. For real broker measurements, see [docs/Performance.md#data-with-real-brokers](../docs/Performance.md).
+**Trade-off:** In-process results show TurboMqtt's peak potential, not real-world performance. For real broker measurements, see [docs/Performance.md#data-with-real-brokers](../docs/performance.md).
 
 ### Benchmark Configuration
 
@@ -219,6 +219,6 @@ Benchmarks are not run in CI by default (too slow). To run benchmarks in CI:
 ## References
 
 - [BenchmarkDotNet Documentation](https://benchmarkdotnet.org/)
-- [TurboMqtt Performance Documentation](../docs/Performance.md)
+- [TurboMqtt Performance Documentation](../docs/performance.md)
 - [MQTT 3.1.1 Specification](http://docs.oasis-open.org/mqtt/mqtt/v3.1.1/mqtt-v3.1.1.html)
 - [MQTT 5.0 Specification](https://docs.oasis-open.org/mqtt/mqtt/v5.0/mqtt-v5.0.html)

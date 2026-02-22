@@ -92,7 +92,7 @@ same machine and runtime (Linux, .NET 10.0.3):
 > publish/subscribe path.
 
 For QoS 1 and QoS 2, no Linux MQTT 3.1.1 reference run exists for comparison; the MQTT 3.1.1
-Windows/.NET 8.0 results in [Performance.md](../Performance.md) are not directly comparable due to
+Windows/.NET 8.0 results in [Performance.md](../performance.md) are not directly comparable due to
 hardware and runtime differences. The MQTT 5.0 QoS 1 results (~262k req/s for 10B) are consistent
 with the expected QoS overhead pattern.
 
@@ -106,4 +106,4 @@ with the expected QoS overhead pattern.
   of each message, so 1,000 messages yield 2,000 operations per invocation.
 - `RunStrategy=Monitoring` with `LaunchCount=10` / `WarmupCount=10` produces statistically robust
   results but is intentionally more expensive than a micro-benchmark run.
-- For real-broker throughput data see [Performance.md](../Performance.md#data-with-real-brokers).
+- For real-broker throughput data see [Performance.md](../performance.md#data-with-real-brokers).
