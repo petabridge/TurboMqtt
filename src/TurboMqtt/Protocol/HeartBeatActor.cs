@@ -127,8 +127,11 @@ internal sealed class HeartBeatActor : UntypedActor, IWithTimers
                     var ex = new TimeoutException(errorMsg);
                     _log.Error(ex, errorMsg);
                     _failureDetector.Trigger(ex); // should result in the listener being notified
+                    // Stop all timers so this error fires exactly once while reconnection proceeds
+                    Timers.CancelAll();
+                    return;
                 }
-                
+
                 // restart the timeout
                 RestartHeartbeatTimeout();
 
