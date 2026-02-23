@@ -7,13 +7,14 @@ on:
 
 permissions:
   contents: write
+  id-token: write  # required for workload identity federation (OIDC signing)
 
 jobs:
   release:
     name: Build, Sign, and Publish
     runs-on: ubuntu-latest
     env:
-      SIGN_KEYVAULT_URL: ${{ secrets.SIGN_KEYVAULT_URL }}
+      CODE_SIGN_KEY_VAULT: ${{ secrets.CODE_SIGN_KEY_VAULT }}
 
     steps:
       - name: Checkout
@@ -41,23 +42,30 @@ jobs:
       - name: Pack
         run: dotnet pack -c Release -o ./bin/nuget
 
+      - name: Azure login (workload identity federation)
+        if: env.CODE_SIGN_KEY_VAULT != ''
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
       - name: Install dotnet-sign
-        if: env.SIGN_KEYVAULT_URL != ''
+        if: env.CODE_SIGN_KEY_VAULT != ''
         run: dotnet tool install --global sign --version 0.9.*
 
       - name: Sign NuGet packages
-        if: env.SIGN_KEYVAULT_URL != ''
+        if: env.CODE_SIGN_KEY_VAULT != ''
         run: >
           sign code azure-key-vault
           ./bin/nuget/*.nupkg
           --publisher-name "Petabridge"
           --description "TurboMqtt"
           --description-url "https://github.com/petabridge/TurboMqtt"
-          --azure-key-vault-url "${{ secrets.SIGN_KEYVAULT_URL }}"
-          --azure-key-vault-client-id "${{ secrets.SIGN_CLIENT_ID }}"
-          --azure-key-vault-client-secret "${{ secrets.SIGN_CLIENT_SECRET }}"
-          --azure-key-vault-tenant-id "${{ secrets.SIGN_TENANT_ID }}"
-          --azure-key-vault-certificate "${{ secrets.SIGN_CERTIFICATE_NAME }}"
+          --azure-key-vault-url "${{ secrets.CODE_SIGN_KEY_VAULT }}"
+          --azure-key-vault-client-id "${{ secrets.AZURE_CLIENT_ID }}"
+          --azure-key-vault-tenant-id "${{ secrets.AZURE_TENANT_ID }}"
+          --azure-key-vault-certificate "${{ secrets.CODE_SIGN_CERT_NAME }}"
 
       - name: Push to NuGet.org
         run: >
