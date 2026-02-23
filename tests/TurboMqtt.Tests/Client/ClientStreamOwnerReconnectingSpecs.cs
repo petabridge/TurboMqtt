@@ -176,20 +176,24 @@ public sealed class ClientStreamOwnerReconnectingSpecs : TestKit
             var connectResult = await client.ConnectAsync(cts.Token);
             connectResult.IsSuccess.Should().BeTrue("initial connection should succeed");
 
-            // Phase 2: kick → 1st reconnect (conn #2) stalls; 500 ms later → ReconnectFailed.
+            // Phase 2: kick → 1st reconnect (conn #2) stalls for 3 s → ReconnectFailed.
             //           Remaining=1 > 0 → actor retries.
             //           2nd reconnect (conn #3) uses a real handle → ReconnectSuccess → Running.
             // EventFilter waits for the "Reconnect succeeded" info log (fired by ReconnectSuccess).
+            //
+            // Must pass an explicit timeout that exceeds the 3 s reconnect stall plus overhead
+            // for the second successful attempt. Without this the default 3 s EventFilter
+            // timeout expires at the same instant the stall fires, before the retry can succeed.
             var startTime = DateTimeOffset.UtcNow;
             await EventFilter.Info(contains: "Reconnect succeeded. Returning to Running state.")
-                .ExpectAsync(1, async () =>
+                .ExpectAsync(1, TimeSpan.FromSeconds(12), async () =>
                 {
                     var kicked = server.TryKickClient("reconnect-retry-test");
                     kicked.Should().BeTrue("server must have the client registered");
                     await Task.CompletedTask;
                 }, cancellationToken: cts.Token);
 
-            // Phase 3: the elapsed time must exceed the stall timeout (500 ms) because the
+            // Phase 3: the elapsed time must exceed the stall timeout (3 s) because the
             // first reconnect attempt stalled before the eventual retry succeeded.
             var elapsed = DateTimeOffset.UtcNow - startTime;
             elapsed.Should().BeGreaterThan(TimeSpan.FromSeconds(2),
