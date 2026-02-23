@@ -40,7 +40,10 @@ public class InMemoryMqtt311End2EndSpecs : TransportSpecBase
         {
             await using var client = await ClientFactory.CreateInMemoryClient(DefaultConnectOptions);
 
-            using var cts = new CancellationTokenSource(RemainingOrDefault);
+            // Use a fixed per-lifecycle timeout rather than RemainingOrDefault, which decrements
+            // across all three sequential iterations and causes the later ones to time out on
+            // loaded CI runners.
+            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
             var connectResult = await client.ConnectAsync(cts.Token);
             connectResult.IsSuccess.Should().BeTrue();
 
@@ -50,7 +53,7 @@ public class InMemoryMqtt311End2EndSpecs : TransportSpecBase
 
             // disconnect
             await client.DisconnectAsync(cts.Token);
-            await client.WhenTerminated;
+            await client.WhenTerminated.WaitAsync(cts.Token);
         }
     }
 }
