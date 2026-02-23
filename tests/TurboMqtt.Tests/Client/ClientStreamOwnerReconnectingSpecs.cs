@@ -162,8 +162,11 @@ public sealed class ClientStreamOwnerReconnectingSpecs : TestKit
                 // 2 attempts: enters Reconnecting with 1 remaining.
                 // 1st attempt stalls → ReconnectFailed → remaining=1 → retries.
                 // 2nd attempt (conn 3) succeeds → ReconnectSuccess.
+                // 3 s gives ample room for the retry to complete on slow Windows CI runners
+                // (DNS + TCP connect + MQTT handshake overhead). Stall detection still fires
+                // within 3 s, and the elapsed-time assertion (> 400 ms) remains valid.
                 MaxReconnectAttempts = 2,
-                ReconnectTimeout = TimeSpan.FromMilliseconds(500),
+                ReconnectTimeout = TimeSpan.FromSeconds(3),
                 KeepAliveSeconds = 60
             };
             var tcpOptions = new MqttClientTcpOptions("localhost", server.BoundPort);
@@ -189,7 +192,7 @@ public sealed class ClientStreamOwnerReconnectingSpecs : TestKit
             // Phase 3: the elapsed time must exceed the stall timeout (500 ms) because the
             // first reconnect attempt stalled before the eventual retry succeeded.
             var elapsed = DateTimeOffset.UtcNow - startTime;
-            elapsed.Should().BeGreaterThan(TimeSpan.FromMilliseconds(400),
+            elapsed.Should().BeGreaterThan(TimeSpan.FromSeconds(2),
                 "at least one reconnect attempt must have stalled before the retry succeeded");
 
             // Phase 4: client is operational again

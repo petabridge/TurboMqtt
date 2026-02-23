@@ -90,9 +90,15 @@ internal sealed class TcpTransport : IMqttTransport
 
     public async Task<bool> ConnectAsync(CancellationToken ct = default)
     {
-        var result = await _connectionActor.Ask<TcpTransportActor.ConnectResult>(new TcpTransportActor.DoConnect(ct), ct)
+        // Pass CancellationToken.None as the DoConnect payload so DNS resolution and
+        // TCP socket connect are governed only by TcpOptions.ConnectTimeout (10 s default),
+        // not by the caller's token (which may be a short reconnect-window CTS).
+        // The Ask itself still uses ct so this call remains promptly cancellable from
+        // the caller's perspective.
+        var result = await _connectionActor.Ask<TcpTransportActor.ConnectResult>(
+                new TcpTransportActor.DoConnect(CancellationToken.None), ct)
             .ConfigureAwait(false);
-        
+
         return result.Status == ConnectionStatus.Connected;
     }
 

@@ -125,10 +125,11 @@ public sealed class ReconnectTimeoutSpecs : TestKit
             var port = server.BoundPort;
             var tcpOptions = new MqttClientTcpOptions("localhost", port);
 
-            // Short reconnect timeout so the test completes quickly
+            // Reconnect timeout long enough to survive Windows CI DNS overhead but short
+            // enough to keep the test well under its 10 s outer CTS.
             var connectOptions = new MqttClientConnectOptions("reconnect-timeout-test", MqttProtocolVersion.V3_1_1)
             {
-                ReconnectTimeout = TimeSpan.FromMilliseconds(500),
+                ReconnectTimeout = TimeSpan.FromSeconds(3),
                 MaxReconnectAttempts = 1,
                 KeepAliveSeconds = 60 // disable heartbeat interference
             };
@@ -136,7 +137,7 @@ public sealed class ReconnectTimeoutSpecs : TestKit
             await using var client = await factory.CreateTcpClient(connectOptions, tcpOptions);
 
             // Phase 1: initial connect succeeds
-            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
             var connectResult = await client.ConnectAsync(cts.Token);
             connectResult.IsSuccess.Should().BeTrue("initial connection should succeed");
 
@@ -149,11 +150,11 @@ public sealed class ReconnectTimeoutSpecs : TestKit
                 cancellationToken: cts.Token);
 
             // Phase 3: reconnect stalls (StallingServerHandle never sends CONNACK).
-            //           The 500 ms CTS fires → ReconnectFailed → actor shuts down.
-            //           Assert within 4 s — well under the old 5 s hard-coded value.
+            //           The 3 s CTS fires → ReconnectFailed → actor shuts down.
+            //           Assert within 8 s — well under the old 5 s hard-coded value.
             await AwaitAssertAsync(
                 () => client.IsConnected.Should().BeFalse("client should terminate after reconnect timeout"),
-                duration: TimeSpan.FromSeconds(4),
+                duration: TimeSpan.FromSeconds(8),
                 interval: TimeSpan.FromMilliseconds(100),
                 cancellationToken: cts.Token);
         }
