@@ -154,6 +154,7 @@ internal sealed class ClientStreamOwner : UntypedActor
     private bool _successfullyConnected = false;
     private bool _userDisconnectRequested = false;
     private CancellationTokenSource? _reconnectCts;
+    private int _reconnectGeneration = 0;
 
     protected override void OnReceive(object message)
     {
@@ -563,8 +564,11 @@ internal sealed class ClientStreamOwner : UntypedActor
     {
         _reconnectCts?.Cancel();
         _reconnectCts?.Dispose();
-        _reconnectCts = new CancellationTokenSource(_connectOptions!.ReconnectTimeout);
-        var reconnectToken = _reconnectCts.Token;
+        _reconnectCts = null;
+
+        // Increment the generation counter so any in-flight Task.Run from a prior
+        // attempt can detect it has been superseded and discard its result.
+        var myGeneration = Interlocked.Increment(ref _reconnectGeneration);
 
         RunTask(async () =>
         {
@@ -604,6 +608,13 @@ internal sealed class ClientStreamOwner : UntypedActor
                 return;
             }
 
+            // Start the reconnect timeout AFTER transport setup (ReplaceTransport +
+            // PrepareStreamAsync) is complete. This ensures ReconnectTimeout only governs
+            // the MQTT handshake (CONNECT → CONNACK wait), not DNS resolution, TCP connect,
+            // or actor Ask-chain overhead — all of which can be slow on Windows CI runners.
+            _reconnectCts = new CancellationTokenSource(_connectOptions!.ReconnectTimeout);
+            var reconnectToken = _reconnectCts.Token;
+
             // Phase 2: Run ConnectAsync on the thread pool so the actor can process
             // messages (like TransportFailedToConnect) that ConnectAsync sends back.
             var closureSelf = _closureSelf;
@@ -615,6 +626,10 @@ internal sealed class ClientStreamOwner : UntypedActor
                 try
                 {
                     var resp = await client.ConnectAsync(reconnectToken);
+
+                    // Discard results from a superseded reconnect attempt.
+                    if (Volatile.Read(ref _reconnectGeneration) != myGeneration) return;
+
                     if (!resp.IsSuccess)
                     {
                         closureSelf.Tell(new ReconnectFailed($"Failed to reconnect. Reason: {resp.Reason}"));
@@ -640,6 +655,7 @@ internal sealed class ClientStreamOwner : UntypedActor
                 }
                 catch (OperationCanceledException)
                 {
+                    if (Volatile.Read(ref _reconnectGeneration) != myGeneration) return;
                     closureSelf.Tell(new ReconnectFailed("Reconnect operation timed out or was cancelled."));
                 }
             });

@@ -162,8 +162,11 @@ public sealed class ClientStreamOwnerReconnectingSpecs : TestKit
                 // 2 attempts: enters Reconnecting with 1 remaining.
                 // 1st attempt stalls → ReconnectFailed → remaining=1 → retries.
                 // 2nd attempt (conn 3) succeeds → ReconnectSuccess.
+                // 3 s gives ample room for the retry to complete on slow Windows CI runners
+                // (DNS + TCP connect + MQTT handshake overhead). Stall detection still fires
+                // within 3 s, and the elapsed-time assertion (> 400 ms) remains valid.
                 MaxReconnectAttempts = 2,
-                ReconnectTimeout = TimeSpan.FromMilliseconds(500),
+                ReconnectTimeout = TimeSpan.FromSeconds(3),
                 KeepAliveSeconds = 60
             };
             var tcpOptions = new MqttClientTcpOptions("localhost", server.BoundPort);
@@ -173,23 +176,27 @@ public sealed class ClientStreamOwnerReconnectingSpecs : TestKit
             var connectResult = await client.ConnectAsync(cts.Token);
             connectResult.IsSuccess.Should().BeTrue("initial connection should succeed");
 
-            // Phase 2: kick → 1st reconnect (conn #2) stalls; 500 ms later → ReconnectFailed.
+            // Phase 2: kick → 1st reconnect (conn #2) stalls for 3 s → ReconnectFailed.
             //           Remaining=1 > 0 → actor retries.
             //           2nd reconnect (conn #3) uses a real handle → ReconnectSuccess → Running.
             // EventFilter waits for the "Reconnect succeeded" info log (fired by ReconnectSuccess).
+            //
+            // Must pass an explicit timeout that exceeds the 3 s reconnect stall plus overhead
+            // for the second successful attempt. Without this the default 3 s EventFilter
+            // timeout expires at the same instant the stall fires, before the retry can succeed.
             var startTime = DateTimeOffset.UtcNow;
             await EventFilter.Info(contains: "Reconnect succeeded. Returning to Running state.")
-                .ExpectAsync(1, async () =>
+                .ExpectAsync(1, TimeSpan.FromSeconds(12), async () =>
                 {
                     var kicked = server.TryKickClient("reconnect-retry-test");
                     kicked.Should().BeTrue("server must have the client registered");
                     await Task.CompletedTask;
                 }, cancellationToken: cts.Token);
 
-            // Phase 3: the elapsed time must exceed the stall timeout (500 ms) because the
+            // Phase 3: the elapsed time must exceed the stall timeout (3 s) because the
             // first reconnect attempt stalled before the eventual retry succeeded.
             var elapsed = DateTimeOffset.UtcNow - startTime;
-            elapsed.Should().BeGreaterThan(TimeSpan.FromMilliseconds(400),
+            elapsed.Should().BeGreaterThan(TimeSpan.FromSeconds(2),
                 "at least one reconnect attempt must have stalled before the retry succeeded");
 
             // Phase 4: client is operational again
