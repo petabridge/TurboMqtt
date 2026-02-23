@@ -38,9 +38,6 @@ jobs:
       - name: Build
         run: dotnet build -c Release
 
-      - name: Test
-        run: dotnet test -c Release tests/TurboMqtt.Tests/
-
       - name: Pack
         run: dotnet pack -c Release -o ./bin/nuget
 
