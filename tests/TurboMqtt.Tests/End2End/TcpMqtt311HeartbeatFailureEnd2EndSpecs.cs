@@ -40,7 +40,9 @@ public class TcpMqtt311HeartbeatFailureEnd2EndSpecs : TestKit
             Password = "testpassword",
             KeepAliveSeconds = 1, // can't make it any lower than 1 second without disabling it, curse you type system
             MaxReconnectAttempts = 1, // allow 1 reconnection attempt
-            PublishRetryInterval = TimeSpan.FromMilliseconds(250)
+            // Use the default 5 s PublishRetryInterval — 250 ms was too tight for loaded CI
+            // runners where SUBACK delivery exceeds the ACK wait window, causing subscribe
+            // to report Timeout while the actual SubAck arrives just afterward.
         };
 
     public async Task<IMqttClient> CreateClient()
