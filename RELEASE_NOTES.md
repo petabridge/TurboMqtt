@@ -1,3 +1,26 @@
+#### 1.0.0-beta1 February 23rd 2026 ####
+
+TurboMqtt v1.0.0-beta1 is a major release bringing full MQTT 5.0 support, TLS/mTLS, a redesigned transport layer, and a significant round of bug fixes and spec compliance work.
+
+**New Features**
+
+* [Full MQTT 5.0 support](https://github.com/petabridge/TurboMqtt/pull/373) — complete encoder/decoder, User Properties on CONNECT and PUBLISH, server-initiated DISCONNECT handling, and authentication; validated end-to-end against EMQX 5.x.
+* [TLS/mTLS support](https://github.com/petabridge/TurboMqtt/pull/340) — `CreateTlsTcpClient` with `MqttClientTlsOptions` for server certificate validation, self-signed certs, and mutual TLS with client certificates.
+* [Transport layer redesign](https://github.com/petabridge/TurboMqtt/pull/340) — cleaner separation between TCP, TLS, and fake transports; improved testability.
+* [.NET 10 support](https://github.com/petabridge/TurboMqtt/pull/333) — now targets `net10.0`; upgraded CI to .NET 10 SDK.
+
+**Bug Fixes**
+
+* [Fix HeartBeatActor firing heartbeat timeout twice on slow reconnects](https://github.com/petabridge/TurboMqtt/pull/382).
+* [Fix two race conditions in TcpTransportActor causing flaky tests on Linux](https://github.com/petabridge/TurboMqtt/pull/380).
+* [Fix race condition causing spurious reconnect during user-initiated disconnect](https://github.com/petabridge/TurboMqtt/pull/343).
+* [Fix race: remove internal connect deadline from ClientAcksActor](https://github.com/petabridge/TurboMqtt/pull/352).
+
+**Performance**
+
+* [Major MQTT encoder performance optimizations and decoder fixes](https://github.com/petabridge/TurboMqtt/pull/295).
+* [Harden encoders against packet overflows](https://github.com/petabridge/TurboMqtt/pull/228).
+
 #### 0.2.0 June 14th 2024 ####
 
 * License has been migrated to Apache 2.0

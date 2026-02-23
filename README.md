@@ -1,6 +1,6 @@
 # TurboMqtt
 
-[TurboMqtt](https://github.com/petabridge/TurboMqtt) is a high-speed Message Queue Telemetry Transport (MQTT) client designed to support large-scale IOT workloads, handling over 100k msg/s from any MQTT 3.1.1+ broker.
+[TurboMqtt](https://github.com/petabridge/TurboMqtt) is a high-speed Message Queue Telemetry Transport (MQTT) client designed to support large-scale IOT workloads, handling over 100k msg/s from any MQTT 3.1.1 or MQTT 5.0 broker.
 
 ![TurboMqtt logo](https://raw.githubusercontent.com/petabridge/TurboMqtt/dev/docs/logo.png)
 
@@ -8,7 +8,7 @@ TurboMqtt is written on top of [Akka.NET](https://getakka.net/) and Akka.Streams
 
 ## Key Features
 
-* **MQTT 3.1.1 support** — Production-ready for v1.0 (MQTT 5.0 coming in v1.1);
+* **MQTT 3.1.1 and MQTT 5.0 support** — Full support for both protocol versions, validated against EMQX 5.x;
 * Extremely high performance - hundreds of thousands of messages per second;
 * Extremely resource-efficient - pools memory and leverages asynchronous I/O best practices;
 * Extremely robust fault tolerance - this is one of [Akka.NET's great strengths](https://petabridge.com/blog/akkadotnet-actors-restart/) and we've leveraged it in TurboMqtt;
@@ -27,16 +27,12 @@ Simple interface that works at very high rates of speed with minimal resource ut
 | Document | Description |
 |----------|-------------|
 | [QuickStart](#quickstart) | Install, connect, publish, and subscribe in minutes |
-| [Connection Lifecycle](docs/connection-lifecycle.md) | Client states, reconnection behavior, `DisconnectAsync` vs `DisposeAsync` |
-| [Quality of Service (QoS)](docs/qos.md) | When to use QoS 0, 1, or 2; backpressure and flow control |
-| [Performance](docs/performance.md) | Benchmarks, throughput metrics, benchmark reproduction |
-| [OpenTelemetry](docs/telemetry.md) | Metrics, tracing, and how to wire up OTLP exporters |
+| [Connection Lifecycle](https://github.com/petabridge/TurboMqtt/blob/dev/docs/connection-lifecycle.md) | Client states, reconnection behavior, `DisconnectAsync` vs `DisposeAsync` |
+| [Quality of Service (QoS)](https://github.com/petabridge/TurboMqtt/blob/dev/docs/qos.md) | When to use QoS 0, 1, or 2; backpressure and flow control |
+| [Performance](https://github.com/petabridge/TurboMqtt/blob/dev/docs/performance.md) | Benchmarks, throughput metrics, benchmark reproduction |
+| [OpenTelemetry](https://github.com/petabridge/TurboMqtt/blob/dev/docs/telemetry.md) | Metrics, tracing, and how to wire up OTLP exporters |
 
 ## QuickStart
-
-### ⚠️ MQTT Version Note
-
-**TurboMqtt v1.0 supports MQTT 3.1.1 only.** MQTT 5.0 packet infrastructure is included but end-to-end support is coming in v1.1. Use MQTT 3.1.1 for production deployments.
 
 To get started with TurboMqtt:
 
@@ -132,11 +128,11 @@ var tlsOptions = new MqttClientTlsOptions
 
 TurboMqtt includes several sample applications to help you get started:
 
-- **[QuickStart](samples/TurboMqtt.Samples.QuickStart/)** — Minimal example with no dependency injection; perfect for copy-paste into your code
-- **[TLS Client](samples/TurboMqtt.Samples.TlsClient/)** — TLS/SSL connection with certificate validation options
-- **[Exactly-Once Delivery](samples/TurboMqtt.Samples.ExactlyOnce/)** — QoS 2 publish/subscribe demonstrating exactly-once guarantees
-- **[Backpressure Producer](samples/TurboMqtt.Samples.BackpressureProducer/)** — High-throughput publishing with DI and OpenTelemetry metrics
-- **[DevNull Consumer](samples/TurboMqtt.Samples.DevNullConsumer/)** — High-speed message consumption to measure throughput
+- **[QuickStart](https://github.com/petabridge/TurboMqtt/tree/dev/samples/TurboMqtt.Samples.QuickStart/)** — Minimal example with no dependency injection; perfect for copy-paste into your code
+- **[TLS Client](https://github.com/petabridge/TurboMqtt/tree/dev/samples/TurboMqtt.Samples.TlsClient/)** — TLS/SSL connection with certificate validation options
+- **[Exactly-Once Delivery](https://github.com/petabridge/TurboMqtt/tree/dev/samples/TurboMqtt.Samples.ExactlyOnce/)** — QoS 2 publish/subscribe demonstrating exactly-once guarantees
+- **[Backpressure Producer](https://github.com/petabridge/TurboMqtt/tree/dev/samples/TurboMqtt.Samples.BackpressureProducer/)** — High-throughput publishing with DI and OpenTelemetry metrics
+- **[DevNull Consumer](https://github.com/petabridge/TurboMqtt/tree/dev/samples/TurboMqtt.Samples.DevNullConsumer/)** — High-speed message consumption to measure throughput
 
 ### Publishing Messages
 

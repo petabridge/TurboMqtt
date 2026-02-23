@@ -44,8 +44,8 @@ ActorSystem
 
 | Protocol | Status |
 |----------|--------|
-| MQTT 3.1.1 | Implemented (production hardening in progress) |
-| MQTT 5.0 | Packet infrastructure exists; not yet functional |
+| MQTT 3.1.1 | Implemented |
+| MQTT 5.0 | Implemented (encoder/decoder, User Properties, server-initiated DISCONNECT, auth; validated against EMQX 5.x) |
 | MQTT over QUIC | Roadmap only |
 | TLS | Implemented (via `TlsStreamProvider` + `MqttClientTlsOptions`) |
 
@@ -59,16 +59,14 @@ ActorSystem
 
 ## Current State
 
-- **Version**: 0.3.0-beta (in-progress; last published release was 0.2.0, June 2024)
-- **Priority**: MQTT 3.1.1 production readiness (epic #66)
-- **Known issues**: CI/CD GitHub Release broken (#74), flaky test (#99), dependabot PR backlog
-- **In-flight features**: AOT canary, decoder perf optimization
+- **Version**: 1.0.0-beta1 (in-progress; last published release was 0.2.0, June 2024)
+- **Priority**: v1.0.0 release validation
+- **Known issues**: Signing workflow untested with new certificate (first live test on beta push)
 
 ## Roadmap
 
-1. MQTT 3.1.1 production readiness (current)
-2. MQTT 5.0 support (epic #67)
-3. MQTT over QUIC (epic #68)
+1. v1.0.0 stable release
+2. MQTT over QUIC (epic #68)
 
 ## Repository Layout
 
