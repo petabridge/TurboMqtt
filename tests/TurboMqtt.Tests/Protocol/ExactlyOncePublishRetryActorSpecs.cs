@@ -43,7 +43,7 @@ public class ExactlyOncePublishRetryActorSpecs : TestKit
         actor.Tell(packet, probe);
         actor.Tell(pubRec, probe);
         
-        using var cts = new CancellationTokenSource(RemainingOrDefault);
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
         var msg = await channel.Reader.ReadAsync(cts.Token);
         msg.PacketType.Should().Be(MqttPacketType.PubRel);
         // check the packet ids - they should all match
@@ -91,7 +91,7 @@ public class ExactlyOncePublishRetryActorSpecs : TestKit
         actor.Tell(PublishProtocolDefaults.CheckTimeout.Instance);
         
         // we should have received the packet back
-        using var cts = new CancellationTokenSource(RemainingOrDefault);
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
         var result = await channel.Reader.ReadAsync(cts.Token);
         result.Should().Be(packet);
         packet.Duplicate.Should().BeTrue();
