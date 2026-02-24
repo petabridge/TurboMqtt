@@ -116,8 +116,11 @@ public sealed class ClientStreamOwnerReconnectingSpecs : TestKit
 
             // Phase 2: kick the client; EventFilter waits for the actor to process
             // ReconnectSuccess and log the transition back to Running state.
+            // Must pass an explicit timeout that exceeds the reconnect delay plus overhead.
+            // The default 3 s EventFilter timeout is too tight for Windows CI runners where
+            // thread pool starvation can delay BeginReconnect's RunTask by 3+ seconds.
             await EventFilter.Info(contains: "Reconnect succeeded. Returning to Running state.")
-                .ExpectAsync(1, async () =>
+                .ExpectAsync(1, TimeSpan.FromSeconds(12), async () =>
                 {
                     var kicked = server.TryKickClient("reconnect-success-test");
                     kicked.Should().BeTrue("server must have the client registered");
