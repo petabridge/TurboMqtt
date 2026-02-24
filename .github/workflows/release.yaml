@@ -70,11 +70,12 @@ jobs:
             -v Information
 
       - name: Push to NuGet.org
-        run: >
-          dotnet nuget push "${{ github.workspace }}/bin/nuget/*.nupkg"
-          --api-key ${{ secrets.NUGET_API_KEY }}
-          --source https://api.nuget.org/v3/index.json
-          --skip-duplicate
+        shell: pwsh
+        run: |
+          dotnet nuget push "$env:GITHUB_WORKSPACE\bin\nuget\*.nupkg" `
+            --api-key ${{ secrets.NUGET_API_KEY }} `
+            --source https://api.nuget.org/v3/index.json `
+            --skip-duplicate
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
@@ -82,5 +83,5 @@ jobs:
           name: "TurboMqtt v${{ steps.version.outputs.version }}"
           body_path: RELEASE_NOTES.md
           files: |
-            ${{ github.workspace }}/bin/nuget/*.nupkg
-            ${{ github.workspace }}/bin/nuget/*.snupkg
+            bin/nuget/*.nupkg
+            bin/nuget/*.snupkg
