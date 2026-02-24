@@ -12,7 +12,7 @@ permissions:
 jobs:
   release:
     name: Build, Sign, and Publish
-    runs-on: ubuntu-latest
+    runs-on: windows-latest
     environment: signing
     env:
       CODE_SIGN_KEY_VAULT: ${{ secrets.CODE_SIGN_KEY_VAULT }}
@@ -29,11 +29,15 @@ jobs:
         with:
           global-json-file: "./global.json"
 
+      - name: Restore .NET tools
+        run: dotnet tool restore
+
       - name: Update release notes
         shell: pwsh
         run: ./build.ps1
 
       - name: Extract version from tag
+        shell: bash
         id: version
         run: echo "version=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
 
@@ -51,21 +55,19 @@ jobs:
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
-      - name: Install dotnet-sign
-        if: env.CODE_SIGN_KEY_VAULT != ''
-        run: dotnet tool install --global sign --version 0.9.*
-
       - name: Sign NuGet packages
         if: env.CODE_SIGN_KEY_VAULT != ''
-        run: >
-          sign code azure-key-vault
-          ./bin/nuget/*.nupkg
-          --publisher-name "Petabridge"
-          --description "TurboMqtt"
-          --description-url "https://github.com/petabridge/TurboMqtt"
-          --azure-key-vault-url "${{ secrets.CODE_SIGN_KEY_VAULT }}"
-          --azure-key-vault-certificate "${{ secrets.CODE_SIGN_CERT_NAME }}"
-          -v Information
+        shell: pwsh
+        run: |
+          dotnet sign code azure-key-vault `
+            "**/*.nupkg" `
+            --base-directory "$env:GITHUB_WORKSPACE/bin/nuget" `
+            --publisher-name "Petabridge" `
+            --description "TurboMqtt" `
+            --description-url "https://github.com/petabridge/TurboMqtt" `
+            --azure-key-vault-certificate "${{ secrets.CODE_SIGN_CERT_NAME }}" `
+            --azure-key-vault-url "${{ secrets.CODE_SIGN_KEY_VAULT }}" `
+            -v Information
 
       - name: Push to NuGet.org
         run: >
