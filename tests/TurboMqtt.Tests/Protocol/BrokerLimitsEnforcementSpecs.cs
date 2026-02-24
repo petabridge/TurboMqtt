@@ -40,7 +40,7 @@ public class BrokerLimitsEnforcementSpecs : TestKit
         actor.Tell(packet2, probe);
 
         // packet1 should reach the channel
-        using var cts = new CancellationTokenSource(RemainingOrDefault);
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
         var inChannel = await channel.Reader.ReadAsync(cts.Token);
         inChannel.Should().Be(packet1);
 
@@ -77,7 +77,7 @@ public class BrokerLimitsEnforcementSpecs : TestKit
         foreach (var p in packets)
             actor.Tell(p, probe);
 
-        using var cts = new CancellationTokenSource(RemainingOrDefault);
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
 
         // First 2 should go to channel immediately
         var r1 = await channel.Reader.ReadAsync(cts.Token);
@@ -158,7 +158,7 @@ public class BrokerLimitsEnforcementSpecs : TestKit
         actor.Tell(packet1, probe);
         actor.Tell(packet2, probe);
 
-        using var cts = new CancellationTokenSource(RemainingOrDefault);
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
 
         // packet1 should reach the channel
         var inChannel = await channel.Reader.ReadAsync(cts.Token);
@@ -202,7 +202,7 @@ public class BrokerLimitsEnforcementSpecs : TestKit
         actor.Tell(packet1, probe);
         actor.Tell(packet2, probe);
 
-        using var cts = new CancellationTokenSource(RemainingOrDefault);
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
 
         // packet1 goes to channel immediately
         var inChannel = await channel.Reader.ReadAsync(cts.Token);

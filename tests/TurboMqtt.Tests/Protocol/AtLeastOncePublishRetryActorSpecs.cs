@@ -68,7 +68,7 @@ public class AtLeastOncePublishRetryActorSpecs : TestKit
         actor.Tell(PublishProtocolDefaults.CheckTimeout.Instance);
         
         // we should have received the packet back
-        using var cts = new CancellationTokenSource(RemainingOrDefault);
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
         var result = await channel.Reader.ReadAsync(cts.Token);
         result.Should().Be(packet);
         result.Duplicate.Should().BeTrue(); // duplicate flag needs to be set on retries

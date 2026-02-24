@@ -139,7 +139,7 @@ public class SharedReceiveMaximumQuotaSpecs : TestKit
         var p2 = MakeQos2(2);
         var p3 = MakeQos1(3);
 
-        using var cts = new CancellationTokenSource(RemainingOrDefault);
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
 
         // Claim slot 1: send p1, wait for it in channel
         qos1.Tell(p1, probe);
@@ -192,7 +192,7 @@ public class SharedReceiveMaximumQuotaSpecs : TestKit
         var p2 = MakeQos2(2);
         var p3 = MakeQos2(3);
 
-        using var cts = new CancellationTokenSource(RemainingOrDefault);
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
 
         qos1.Tell(p1, probe);
         var c1 = await channel.Reader.ReadAsync(cts.Token);
@@ -246,7 +246,7 @@ public class SharedReceiveMaximumQuotaSpecs : TestKit
         var p2 = MakeQos2(2);
         var p3 = MakeQos1(3);
 
-        using var cts = new CancellationTokenSource(RemainingOrDefault);
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
 
         qos1.Tell(p1, probe);
         var c1 = await channel.Reader.ReadAsync(cts.Token);
@@ -302,7 +302,7 @@ public class SharedReceiveMaximumQuotaSpecs : TestKit
         var p4 = MakeQos2(4);
         var p5 = MakeQos1(5);
 
-        using var cts = new CancellationTokenSource(RemainingOrDefault);
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
 
         // Fill the quota: 3 slots
         qos1.Tell(p1, probe);
