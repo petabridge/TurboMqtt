@@ -53,7 +53,7 @@ jobs:
 
       - name: Install dotnet-sign
         if: env.CODE_SIGN_KEY_VAULT != ''
-        run: dotnet tool install --global sign --version 0.9.*
+        run: dotnet tool install --global sign --version 0.9.* --prerelease
 
       - name: Sign NuGet packages
         if: env.CODE_SIGN_KEY_VAULT != ''
