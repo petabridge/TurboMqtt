@@ -13,6 +13,7 @@ jobs:
   release:
     name: Build, Sign, and Publish
     runs-on: ubuntu-latest
+    environment: signing
     env:
       CODE_SIGN_KEY_VAULT: ${{ secrets.CODE_SIGN_KEY_VAULT }}
 
@@ -63,9 +64,8 @@ jobs:
           --description "TurboMqtt"
           --description-url "https://github.com/petabridge/TurboMqtt"
           --azure-key-vault-url "${{ secrets.CODE_SIGN_KEY_VAULT }}"
-          --azure-key-vault-client-id "${{ secrets.AZURE_CLIENT_ID }}"
-          --azure-key-vault-tenant-id "${{ secrets.AZURE_TENANT_ID }}"
           --azure-key-vault-certificate "${{ secrets.CODE_SIGN_CERT_NAME }}"
+          -v Information
 
       - name: Push to NuGet.org
         run: >
