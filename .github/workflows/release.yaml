@@ -71,7 +71,7 @@ jobs:
 
       - name: Push to NuGet.org
         run: >
-          dotnet nuget push "./bin/nuget/*.nupkg"
+          dotnet nuget push "${{ github.workspace }}/bin/nuget/*.nupkg"
           --api-key ${{ secrets.NUGET_API_KEY }}
           --source https://api.nuget.org/v3/index.json
           --skip-duplicate
@@ -82,5 +82,5 @@ jobs:
           name: "TurboMqtt v${{ steps.version.outputs.version }}"
           body_path: RELEASE_NOTES.md
           files: |
-            bin/nuget/*.nupkg
-            bin/nuget/*.snupkg
+            ${{ github.workspace }}/bin/nuget/*.nupkg
+            ${{ github.workspace }}/bin/nuget/*.snupkg
