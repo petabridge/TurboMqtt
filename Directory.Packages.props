@@ -4,7 +4,7 @@
   </PropertyGroup>
   <PropertyGroup Label="SharedVersions">
     <AkkaVersion>1.5.61</AkkaVersion>
-    <AkkaHostingVersion>1.5.61</AkkaHostingVersion>
+    <AkkaHostingVersion>1.5.62</AkkaHostingVersion>
     <OtelVersion>1.15.0</OtelVersion>
   </PropertyGroup>
   <!-- Akka.NET Package Versions -->
