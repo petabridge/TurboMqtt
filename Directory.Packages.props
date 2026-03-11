@@ -25,7 +25,7 @@
   </ItemGroup>
   <!-- Utility Package Versions -->
   <ItemGroup>
-    <PackageVersion Include="Microsoft.SourceLink.GitHub" Version="10.0.103" />
+    <PackageVersion Include="Microsoft.SourceLink.GitHub" Version="10.0.200" />
   </ItemGroup>
   <!-- Transitive dependency overrides to resolve known vulnerabilities -->
   <ItemGroup Label="SecurityOverrides">
