@@ -77,11 +77,22 @@ jobs:
             --source https://api.nuget.org/v3/index.json `
             --skip-duplicate
 
+      - name: "Extract latest release notes"
+        shell: pwsh
+        run: |
+          $content = Get-Content RELEASE_NOTES.md -Raw
+          # Match from the first #### heading to just before the second one
+          if ($content -match '(?s)(####.+?)(?=\n####|\z)') {
+            $Matches[1].Trim() | Set-Content RELEASE_NOTES_LATEST.md
+          } else {
+            $content | Set-Content RELEASE_NOTES_LATEST.md
+          }
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           name: "TurboMqtt v${{ steps.version.outputs.version }}"
-          body_path: RELEASE_NOTES.md
+          body_path: RELEASE_NOTES_LATEST.md
           files: |
             bin/nuget/*.nupkg
             bin/nuget/*.snupkg
