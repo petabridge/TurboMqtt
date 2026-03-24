@@ -14,7 +14,7 @@
     <PackageVersion Include="Akka.Streams" Version="$(AkkaVersion)" />
     <PackageVersion Include="FsCheck" Version="2.16.6" />
     <PackageVersion Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.3" />
-    <PackageVersion Include="Microsoft.Extensions.Hosting" Version="10.0.3" />
+    <PackageVersion Include="Microsoft.Extensions.Hosting" Version="10.0.5" />
   </ItemGroup>
   <!-- OTEL Package Versions -->
   <ItemGroup Label="OpenTelemetry">
