@@ -7,15 +7,11 @@ on:
 
 permissions:
   contents: write
-  id-token: write  # required for workload identity federation (OIDC signing)
 
 jobs:
-  release:
-    name: Build, Sign, and Publish
+  build:
+    name: Build & Pack
     runs-on: windows-latest
-    environment: signing
-    env:
-      CODE_SIGN_KEY_VAULT: ${{ secrets.CODE_SIGN_KEY_VAULT }}
 
     steps:
       - name: Checkout
@@ -47,6 +43,56 @@ jobs:
       - name: Pack
         run: dotnet pack -c Release -o ./bin/nuget
 
+      - name: Extract latest release notes
+        shell: pwsh
+        run: |
+          $content = Get-Content RELEASE_NOTES.md -Raw
+          # Match from the first #### heading to just before the second one
+          if ($content -match '(?s)(####.+?)(?=\n####|\z)') {
+            $Matches[1].Trim() | Set-Content RELEASE_NOTES_LATEST.md
+          } else {
+            $content | Set-Content RELEASE_NOTES_LATEST.md
+          }
+
+      - name: Upload NuGet packages
+        uses: actions/upload-artifact@v4
+        with:
+          name: nuget-unsigned
+          path: bin/nuget/*
+          if-no-files-found: error
+
+      - name: Upload release notes
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-notes
+          path: RELEASE_NOTES_LATEST.md
+          if-no-files-found: error
+
+  sign:
+    name: Sign NuGet Packages
+    needs: build
+    runs-on: windows-latest
+    environment: signing
+    permissions:
+      id-token: write  # required for workload identity federation (OIDC signing)
+    env:
+      CODE_SIGN_KEY_VAULT: ${{ secrets.CODE_SIGN_KEY_VAULT }}
+
+    steps:
+      - name: Install .NET SDK
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Install NuGet signing tool
+        run: dotnet tool install --global sign --version 0.9.1-beta.26102.1
+
+      - name: Download unsigned packages
+        uses: actions/download-artifact@v4
+        with:
+          name: nuget-unsigned
+          path: bin/nuget
+
       - name: Azure login (workload identity federation)
         if: env.CODE_SIGN_KEY_VAULT != ''
         uses: azure/login@v2
@@ -59,7 +105,7 @@ jobs:
         if: env.CODE_SIGN_KEY_VAULT != ''
         shell: pwsh
         run: |
-          dotnet sign code azure-key-vault `
+          sign code azure-key-vault `
             "**/*.nupkg" `
             --base-directory "$env:GITHUB_WORKSPACE/bin/nuget" `
             --publisher-name "Petabridge" `
@@ -69,6 +115,30 @@ jobs:
             --azure-key-vault-url "${{ secrets.CODE_SIGN_KEY_VAULT }}" `
             -v Information
 
+      - name: Upload signed packages
+        uses: actions/upload-artifact@v4
+        with:
+          name: nuget-signed
+          path: bin/nuget/*
+          if-no-files-found: error
+
+  publish-nuget:
+    name: Publish to NuGet.org
+    needs: sign
+    runs-on: windows-latest
+
+    steps:
+      - name: Install .NET SDK
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Download signed packages
+        uses: actions/download-artifact@v4
+        with:
+          name: nuget-signed
+          path: bin/nuget
+
       - name: Push to NuGet.org
         shell: pwsh
         run: |
@@ -77,16 +147,29 @@ jobs:
             --source https://api.nuget.org/v3/index.json `
             --skip-duplicate
 
-      - name: "Extract latest release notes"
-        shell: pwsh
-        run: |
-          $content = Get-Content RELEASE_NOTES.md -Raw
-          # Match from the first #### heading to just before the second one
-          if ($content -match '(?s)(####.+?)(?=\n####|\z)') {
-            $Matches[1].Trim() | Set-Content RELEASE_NOTES_LATEST.md
-          } else {
-            $content | Set-Content RELEASE_NOTES_LATEST.md
-          }
+  publish-github:
+    name: Create GitHub Release
+    needs: sign
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Extract version from tag
+        shell: bash
+        id: version
+        run: echo "version=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
+
+      - name: Download signed packages
+        uses: actions/download-artifact@v4
+        with:
+          name: nuget-signed
+          path: bin/nuget
+
+      - name: Download release notes
+        uses: actions/download-artifact@v4
+        with:
+          name: release-notes
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
