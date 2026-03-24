@@ -28,6 +28,7 @@
     </ItemGroup>
 
     <ItemGroup>
+      <PackageReference Include="Microsoft.Extensions.Hosting" />
       <ProjectReference Include="..\..\src\TurboMqtt\TurboMqtt.csproj" />
     </ItemGroup>
 
