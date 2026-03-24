@@ -3,38 +3,32 @@
     <Copyright>Copyright © 2024-$([System.DateTime]::Now.Year) Petabridge, LLC</Copyright>
     <NoWarn>$(NoWarn);CS1591</NoWarn>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
-    <VersionPrefix>0.1.1</VersionPrefix>
+    <VersionPrefix>1.0.0</VersionPrefix>
     <Authors>Petabridge</Authors>
-    <PackageReleaseNotes>TurboMqtt v0.1.1 includes critical bug fixes and massive performance improvements over v0.1.0.
+    <PackageReleaseNotes>TurboMqtt v1.0.0 is the first stable release, promoting all features from v1.0.0-beta1 to production-ready status.
 
-**Bug Fixes and Improvements**
+**New Features**
 
-* [Fixed QoS=1 packet handling - was previously treating it like QoS=2](https://github.com/petabridge/TurboMqtt/pull/103).
-* [Improved flow control inside `ClientAckHandler`](https://github.com/petabridge/TurboMqtt/pull/105) - result is a massive performance improvement when operating at QoS 1 and 2.
-* [Fix OpenTelemetry `TagList` for clientId and MQTT version](https://github.com/petabridge/TurboMqtt/pull/104) - now we can accurately track metrics per clientId via OpenTelemetry.
+* [Full MQTT 5.0 support](https://github.com/petabridge/TurboMqtt/pull/373) — complete encoder/decoder, User Properties, server-initiated DISCONNECT handling, and authentication.
+* [TLS/mTLS support](https://github.com/petabridge/TurboMqtt/pull/340) — server certificate validation, self-signed certs, and mutual TLS with client certificates.
+* [Transport layer redesign](https://github.com/petabridge/TurboMqtt/pull/340) — cleaner separation between TCP, TLS, and fake transports.
+* [.NET 10 support](https://github.com/petabridge/TurboMqtt/pull/333) — now targets `net10.0`.
+
+**Bug Fixes**
+
+* [Fix HeartBeatActor firing heartbeat timeout twice on slow reconnects](https://github.com/petabridge/TurboMqtt/pull/382).
+* [Fix two race conditions in TcpTransportActor](https://github.com/petabridge/TurboMqtt/pull/380).
+* [Fix race condition causing spurious reconnect during user-initiated disconnect](https://github.com/petabridge/TurboMqtt/pull/343).
+* [Fix race: remove internal connect deadline from ClientAcksActor](https://github.com/petabridge/TurboMqtt/pull/352).
 
 **Performance**
 
-```
+* [Major MQTT encoder performance optimizations and decoder fixes](https://github.com/petabridge/TurboMqtt/pull/295).
+* [Harden encoders against packet overflows](https://github.com/petabridge/TurboMqtt/pull/228).
 
-BenchmarkDotNet v0.13.12, Windows 11 (10.0.22631.3447/23H2/2023Update/SunValley3)
-12th Gen Intel Core i7-1260P, 1 CPU, 16 logical and 12 physical cores
-.NET SDK 8.0.101
-  [Host]     : .NET 8.0.1 (8.0.123.58001), X64 RyuJIT AVX2
-  Job-FBXRHG : .NET 8.0.1 (8.0.123.58001), X64 RyuJIT AVX2
+**Security**
 
-InvocationCount=1  LaunchCount=10  RunStrategy=Monitoring  
-UnrollFactor=1  WarmupCount=10  
-
-```
-| Method                    | QoSLevel    | PayloadSizeBytes | ProtocolVersion | Mean      | Error     | StdDev   | Median    | Req/sec    |
-|-------------------------- |------------ |----------------- |---------------- |----------:|----------:|---------:|----------:|-----------:|
-| **PublishAndReceiveMessages** | **AtMostOnce**  | **10**               | **V3_1_1**          |  **5.175 μs** | **0.6794 μs** | **2.003 μs** |  **4.345 μs** | **193,230.35** |
-| **PublishAndReceiveMessages** | **AtLeastOnce** | **10**               | **V3_1_1**          | **26.309 μs** | **1.4071 μs** | **4.149 μs** | **25.906 μs** |  **38,010.35** |
-| **PublishAndReceiveMessages** | **ExactlyOnce** | **10**               | **V3_1_1**          | **44.501 μs** | **2.2778 μs** | **6.716 μs** | **42.175 μs** |  **22,471.53** |
-
-
-[Learn more about TurboMqtt's performance figures here](https://github.com/petabridge/TurboMqtt/blob/dev/docs/Performance.md).</PackageReleaseNotes>
+* [Pin vulnerable transitive package versions](https://github.com/petabridge/TurboMqtt/pull/379).</PackageReleaseNotes>
   </PropertyGroup>
   <PropertyGroup Label="Build">
     <LangVersion>latest</LangVersion>
