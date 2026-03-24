@@ -11,6 +11,7 @@
 
     <ItemGroup>
       <PackageReference Include="JetBrains.Annotations" />
+      <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
       <PackageReference Include="Testcontainers" />
     </ItemGroup>
 
