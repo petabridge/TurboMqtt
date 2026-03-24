@@ -90,7 +90,7 @@ jobs:
 
       - name: Add Coverage PR Comment
         if: github.event_name == 'pull_request_target' && runner.os == 'Linux'
-        uses: marocchino/sticky-pull-request-comment@v2
+        uses: marocchino/sticky-pull-request-comment@v3
         with:
           recreate: true
           path: code-coverage-results.md
