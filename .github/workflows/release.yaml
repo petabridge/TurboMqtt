@@ -88,7 +88,7 @@ jobs:
         run: dotnet tool install --global sign --version 0.9.1-beta.26102.1
 
       - name: Download unsigned packages
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: nuget-unsigned
           path: bin/nuget
@@ -134,7 +134,7 @@ jobs:
           dotnet-version: '10.0.x'
 
       - name: Download signed packages
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: nuget-signed
           path: bin/nuget
@@ -161,13 +161,13 @@ jobs:
         run: echo "version=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
 
       - name: Download signed packages
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: nuget-signed
           path: bin/nuget
 
       - name: Download release notes
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: release-notes
 
