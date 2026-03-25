@@ -55,14 +55,14 @@ jobs:
           }
 
       - name: Upload NuGet packages
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: nuget-unsigned
           path: bin/nuget/*
           if-no-files-found: error
 
       - name: Upload release notes
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: release-notes
           path: RELEASE_NOTES_LATEST.md
@@ -116,7 +116,7 @@ jobs:
             -v Information
 
       - name: Upload signed packages
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: nuget-signed
           path: bin/nuget/*
